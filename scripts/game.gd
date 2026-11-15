@@ -19,7 +19,9 @@ const RaccoonScript := preload("res://scripts/raccoon.gd")
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
-	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant"]
+	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant", "purina",
+	"cat", "shop_floor", "shop_wall", "shelf", "counter", "station_wall", "platform", "track",
+	"pillar", "stairs", "map_board", "train"]
 const SFX_NAMES := ["bark", "catch", "hurt", "buy", "levelup", "steam", "subway", "pickup"]
 
 const PREY := {
@@ -27,7 +29,19 @@ const PREY := {
 	"rat": {"speed": 105.0, "flee": 110.0, "treats": 1, "xp": 5, "food": 5.0},
 	"squirrel": {"speed": 150.0, "flee": 190.0, "treats": 4, "xp": 14, "food": 10.0},
 }
-const SHOP := [["purina", 5], ["water", 3], ["collar", 25]]
+const SHOP := [["purina", 5, "Purina dog food  (+40 HP, +50 food)"],
+	["water", 3, "Water bottle  (+60 thirst)"], ["collar", 25, "Name collar"]]
+
+# Interiors live far off the street map; F at a door / stairwell moves the dog there.
+const WALL_H := 96.0
+const SHOP_O := Vector2(6000, 0)
+const SHOP_ROOM := Rect2(SHOP_O, Vector2(768, 448))
+const SHOP_EXIT := SHOP_O + Vector2(384, 432)
+const SHOP_COUNTER := SHOP_O + Vector2(620, 280)
+const SUB_O := Vector2(6000, 2000)
+const SUB_ROOM := Rect2(SUB_O, Vector2(1152, 448))
+const SUB_EXIT := SUB_O + Vector2(320, 112)  # right of the HUD panel when the camera sits at the left wall
+const SUB_BOARD := SUB_O + Vector2(576, 112)
 
 const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4)]
 const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3)]
@@ -50,7 +64,12 @@ var manholes: Array[Dictionary] = []   # {pos, steam, t, on}
 var treat_sprites: Array[Sprite2D] = []
 
 var tod := 0.33  # time of day 0..1, 0.5 = noon
-var ctx := ""    # "bodega" / "subway" — what number keys do right now
+var inside := ""  # "" street / "shop" / "subway"
+var act := ""     # what F does right now
+var act_i := 0
+var return_pos := Vector2.ZERO  # street spot the bodega exit leads back to
+var station_i := 0              # station the subway room currently is
+var zoom_tw: Tween
 var spawn_timer := 0.0
 var save_timer := 20.0
 var msg_timer := 0.0
@@ -66,6 +85,19 @@ var msg: Label
 var prompt: Label
 var mini: Control
 var name_edit: LineEdit
+var train: Sprite2D
+var station_sign: Label
+var fade: ColorRect
+var hotbar := {}
+var shop_panel: PanelContainer
+var subway_panel: PanelContainer
+var name_panel: PanelContainer
+var menu: PanelContainer
+var shop_treats: Label
+var shop_buttons: Array[Button] = []
+var subway_buttons: Array[Button] = []
+var resume_btn: Button
+var breed_btn: Button
 
 @onready var player: CharacterBody2D = $Player
 @onready var cam: Camera2D = $Player/Camera2D
@@ -90,14 +122,11 @@ func _ready() -> void:
 		for bx in NX:
 			build_block(Vector2i(bx, by))
 	place_manholes()
+	build_interiors()
 	randomize()
 
 	player.position = block_origin(PARKS[0]) + BLOCK / 2.0 + Vector2(0, 90)
 	player.spawn_point = player.position
-	cam.limit_left = 0
-	cam.limit_top = 0
-	cam.limit_right = int(WORLD.x)
-	cam.limit_bottom = int(WORLD.y)
 	player.leveled.connect(func():
 		float_text(player.position, "LEVEL UP!", Color(1, 0.9, 0.3))
 		sfx("levelup"))
@@ -105,19 +134,23 @@ func _ready() -> void:
 		shake_amt = 6.0
 		sfx("hurt"))
 	player.died.connect(func():
-		cam.reset_smoothing()
+		set_inside("")  # player.gd already moved the dog to its spawn point
 		show_msg("You blacked out... lost half your treats."))
 
 	build_hud()
 	load_game()
+	set_inside("")
 	for i in 12:
 		spawn_prey()
 		spawn_treat()
-	show_msg("WASD move | SHIFT sprint | SPACE bite | Q/E use items | TAB breed | M god's eye")
+	show_msg("WASD move | SHIFT sprint | SPACE bite | F interact | Q/E items | ESC menu")
+	update_hud(0.0)  # fill the bars before pausing
+	open_menu()  # doubles as the title screen
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
-	night.color = Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun())
+	night.color = {"shop": Color(1, 0.96, 0.88), "subway": Color(0.8, 0.86, 0.82)}.get(
+		inside, Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun()))
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
 		spawn_timer = 1.5
@@ -147,23 +180,37 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.keycode:
 		KEY_TAB:
 			player.cycle_skin()
-			show_msg("Breed: %s  (%d mph, %d HP, %d ATK)" % [player.breed().name,
-				player.breed().mph, player.max_hp, player.attack_damage()])
+			show_msg(breed_text())
 		KEY_SPACE:
 			player.bite()
+		KEY_F:
+			interact()
 		KEY_Q:
-			if player.use_purina():
-				sfx("pickup")
-				float_text(player.position, "+HP", Color(0.5, 1, 0.5))
+			use_item("purina")
 		KEY_E:
-			if player.use_water():
-				sfx("pickup")
-				float_text(player.position, "+water", Color(0.5, 0.8, 1))
+			use_item("water")
 		KEY_M:
-			god_view = not god_view
-			create_tween().tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
-		KEY_1, KEY_2, KEY_3, KEY_4:
-			on_number(event.keycode - KEY_1)
+			if inside == "":
+				god_view = not god_view
+				zoom_tw = create_tween()
+				zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
+		KEY_ESCAPE:  # open panels catch Esc first via their close-button shortcut
+			if not player.frozen:
+				open_menu()
+
+func breed_text() -> String:
+	return "Breed: %s  (%d mph, %d HP, %d ATK)" % [player.breed().name,
+		player.breed().mph, player.max_hp, player.attack_damage()]
+
+func use_item(kind: String) -> void:
+	if get_tree().paused:
+		return
+	if kind == "purina" and player.use_purina():
+		sfx("pickup")
+		float_text(player.position, "+HP", Color(0.5, 1, 0.5))
+	elif kind == "water" and player.use_water():
+		sfx("pickup")
+		float_text(player.position, "+water", Color(0.5, 0.8, 1))
 
 func sun() -> float:
 	return clampf(sin((tod - 0.25) * TAU) * 1.5 + 0.6, 0.0, 1.0)
@@ -191,6 +238,15 @@ func draw_ground() -> void:
 				ground.draw_rect(Rect2(ROAD + i * step.x + k * 32 + 6, j * step.y + 62, 20, 4), yellow)
 	for p in parks:
 		ground.draw_texture_rect(tex.grass, p.grow(-8), true)
+	# interiors
+	ground.draw_texture_rect(tex.shop_floor, SHOP_ROOM, true)
+	ground.draw_texture_rect(tex.shop_wall, Rect2(SHOP_O, Vector2(SHOP_ROOM.size.x, WALL_H)), true)
+	ground.draw_rect(Rect2(SHOP_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.55, 0.15, 0.15))  # door mat
+	ground.draw_texture_rect(tex.platform, SUB_ROOM, true)
+	ground.draw_texture_rect(tex.station_wall, Rect2(SUB_O, Vector2(SUB_ROOM.size.x, WALL_H)), true)
+	ground.draw_rect(Rect2(SUB_O + Vector2(0, 88), Vector2(SUB_ROOM.size.x, 8)), Color(0.15, 0.4, 0.25))
+	ground.draw_rect(Rect2(SUB_O + Vector2(0, 308), Vector2(SUB_ROOM.size.x, 12)), yellow)  # platform edge
+	ground.draw_texture_rect(tex.track, Rect2(SUB_O + Vector2(0, 320), Vector2(SUB_ROOM.size.x, 128)), true)
 
 func build_bounds() -> void:
 	for wall in [[Vector2(WORLD.x / 2, -16), Vector2(WORLD.x, 32)], [Vector2(WORLD.x / 2, WORLD.y + 16), Vector2(WORLD.x, 32)],
@@ -208,7 +264,7 @@ func add_static_box(pos: Vector2, size: Vector2) -> void:
 	add_child(body)
 
 ## Sprite anchored at its base so y-sort lets the dog walk behind it.
-func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> void:
+func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> Sprite2D:
 	var s := Sprite2D.new()
 	s.texture = t
 	s.scale = Vector2(scl, scl)
@@ -216,6 +272,7 @@ func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> v
 	s.position = base
 	s.modulate = tint
 	add_child(s)
+	return s
 
 ## foot = fraction of sprite height that is solid footprint (rest is walk-behind).
 func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := Color.WHITE) -> void:
@@ -317,6 +374,111 @@ func add_manhole(pos: Vector2) -> void:
 	p.color = Color(1, 1, 1, 0.55)
 	add_child(p)
 	manholes.append({"pos": pos, "steam": p, "t": randf_range(2.0, 7.0), "on": false})
+
+# ---------- interiors ----------
+
+func build_interiors() -> void:
+	for r: Rect2 in [SHOP_ROOM, SUB_ROOM]:  # back wall + three bounds
+		add_static_box(r.position + Vector2(r.size.x / 2, WALL_H / 2), Vector2(r.size.x, WALL_H))
+		add_static_box(r.position + Vector2(-16, r.size.y / 2), Vector2(32, r.size.y))
+		add_static_box(r.position + Vector2(r.size.x + 16, r.size.y / 2), Vector2(32, r.size.y))
+		add_static_box(r.position + Vector2(r.size.x / 2, r.size.y + 16), Vector2(r.size.x, 32))
+
+	# bodega: shelves on the back wall and the floor, counter with the cat in charge
+	for p in [Vector2(80, 130), Vector2(190, 130), Vector2(300, 130), Vector2(410, 130),
+			Vector2(150, 320), Vector2(330, 320)]:
+		add_prop(tex.shelf, SHOP_O + p, 2.0)
+		add_static_box(SHOP_O + p - Vector2(0, 12), Vector2(96, 24))
+	var counter := SHOP_COUNTER - Vector2(0, 30)
+	add_prop(tex.counter, counter, 2.0)
+	add_static_box(counter - Vector2(0, 20), Vector2(128, 40))
+	add_prop(tex.cat, counter + Vector2(-30, 1), 2.5).offset.y -= 22.0  # sits on the countertop
+
+	# subway: exit stairs and map board set into the wall, pillars, tracks, train
+	add_prop(tex.stairs, SUB_EXIT - Vector2(0, 12), 2.0)
+	add_prop(tex.map_board, SUB_O + Vector2(576, 84), 2.0)
+	for x in [200, 456, 712, 968]:
+		add_prop(tex.pillar, SUB_O + Vector2(x, 296), 2.5)
+		add_static_box(SUB_O + Vector2(x, 291), Vector2(20, 10))
+	add_static_box(SUB_O + Vector2(SUB_ROOM.size.x / 2, 384), Vector2(SUB_ROOM.size.x, 128))  # no walking on tracks
+	station_sign = Label.new()
+	station_sign.position = SUB_O + Vector2(476, 6)
+	station_sign.size = Vector2(200, 26)
+	station_sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var sign_bg := StyleBoxFlat.new()
+	sign_bg.bg_color = Color(0.08, 0.08, 0.1)
+	station_sign.add_theme_stylebox_override("normal", sign_bg)
+	add_child(station_sign)
+	train = Sprite2D.new()
+	train.texture = tex.train
+	train.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	train.region_enabled = true
+	train.region_rect = Rect2(0, 0, tex.train.get_width() * 4, tex.train.get_height())  # 4 cars
+	train.scale = Vector2(2.5, 2.5)
+	train.position = SUB_O + Vector2(-600, 372)
+	add_child(train)
+
+## Switch between the street ("") and an interior; clamps the camera to that area.
+func set_inside(room: String, at := player.position) -> void:
+	inside = room
+	var r: Rect2 = {"shop": SHOP_ROOM, "subway": SUB_ROOM}.get(room, Rect2(Vector2.ZERO, WORLD))
+	cam.limit_left = int(r.position.x)
+	cam.limit_top = int(r.position.y)
+	cam.limit_right = int(r.end.x)
+	cam.limit_bottom = int(r.end.y)
+	if zoom_tw:
+		zoom_tw.kill()
+	god_view = false
+	cam.zoom = Vector2.ONE * 1.5
+	player.position = at
+	close_panels()
+	cam.reset_smoothing()
+
+func interact() -> void:
+	if player.frozen:
+		return
+	match act:
+		"enter_shop":
+			return_pos = player.position
+			set_inside("shop", SHOP_EXIT - Vector2(0, 52))
+		"enter_subway":
+			station_i = act_i
+			station_sign.text = stations[act_i].name
+			set_inside("subway", SUB_EXIT + Vector2(0, 60))
+		"exit":
+			set_inside("", return_pos if inside == "shop" else stations[station_i].pos + Vector2(0, 62))
+		"shop":
+			open_panel(shop_panel)
+		"map":
+			open_panel(subway_panel)
+
+func open_panel(p: Control) -> void:
+	p.show()
+	player.frozen = true
+
+func close_panels() -> void:
+	shop_panel.hide()
+	subway_panel.hide()
+	name_panel.hide()
+	player.frozen = false
+
+func open_menu() -> void:
+	breed_btn.text = breed_text()
+	menu.show()
+	get_tree().paused = true
+
+func close_menu() -> void:
+	menu.hide()
+	resume_btn.text = "Resume"
+	get_tree().paused = false
+
+func menu_cycle_breed() -> void:
+	player.cycle_skin()
+	breed_btn.text = breed_text()
+
+func save_and_quit() -> void:
+	save_game()
+	get_tree().quit()
 
 # ---------- helpers ----------
 
@@ -480,39 +642,49 @@ func on_raccoon_beaten(rac: Node2D) -> void:
 	poof(rac.position, Color(0.6, 0.6, 0.65))
 	sfx("catch")
 
-func on_number(n: int) -> void:
-	if ctx == "bodega" and n < SHOP.size():
-		var item: String = SHOP[n][0]
-		var price: int = SHOP[n][1]
-		if player.treats < price:
-			show_msg("Need %d treats for that" % price)
-			return
-		player.treats -= price
-		sfx("buy")
-		if item == "collar":
-			player.frozen = true
-			name_edit.text = player.collar
-			name_edit.show()
-			name_edit.grab_focus()
-		else:
-			player.set(item, player.get(item) + 1)
-			show_msg("Bought %s" % item)
-		save_game()
-	elif ctx == "subway" and n < stations.size():
-		var dest: Vector2 = stations[n].pos + Vector2(0, 62)
-		if player.position.distance_to(dest) < 100.0:
-			return  # already here
-		player.position = dest
-		cam.reset_smoothing()
-		sfx("subway")
-		show_msg("Took the subway to %s" % stations[n].name)
+func buy(n: int) -> void:
+	var item: String = SHOP[n][0]
+	var price: int = SHOP[n][1]
+	if player.treats < price:  # button is disabled when broke; this is the backstop
+		return
+	player.treats -= price
+	sfx("buy")
+	if item == "collar":
+		shop_panel.hide()  # dog stays frozen until the name is entered
+		name_edit.text = player.collar
+		name_panel.show()
+		name_edit.grab_focus()
+	else:
+		player.set(item, player.get(item) + 1)
+		show_msg("Bought %s" % item)
+	save_game()
+
+## Train pulls in, screen fades, the station room becomes station n, train leaves.
+func travel(n: int) -> void:
+	subway_panel.hide()  # dog stays frozen for the ride
+	sfx("subway")
+	train.position.x = SUB_O.x - 600
+	var tw := create_tween()
+	tw.tween_property(train, "position:x", SUB_O.x + 576, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(fade, "color:a", 1.0, 0.3)
+	tw.tween_callback(func():
+		if inside == "subway":  # dog may have blacked out mid-ride
+			station_i = n
+			station_sign.text = stations[n].name
+			player.position = SUB_BOARD + Vector2(0, 40)
+			cam.reset_smoothing())
+	tw.tween_property(fade, "color:a", 0.0, 0.3)
+	tw.tween_property(train, "position:x", SUB_O.x + 2400, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		player.frozen = false
+		if inside == "subway":
+			show_msg("Arrived at %s. Stairs on the left lead up." % stations[n].name))
 
 func on_name_entered(text: String) -> void:
 	player.collar = text.strip_edges() if text.strip_edges() != "" else "Dog"
 	player.apply_skin()
-	player.frozen = false
 	name_edit.release_focus()
-	name_edit.hide()
+	close_panels()
 	show_msg("New collar: %s" % player.collar)
 	save_game()
 
@@ -566,9 +738,59 @@ func make_bar(layer: CanvasLayer, y: float, color: Color, tag: String) -> Progre
 	layer.add_child(bar)
 	return bar
 
+func panel_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.09, 0.09, 0.13, 0.9)
+	sb.border_color = Color(0.95, 0.8, 0.35)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(8)
+	sb.set_content_margin_all(14)
+	return sb
+
+## Hidden panel anchored at `preset`; returns the VBox to fill (panel = its parent).
+func make_panel(layer: CanvasLayer, heading: String, preset := Control.PRESET_CENTER) -> VBoxContainer:
+	var p := PanelContainer.new()
+	p.add_theme_stylebox_override("panel", panel_style())
+	p.set_anchors_preset(preset)
+	p.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	p.grow_vertical = Control.GROW_DIRECTION_BOTH
+	p.hide()
+	layer.add_child(p)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	box.custom_minimum_size.x = 340
+	p.add_child(box)
+	var h := Label.new()
+	h.text = heading
+	h.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	h.add_theme_font_size_override("font_size", 24)
+	h.add_theme_color_override("font_color", Color(1, 0.9, 0.4))
+	box.add_child(h)
+	return box
+
+## Buttons never take keyboard focus, so SPACE / arrows stay with the dog.
+func make_button(parent: Node, text: String, key: int, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(cb)
+	if key != KEY_NONE:
+		var ev := InputEventKey.new()
+		ev.keycode = key as Key
+		b.shortcut = Shortcut.new()
+		b.shortcut.events = [ev]
+	parent.add_child(b)
+	return b
+
 func build_hud() -> void:
 	var layer := CanvasLayer.new()
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS  # menu must work while the game is paused
 	add_child(layer)
+	var back := Panel.new()
+	back.position = Vector2(4, 4)
+	back.size = Vector2(246, 160)
+	back.add_theme_stylebox_override("panel", panel_style())
+	layer.add_child(back)
 	title = hud_label(layer, Vector2(12, 8), 18)
 	bars.hp = make_bar(layer, 38, Color(0.85, 0.2, 0.2), "HP")
 	bars.hunger = make_bar(layer, 58, Color(0.9, 0.55, 0.15), "Hunger")
@@ -585,14 +807,67 @@ func build_hud() -> void:
 	mini.position = Vector2(1152 - 186, 10)
 	mini.draw.connect(draw_minimap)
 	layer.add_child(mini)
+
+	# hotbar: treats + clickable items (Q / E still work)
+	var hot := PanelContainer.new()
+	hot.add_theme_stylebox_override("panel", panel_style())
+	hot.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	hot.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	hot.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	hot.position -= Vector2(8, 8)
+	layer.add_child(hot)
+	var slots := HBoxContainer.new()
+	hot.add_child(slots)
+	for slot in [["treats", tex.treat, func(): pass], ["purina", tex.purina, use_item.bind("purina")],
+			["water", tex.water_bowl, use_item.bind("water")]]:
+		var b := make_button(slots, "", KEY_NONE, slot[2])
+		b.icon = slot[1]
+		b.expand_icon = true
+		b.custom_minimum_size = Vector2(104, 34)
+		hotbar[slot[0]] = b
+	hotbar.treats.mouse_filter = Control.MOUSE_FILTER_IGNORE  # display only
+
+	fade = ColorRect.new()
+	fade.color = Color(0, 0, 0, 0)
+	fade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(fade)
+
+	var box := make_panel(layer, "BODEGA")
+	shop_panel = box.get_parent()
+	shop_treats = Label.new()
+	shop_treats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(shop_treats)
+	for i in SHOP.size():
+		shop_buttons.append(make_button(box, "[%d]  %s  -  %d treats" % [i + 1, SHOP[i][2], SHOP[i][1]],
+			KEY_1 + i, buy.bind(i)))
+	make_button(box, "Leave counter  [Esc]", KEY_ESCAPE, close_panels)
+
+	box = make_panel(layer, "SUBWAY MAP")
+	subway_panel = box.get_parent()
+	for i in stations.size():
+		subway_buttons.append(make_button(box, "", KEY_1 + i, travel.bind(i)))
+	make_button(box, "Step back  [Esc]", KEY_ESCAPE, close_panels)
+
+	box = make_panel(layer, "NAME YOUR DOG")
+	name_panel = box.get_parent()
 	name_edit = LineEdit.new()
-	name_edit.placeholder_text = "Name your dog, then Enter"
+	name_edit.placeholder_text = "Type a name, then Enter"
 	name_edit.max_length = 12
-	name_edit.position = Vector2(446, 300)
-	name_edit.size = Vector2(260, 36)
-	name_edit.visible = false
 	name_edit.text_submitted.connect(on_name_entered)
-	layer.add_child(name_edit)
+	box.add_child(name_edit)
+
+	box = make_panel(layer, "NEW DOG CITY")
+	menu = box.get_parent()
+	resume_btn = make_button(box, "Play", KEY_ESCAPE, close_menu)
+	breed_btn = make_button(box, "", KEY_NONE, menu_cycle_breed)
+	breed_btn.tooltip_text = "Click to change breed"
+	var help := Label.new()
+	help.text = "WASD / arrows  move        SHIFT  sprint\nSPACE  bite        F  interact / enter\nQ  eat Purina        E  drink water\nTAB  change breed        M  god's eye view\nESC  this menu"
+	help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	help.add_theme_font_size_override("font_size", 13)
+	box.add_child(help)
+	make_button(box, "Save & Quit", KEY_NONE, save_and_quit)
 
 func show_msg(text: String) -> void:
 	msg.text = text
@@ -611,28 +886,52 @@ func update_hud(delta: float) -> void:
 	bars.xp.max_value = player.xp_needed()
 	bars.xp.value = player.xp
 	var mins := int(tod * 1440.0)
-	info.text = "Treats %d   Purina %d [Q]   Water %d [E]\n%d mph   %02d:%02d" % [
-		player.treats, player.purina, player.water,
-		int(player.velocity.length() / player.PX_PER_MPH), mins / 60, mins % 60]
+	var place: String = {"shop": "Bodega", "subway": "%s station" % stations[station_i].name}.get(inside, "Street")
+	info.text = "%d mph   %02d:%02d   %s" % [
+		int(player.velocity.length() / player.PX_PER_MPH), mins / 60, mins % 60, place]
+	hotbar.treats.text = "%d treats" % player.treats
+	hotbar.purina.text = "x%d  [Q]" % player.purina
+	hotbar.water.text = "x%d  [E]" % player.water
+	shop_treats.text = "You have %d treats" % player.treats
+	for i in SHOP.size():
+		shop_buttons[i].disabled = player.treats < SHOP[i][1]
+	for i in stations.size():
+		subway_buttons[i].disabled = i == station_i
+		subway_buttons[i].text = "[%d]  %s%s" % [i + 1, stations[i].name, "  (you are here)" if i == station_i else ""]
 
-	ctx = ""
+	act = ""
 	prompt.text = ""
+	var at := player.position
 	for w in water_spots:
-		if player.position.distance_to(w) < 40.0:
+		if at.distance_to(w) < 40.0:
 			player.drink(delta * 30.0)
 			prompt.text = "Drinking..."
-	for d in bodega_doors:
-		if player.position.distance_to(d) < 70.0:
-			ctx = "bodega"
-			prompt.text = "BODEGA   [1] Purina 5t   [2] Water 3t   [3] Name Collar 25t"
-	for i in stations.size():
-		if player.position.distance_to(stations[i].pos) < 50.0:
-			ctx = "subway"
-			var parts := []
-			for k in stations.size():
-				if k != i:
-					parts.append("[%d] %s" % [k + 1, stations[k].name])
-			prompt.text = "SUBWAY   " + "   ".join(parts)
+	if inside == "shop":
+		if at.distance_to(SHOP_EXIT) < 36.0:
+			act = "exit"
+			prompt.text = "[F] Leave the bodega"
+		elif at.distance_to(SHOP_COUNTER) < 60.0:
+			act = "shop"
+			prompt.text = "[F] Shop  (the cat is in charge)"
+	elif inside == "subway":
+		if at.distance_to(SUB_EXIT) < 45.0:
+			act = "exit"
+			prompt.text = "[F] Stairs up to %s" % stations[station_i].name
+		elif at.distance_to(SUB_BOARD) < 50.0:
+			act = "map"
+			prompt.text = "[F] Subway map - catch a train"
+	else:
+		for d in bodega_doors:
+			if at.distance_to(d) < 70.0:
+				act = "enter_shop"
+				prompt.text = "[F] Enter the bodega"
+		for i in stations.size():
+			if at.distance_to(stations[i].pos) < 50.0:
+				act = "enter_subway"
+				act_i = i
+				prompt.text = "[F] Stairs down to %s station" % stations[i].name
+	if player.frozen:
+		prompt.text = ""
 
 func draw_minimap() -> void:
 	var s := mini.size.x / WORLD.x
@@ -648,4 +947,10 @@ func draw_minimap() -> void:
 		mini.draw_circle(st.pos * s, 3.0, Color(0.3, 0.6, 1))
 	for l in landmarks:
 		mini.draw_circle(l.pos * s, 3.0, Color.WHITE)
-	mini.draw_circle(player.position * s, 3.0, Color(1, 0.9, 0.2))
+	var dog := player.position  # indoors: show the door / station the dog went in through
+	if inside == "shop":
+		dog = return_pos
+	elif inside == "subway":
+		dog = stations[station_i].pos
+	mini.draw_circle(dog * s, 3.0, Color(1, 0.9, 0.2))
+	mini.draw_rect(Rect2(Vector2.ZERO, mini.size), Color(0.95, 0.8, 0.35), false, 2.0)

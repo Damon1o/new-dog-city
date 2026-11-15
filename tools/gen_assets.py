@@ -346,7 +346,140 @@ def purina_bag():
     rect(px, 2, 9, 8, 3, (240, 240, 240, 255))
     return px
 
+# ---------- interiors: bodega + subway station ----------
+CAT_PAL = {".": T, "O": (225, 140, 60, 255), "W": (245, 235, 220, 255),
+           "K": (20, 20, 20, 255), "P": (240, 150, 160, 255)}
+CAT = [
+    "O...O....",
+    "OOOOO....",
+    "OKOKO....",
+    "OOPOO....",
+    ".OOOOOO..",
+    ".OWWOOOO.",
+    ".OWWOOOOO",
+    ".OO.OOO.O",
+]
+
+def shop_floor_tile():
+    px = blank(32, 32, (228, 218, 195, 255))
+    rect(px, 0, 0, 16, 16, (95, 140, 120, 255))
+    rect(px, 16, 16, 16, 16, (95, 140, 120, 255))
+    for k in range(32):
+        px[k][0] = px[0][k] = px[k][16] = px[16][k] = (70, 100, 88, 255)
+    return px
+
+def shop_wall_tile():
+    px = blank(32, 32, (210, 195, 150, 255))
+    rect(px, 0, 15, 32, 1, (190, 175, 132, 255))
+    rect(px, 0, 28, 32, 4, (120, 88, 62, 255))  # repeats as wainscot lines
+    return px
+
+def shelf():
+    rnd = random.Random(7)
+    px = blank(48, 40, (110, 80, 55, 255))
+    goods = [(200, 60, 50), (240, 200, 70), (70, 130, 200), (90, 170, 100), (235, 235, 235), (230, 130, 50)]
+    for row in range(3):
+        y = 3 + row * 12
+        rect(px, 2, y, 44, 9, (60, 42, 30, 255))
+        for i in range(3, 45, 5):
+            h = rnd.randint(5, 8)
+            rect(px, i, y + 9 - h, 4, h, rnd.choice(goods) + (255,))
+    return px
+
+def counter():
+    px = blank(64, 36, T)
+    rect(px, 0, 8, 64, 28, (120, 85, 60, 255))
+    rect(px, 0, 8, 64, 5, (165, 125, 85, 255))
+    rect(px, 4, 18, 56, 2, (95, 66, 46, 255))
+    rect(px, 42, 0, 16, 10, (90, 95, 100, 255))   # register
+    rect(px, 44, 2, 8, 3, (120, 220, 140, 255))
+    return px
+
+def station_wall_tile():
+    px = blank(32, 32, (226, 229, 226, 255))
+    grout = (182, 187, 184, 255)
+    for j in range(0, 32, 8):
+        rect(px, 0, j, 32, 1, grout)
+        for i in range((j // 8 % 2) * 8, 32, 16):
+            rect(px, i, j, 1, 8, grout)
+    return px
+
+def platform_tile():
+    px = blank(32, 32, (128, 128, 126, 255))
+    for j in range(32):
+        for i in range(32):
+            if (i * 7 + j * 13) % 11 == 0:
+                px[j][i] = (116, 116, 114, 255)
+    rect(px, 0, 0, 32, 1, (104, 104, 102, 255))
+    rect(px, 0, 0, 1, 32, (104, 104, 102, 255))
+    return px
+
+def track_tile():
+    px = blank(32, 128, (44, 41, 39, 255))
+    for j in range(128):
+        for i in range(32):
+            if (i * 5 + j * 11) % 9 == 0:
+                px[j][i] = (58, 54, 50, 255)
+    for i in (4, 20):
+        rect(px, i, 24, 7, 82, (88, 62, 42, 255))    # ties
+    for y in (36, 90):
+        rect(px, 0, y, 32, 4, (150, 152, 158, 255))  # rails
+        rect(px, 0, y + 3, 32, 1, (95, 97, 102, 255))
+    return px
+
+def pillar():
+    px = blank(12, 40, T)
+    rect(px, 2, 0, 8, 40, (50, 95, 70, 255))
+    rect(px, 4, 4, 2, 32, (80, 130, 100, 255))
+    rect(px, 0, 0, 12, 4, (38, 75, 55, 255))
+    rect(px, 0, 36, 12, 4, (38, 75, 55, 255))
+    return px
+
+def stairs():
+    px = blank(48, 32, (28, 28, 33, 255))
+    for k in range(6):
+        g = 45 + k * 22
+        rect(px, 4, 1 + k * 5, 40, 4, (g, g, g + 5, 255))
+    rect(px, 0, 0, 3, 32, (50, 95, 70, 255))
+    rect(px, 45, 0, 3, 32, (50, 95, 70, 255))
+    return px
+
+def map_board():
+    px = blank(32, 24, (40, 40, 46, 255))
+    rect(px, 2, 2, 28, 20, (236, 236, 230, 255))
+    rect(px, 4, 8, 24, 2, (210, 60, 50, 255))
+    rect(px, 12, 4, 2, 16, (50, 100, 200, 255))
+    rect(px, 6, 16, 20, 2, (60, 160, 90, 255))
+    for x, y in ((12, 8), (22, 8), (12, 16), (6, 16)):
+        rect(px, x, y, 2, 2, (20, 20, 20, 255))
+    return px
+
+def train_car():
+    px = blank(96, 36, (176, 181, 190, 255))
+    rect(px, 0, 0, 96, 4, (118, 123, 132, 255))
+    rect(px, 0, 22, 96, 3, (40, 80, 165, 255))
+    rect(px, 0, 30, 96, 6, (48, 48, 54, 255))
+    for i in (6, 28, 56, 78):
+        rect(px, i, 8, 12, 10, (238, 226, 160, 255))  # lit windows
+    for i in (44, 50):
+        rect(px, i, 6, 5, 24, (140, 145, 155, 255))   # doors
+    rect(px, 0, 0, 1, 36, (30, 30, 34, 255))
+    rect(px, 95, 0, 1, 36, (30, 30, 34, 255))
+    return px
+
 os.makedirs(OUT, exist_ok=True)
+write_png("cat.png", grid(CAT, CAT_PAL))
+write_png("shop_floor.png", shop_floor_tile())
+write_png("shop_wall.png", shop_wall_tile())
+write_png("shelf.png", shelf())
+write_png("counter.png", counter())
+write_png("station_wall.png", station_wall_tile())
+write_png("platform.png", platform_tile())
+write_png("track.png", track_tile())
+write_png("pillar.png", pillar())
+write_png("stairs.png", stairs())
+write_png("map_board.png", map_board())
+write_png("train.png", train_car())
 for breed, colors in BREEDS.items():
     write_png(f"dog_{breed}.png", dog_sheet(*colors))
 write_png("rat.png", grid(RAT, RAT_PAL))
