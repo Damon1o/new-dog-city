@@ -18,6 +18,7 @@ var special_cd := 0.0
 var t := 0.0  # windup / lunge timer
 var lunge_dir := Vector2.ZERO
 var hp := 0.0
+var max_hp := 1.0
 var knock := Vector2.ZERO
 var game: Node2D
 var player: CharacterBody2D
@@ -44,7 +45,9 @@ func _process(delta: float) -> void:
 	match state:
 		State.HIDDEN:
 			if hide_cooldown <= 0.0 and player.position.distance_to(home) < POP_DIST:
-				hp = 24.0 + player.level * 4.0
+				max_hp = 24.0 + player.level * 4.0
+				hp = max_hp
+				queue_redraw()
 				visible = true
 				state = State.CHASE
 				chase_left = CHASE_TIME
@@ -87,6 +90,10 @@ func _process(delta: float) -> void:
 			else:
 				position += to_home.normalized() * CHASE_SPEED * 0.7 * delta
 
+func _draw() -> void:  # health bar over the head; node is only visible out of the can
+	draw_rect(Rect2(-19, -31, 38, 6), Color(0, 0, 0, 0.75))
+	draw_rect(Rect2(-18, -30, 36.0 * clampf(hp / max_hp, 0.0, 1.0), 4), Color(0.9, 0.2, 0.2))
+
 func go_home(cooldown: float) -> void:
 	position = home
 	visible = false
@@ -97,6 +104,7 @@ func hurt(dmg: float, from: Vector2) -> void:
 	if state == State.HIDDEN:
 		return
 	hp -= dmg
+	queue_redraw()
 	knock = from.direction_to(position) * 260.0
 	sprite.modulate = Color(1, 0.4, 0.4)
 	create_tween().tween_property(sprite, "modulate", Color.WHITE, 0.2)

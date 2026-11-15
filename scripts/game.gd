@@ -283,6 +283,17 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
 		save_game()
 
+## Left click attacks toward the cursor. _input, not _unhandled_input: the full-screen
+## HUD controls would swallow the click. This node is paused while the pause menu is up.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
+			and not player.frozen:
+		var dir := player.position.direction_to(get_canvas_transform().affine_inverse() * event.position)
+		if dir != Vector2.ZERO:
+			player.facing = dir
+			player.sprite.flip_h = dir.x < 0.0
+		player.bite()
+
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -826,9 +837,32 @@ func spawn_prey() -> void:
 		add_child(prey)
 		prey.setup(kind, PREY[kind], tex[kind], self)
 
+## Three claw marks that pop at the hit point, facing the attack, then fade.
+func scratch(center: Vector2, dir: Vector2) -> void:
+	var n := Node2D.new()
+	n.position = center
+	n.rotation = dir.angle()
+	n.z_index = 6
+	n.scale = Vector2(0.4, 0.4)
+	for i in 3:
+		var x := (i - 1) * 10.0
+		for stroke in [[6.0, Color(0.75, 0.1, 0.1)], [3.0, Color(1, 0.96, 0.9)]]:  # red edge, white core
+			var l := Line2D.new()
+			l.points = PackedVector2Array([Vector2(x + 12, -18), Vector2(x - 12, 18)])
+			l.width = stroke[0]
+			l.default_color = stroke[1]
+			l.begin_cap_mode = Line2D.LINE_CAP_ROUND
+			l.end_cap_mode = Line2D.LINE_CAP_ROUND
+			n.add_child(l)
+	add_child(n)
+	var tw := create_tween()
+	tw.tween_property(n, "scale", Vector2.ONE * 1.25, 0.08)
+	tw.tween_property(n, "modulate:a", 0.0, 0.2)
+	tw.tween_callback(n.queue_free)
+
 func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	sfx("bark")
-	poof(center, Color(1, 1, 1, 0.7))
+	scratch(center, player.facing)
 	hedgehog.hurt(center, radius, dmg)
 	for r in get_tree().get_nodes_in_group("raccoon"):
 		if r.position.distance_to(center) < radius + 10.0:
@@ -1243,7 +1277,7 @@ func build_hud() -> void:
 	pv.add_theme_constant_override("separation", 8)
 	pause_panel.add_child(pv)
 	hud_label(pv, 24).text = "PAUSED"
-	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace   bite\nQ / E   eat Purina / drink water\nF   doors, stairs, burrow\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
+	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace / left click   attack (click aims at the cursor)\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
 	hud_label(pv, 14).text = "Volume"
 	volume = HSlider.new()
 	volume.max_value = 1.0

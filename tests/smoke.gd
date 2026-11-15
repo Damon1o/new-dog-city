@@ -26,6 +26,7 @@ func _initialize() -> void:
 	# cars: one per lane, and they hurt
 	var cars := get_nodes_in_group("car")
 	assert(cars.size() == 2 * (game.NX + 1) + 2 * (game.NY + 1))
+	cars[0].position = Vector2(32, 1000)  # cars start at random spots; pin one mid-block, clear of steam and cross traffic
 	player.position = cars[0].position
 	await frames(2)
 	assert(absf(player.max_hp - game.CAR_DMG - player.hp) < 1.0, "car hits once (regen may tick)")
