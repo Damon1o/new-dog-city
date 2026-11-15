@@ -31,6 +31,7 @@ var collar := ""  # ideas.md: Dog Collar [Name]
 var spawn_point := Vector2.ZERO
 var frozen := false  # true while typing the collar name
 var winded := false
+var sprinting := false  # read by the HUD
 var attack_cd := 0.0
 var facing := Vector2.RIGHT
 var anim_t := 0.0
@@ -70,7 +71,7 @@ func _physics_process(delta: float) -> void:
 			- float(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP))
 		).normalized()
 	var weak := hunger < 20.0 or thirst < 20.0
-	var sprinting := dir != Vector2.ZERO and Input.is_key_pressed(KEY_SHIFT) and not winded
+	sprinting = dir != Vector2.ZERO and Input.is_key_pressed(KEY_SHIFT) and not winded
 	var top: float = float(breed().mph) * PX_PER_MPH * (0.75 if weak else 1.0)
 	velocity = dir * (top if sprinting else top * 0.6)
 	if dir != Vector2.ZERO:
