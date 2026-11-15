@@ -16,6 +16,7 @@ const MAX_TREATS := 25
 
 const PreyScript := preload("res://scripts/prey.gd")
 const RaccoonScript := preload("res://scripts/raccoon.gd")
+const BossScript := preload("res://scripts/boss.gd")
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
@@ -29,6 +30,18 @@ const PREY := {
 	"rat": {"speed": 105.0, "flee": 110.0, "treats": 1, "xp": 5, "food": 5.0},
 	"squirrel": {"speed": 150.0, "flee": 190.0, "treats": 4, "xp": 14, "food": 10.0},
 }
+# One boss per park (index into PARKS; park 0 is the dog's spawn). special: see boss.gd.
+const BOSSES := [
+	{"name": "King of Raccoons", "tex": "raccoon", "park": 3, "hp": 260.0, "speed": 150.0, "dmg": 14.0,
+		"special": "charge", "tint": Color(1, 0.85, 0.4), "treats": 40, "xp": 150},
+	{"name": "The Pideon Queen", "tex": "pigeon", "park": 1, "hp": 180.0, "speed": 175.0, "dmg": 9.0,
+		"special": "feathers", "tint": Color(1, 0.6, 0.9), "treats": 30, "xp": 120},
+	{"name": "The Rat Meister", "tex": "rat", "park": 2, "hp": 220.0, "speed": 135.0, "dmg": 11.0,
+		"special": "rats", "tint": Color(0.6, 1, 0.5), "treats": 35, "xp": 135},
+]
+const BOSS_COLOR := Color(0.85, 0.3, 1)
+const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway
+const TRAIN_HALF := 480.0  # half the train's length: 4 cars * 96 px * 2.5 / 2
 const SHOP := [["purina", 5], ["water", 3], ["collar", 25]]
 const SHOP_INFO := {"purina": "Purina  (+50 food, +40 HP)", "water": "Water  (+60 thirst)", "collar": "Name Collar"}
 const LOW := 0.25  # stat fraction where bars pulse and the vignette appears
@@ -74,6 +87,14 @@ var return_pos := Vector2.ZERO  # street spot the bodega exit leads back to
 var station_i := 0              # station the subway room currently is
 var zoom_tw: Tween
 var train: Sprite2D
+var train_t := TRAIN_EVERY
+var train_tw: Tween
+var boss: Node2D  # boss currently fighting the dog, if any
+var boss_box: PanelContainer
+var boss_name: Label
+var death_panel: PanelContainer
+var death_why: Label
+var death_cause := "You blacked out."
 var station_sign: Label
 var fade: ColorRect
 var spawn_timer := 0.0
@@ -136,6 +157,10 @@ func _ready() -> void:
 	place_manholes()
 	build_interiors()
 	randomize()
+	for b in BOSSES:
+		var boss_node: Node2D = BossScript.new()
+		add_child(boss_node)
+		boss_node.setup(b, block_origin(PARKS[b.park]) + BLOCK / 2.0 + Vector2(0, 110), tex[b.tex], self)
 
 	player.position = block_origin(PARKS[0]) + BLOCK / 2.0 + Vector2(0, 90)
 	player.spawn_point = player.position
@@ -147,8 +172,12 @@ func _ready() -> void:
 		shake_amt = 6.0
 		sfx("hurt"))
 	player.died.connect(func():
-		set_inside("")  # player.gd already moved the dog to its spawn point
-		show_msg("You blacked out... lost half your treats."))
+		death_why.text = death_cause + "\nLost half your treats."
+		death_cause = "You blacked out."
+		fade.color.a = 0.0  # in case the dog starved mid-ride
+		death_panel.show()
+		death_panel.get_node("Box/Respawn").grab_focus()
+		get_tree().paused = true)
 
 	build_hud()
 	load_game()
@@ -173,6 +202,7 @@ func _process(delta: float) -> void:
 		save_timer = 20.0
 		save_game()
 	update_steam(delta)
+	update_train(delta)
 	check_pickups()
 	check_landmarks()
 	cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake_amt
@@ -406,7 +436,6 @@ func build_interiors() -> void:
 	for x in [200, 456, 712, 968]:
 		add_prop(tex.pillar, SUB_O + Vector2(x, 296), 2.5)
 		add_static_box(SUB_O + Vector2(x, 291), Vector2(20, 10))
-	add_static_box(SUB_O + Vector2(SUB_ROOM.size.x / 2, 384), Vector2(SUB_ROOM.size.x, 128))  # no walking on tracks
 	station_sign = Label.new()
 	station_sign.position = SUB_O + Vector2(476, 6)
 	station_sign.size = Vector2(200, 26)
@@ -463,6 +492,9 @@ func set_act(a: String, head: String, row: String) -> void:
 func travel(n: int) -> void:
 	player.frozen = true
 	sfx("subway")
+	if train_tw:
+		train_tw.kill()
+	train_t = TRAIN_EVERY
 	train.position.x = SUB_O.x - 600
 	var tw := create_tween()
 	tw.tween_property(train, "position:x", SUB_O.x + 576, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -544,6 +576,69 @@ func poof(pos: Vector2, color: Color) -> void:
 
 # ---------- systems ----------
 
+## A train runs through the station every TRAIN_EVERY seconds; a dog on the tracks gets flung.
+func update_train(delta: float) -> void:
+	if inside != "subway":
+		return
+	if train_tw and train_tw.is_running() and not player.dead and player.position.y > SUB_O.y + 322 \
+			and absf(player.position.x - train.position.x) < TRAIN_HALF + 10.0:
+		train_hit()
+	if player.frozen:
+		return  # riding / dead: the schedule waits
+	var before := train_t
+	train_t -= delta
+	if before > 3.0 and train_t <= 3.0:
+		show_msg("Train approaching - stay off the tracks!")
+	if train_t <= 0.0:
+		train_t = TRAIN_EVERY
+		sfx("subway")
+		train.position.x = SUB_O.x - 600
+		train_tw = create_tween()
+		train_tw.tween_property(train, "position:x", SUB_O.x + 2400, 1.5)
+
+func train_hit() -> void:
+	player.dead = true  # no other damage while airborne; die() fires on landing
+	player.frozen = true
+	death_cause = "Flung by the train."
+	shake_amt = 14.0
+	sfx("hurt")
+	var land := player.position + Vector2(420, -150)
+	land.x = minf(land.x, SUB_ROOM.end.x - 30)
+	var tw := create_tween()
+	tw.tween_property(player, "position", land, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(player.sprite, "rotation", TAU * 3, 0.6)
+	tw.tween_callback(player.die)
+
+func respawn() -> void:
+	death_panel.hide()
+	name_edit.hide()
+	player.respawn()
+	set_inside("")
+	get_tree().paused = false
+
+func quit_game() -> void:
+	save_game()
+	get_tree().quit()
+
+func on_boss_woke(b: Node2D) -> void:
+	boss = b
+	boss_name.text = b.cfg.name
+	show_banner(str(b.cfg.name).to_upper())
+	sfx("bark")
+
+func on_boss_left(b: Node2D) -> void:
+	if boss == b:
+		boss = null
+
+func on_boss_beaten(b: Node2D) -> void:
+	on_boss_left(b)
+	player.treats += b.cfg.treats
+	player.add_xp(b.cfg.xp)
+	show_banner("%s DEFEATED" % str(b.cfg.name).to_upper())
+	show_msg("+%d treats   +%d XP" % [b.cfg.treats, b.cfg.xp])
+	poof(b.position, b.cfg.tint)
+	sfx("levelup")
+
 func update_steam(delta: float) -> void:
 	for m in manholes:
 		m.t -= delta
@@ -612,6 +707,9 @@ func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	for r in get_tree().get_nodes_in_group("raccoon"):
 		if r.position.distance_to(center) < radius + 10.0:
 			r.hurt(dmg, player.position)
+	for b in get_tree().get_nodes_in_group("boss"):
+		if b.position.distance_to(center) < radius + 34.0:  # bosses are big
+			b.hurt(dmg, player.position)
 	for p in get_tree().get_nodes_in_group("prey"):
 		if p.position.distance_to(center) < radius:
 			on_prey_caught(p)
@@ -849,6 +947,8 @@ func build_hud() -> void:
 		pois.append({"pos": st.pos, "text": "Subway", "color": Color(0.3, 0.6, 1)})
 	for w in water_spots:
 		pois.append({"pos": w, "text": "Drink", "color": Color(0.5, 0.8, 1)})
+	for b in get_tree().get_nodes_in_group("boss"):
+		pois.append({"pos": b.home, "text": b.cfg.name, "color": BOSS_COLOR})
 
 	# top-left: stats, inventory, clock
 	var stats := panel()
@@ -899,6 +999,15 @@ func build_hud() -> void:
 	card.add_child(card_art)
 	card.hide()
 	dock(card, false, 14)
+	boss_box = panel()
+	var bv := VBoxContainer.new()
+	boss_box.add_child(bv)
+	boss_name = hud_label(bv, 16, BOSS_COLOR)
+	boss_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	make_bar(bv, "boss", BOSS_COLOR)
+	bars.boss.ctl.custom_minimum_size = Vector2(300, 14)
+	boss_box.hide()
+	dock(boss_box, false, 14)
 
 	# bottom: toasts (left), shop / subway menu (centre)
 	toasts = VBoxContainer.new()
@@ -947,12 +1056,32 @@ func build_hud() -> void:
 	pv.add_child(resume)
 	var quit := Button.new()
 	quit.text = "Save & Quit"
-	quit.pressed.connect(func():
-		save_game()
-		get_tree().quit())
+	quit.pressed.connect(quit_game)
 	pv.add_child(quit)
 	pause_panel.hide()
 	center.add_child(pause_panel)
+
+	death_panel = panel(0.94)
+	var dv := VBoxContainer.new()
+	dv.name = "Box"
+	dv.add_theme_constant_override("separation", 10)
+	death_panel.add_child(dv)
+	var dead_head := hud_label(dv, 32, Color(0.95, 0.2, 0.2))
+	dead_head.text = "YOU DIED"
+	dead_head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	death_why = hud_label(dv, 14)
+	death_why.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var again := Button.new()
+	again.name = "Respawn"
+	again.text = "Respawn"
+	again.pressed.connect(respawn)
+	dv.add_child(again)
+	var give_up := Button.new()
+	give_up.text = "Save & Quit"
+	give_up.pressed.connect(quit_game)
+	dv.add_child(give_up)
+	death_panel.hide()
+	center.add_child(death_panel)
 
 func set_paused(on: bool) -> void:
 	get_tree().paused = on
@@ -1018,7 +1147,10 @@ func update_hud(delta: float) -> void:
 		info.text += "   %d mph" % int(player.velocity.length() / player.PX_PER_MPH)
 	clock.queue_redraw()
 	card_t -= delta
-	card.visible = card_t > 0.0
+	card.visible = card_t > 0.0 and boss == null  # boss bar uses the same spot
+	boss_box.visible = boss != null
+	if boss:
+		set_bar("boss", boss.hp / boss.max_hp, delta, "%d / %d" % [ceili(boss.hp), int(boss.max_hp)])
 
 	ctx = ""
 	drinking = false

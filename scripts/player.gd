@@ -30,6 +30,7 @@ var collar := ""  # ideas.md: Dog Collar [Name]
 
 var spawn_point := Vector2.ZERO
 var frozen := false  # true while typing the collar name
+var dead := false    # death screen is up (or the dog is mid-air off a train)
 var winded := false
 var sprinting := false  # read by the HUD
 var attack_cd := 0.0
@@ -109,19 +110,33 @@ func bite() -> void:
 	get_parent().on_bite(position + facing * 26.0, 46.0, attack_damage())
 
 func take_damage(amount: float) -> void:
+	if dead:
+		return
 	hp -= amount
 	if amount >= 1.0:
 		sprite.modulate = Color(1, 0.4, 0.4)
 		create_tween().tween_property(sprite, "modulate", Color.WHITE, 0.25)
 		hit.emit()
 	if hp <= 0.0:
-		treats = treats / 2
-		hp = max_hp
-		hunger = 60.0
-		thirst = 60.0
-		stamina = 100.0
-		position = spawn_point
-		died.emit()
+		die()
+
+## Game shows the death screen on `died`; respawn() brings the dog back.
+func die() -> void:
+	dead = true
+	frozen = true
+	hp = 0.0
+	treats = treats / 2
+	died.emit()
+
+func respawn() -> void:
+	dead = false
+	frozen = false
+	hp = max_hp
+	hunger = 60.0
+	thirst = 60.0
+	stamina = 100.0
+	sprite.rotation = 0.0
+	position = spawn_point
 
 func add_xp(amount: int) -> void:
 	xp += amount
