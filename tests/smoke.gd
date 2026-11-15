@@ -7,10 +7,39 @@ func frames(n: int) -> void:
 		await process_frame
 
 func _initialize() -> void:
+	const SAVE := "user://smoke.cfg"  # throwaway save, the real one is never touched
+	DirAccess.remove_absolute(SAVE)
 	var game: Node2D = load("res://scenes/Main.tscn").instantiate()
+	game.save_path = SAVE
 	root.add_child(game)
 	await frames(2)
 	var player: CharacterBody2D = game.player
+
+	# level-up: one stat point, game waits for the pick
+	var hp_cap: float = player.max_hp
+	player.add_xp(player.xp_needed())
+	assert(player.points == 1 and paused and game.stat_panel.visible, "level-up opens the stat picker")
+	game.pick_stat(0)
+	assert(player.points == 0 and not paused and not game.stat_panel.visible)
+	assert(player.max_hp == hp_cap + 12.0, "+10 from the point, +2 from the level")
+
+	# cars: one per lane, and they hurt
+	var cars := get_nodes_in_group("car")
+	assert(cars.size() == 2 * (game.NX + 1) + 2 * (game.NY + 1))
+	player.position = cars[0].position
+	await frames(2)
+	assert(absf(player.max_hp - game.CAR_DMG - player.hp) < 1.0, "car hits once (regen may tick)")
+
+	# raccoon special: winds up, then pounces
+	var rac: Node2D = get_nodes_in_group("raccoon")[0]
+	player.hp = player.max_hp
+	player.position = rac.home + Vector2(80, 0)
+	await frames(3)
+	assert(rac.state == rac.State.WINDUP, "raccoon winds up")
+	await frames(30)
+	assert(rac.state == rac.State.LUNGE, "raccoon pounces")
+	await frames(20)
+	assert(player.hp < player.max_hp, "pounce bites")
 
 	var bosses := get_nodes_in_group("boss")
 	assert(bosses.size() == 3)
@@ -23,10 +52,15 @@ func _initialize() -> void:
 		await frames(3)
 		assert(game.boss == b, "boss wakes when the dog is near")
 		assert(game.boss_box.visible)
+		assert(b.cfg.specials.size() == 2)
+		for i in 2:  # both specials fire without errors
+			b.special(Vector2.RIGHT)
 		var treats: int = player.treats
 		b.hurt(1e9, player.position)
 		assert(game.boss == null and not b.visible, "boss beaten")
 		assert(player.treats == treats + b.cfg.treats)
+		while player.points > 0:  # boss XP levels the dog; spend so the game unpauses
+			game.pick_stat(1)
 
 	# subway: stand on the tracks, wait for the train
 	player.hp = player.max_hp
@@ -52,5 +86,16 @@ func _initialize() -> void:
 	# ordinary death also raises the screen
 	player.take_damage(1e9)
 	assert(paused and game.death_panel.visible)
+
+	# restart: progress wiped, scene rebuilt
+	assert(player.level > 1)
+	current_scene = game
+	game.restart()
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE)
+	assert(not paused and not cfg.has_section("dog") and cfg.has_section("ui"), "restart wipes the dog")
+	await frames(3)
+	assert(not is_instance_valid(game) and current_scene != null, "scene reloaded")
+	DirAccess.remove_absolute(SAVE)
 	print("smoke ok")
 	quit()

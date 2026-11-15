@@ -3,12 +3,14 @@ extends Node2D
 ## and uses one special attack. Leashed to the lair: heals if the dog gets away
 ## or dies. Comes back RESPAWN seconds after being beaten.
 
-enum State { IDLE, CHASE, WINDUP, CHARGE, RETURN, DEAD }
+enum State { IDLE, CHASE, WINDUP, CHARGE, SLAM, RETURN, DEAD }
 
 const AGGRO := 230.0
 const LEASH := 650.0   # dog this far from the lair = fight over
 const REACH := 40.0
 const RESPAWN := 180.0
+const SLAM_R := 120.0
+const SLAM_TIME := 0.9
 
 var cfg: Dictionary
 var state := State.IDLE
@@ -17,6 +19,7 @@ var hp := 1.0
 var max_hp := 1.0
 var t := 0.0           # timer for the current state
 var special_cd := 0.0
+var special_n := 0     # cycles through cfg.specials
 var bite_cd := 0.0
 var knock := Vector2.ZERO
 var charge_dir := Vector2.ZERO
@@ -42,6 +45,7 @@ func setup(p_cfg: Dictionary, p_home: Vector2, tex: Texture2D, p_game: Node2D) -
 func _process(delta: float) -> void:
 	bite_cd = maxf(bite_cd - delta, 0.0)
 	update_shots(delta)
+	queue_redraw()  # slam ring
 	position += knock * delta
 	knock = knock.lerp(Vector2.ZERO, minf(delta * 8.0, 1.0))
 	var to_player := player.position - position
@@ -89,6 +93,15 @@ func _process(delta: float) -> void:
 			position += charge_dir * speed * 3.5 * delta
 			if t <= 0.0:
 				state = State.CHASE
+		State.SLAM:  # stands still while the ring fills, then everything inside gets hit
+			t -= delta
+			if t <= 0.0:
+				state = State.CHASE
+				game.shake_amt = 10.0
+				game.poof(position, cfg.tint)
+				if d < SLAM_R:
+					var dmg: float = cfg.dmg
+					player.take_damage(dmg * 1.8)
 	if state in [State.CHASE, State.CHARGE] and d < REACH and bite_cd <= 0.0:
 		var dmg: float = cfg.dmg
 		player.take_damage(dmg * (2.0 if state == State.CHARGE else 1.0))
@@ -102,8 +115,29 @@ func wake() -> void:
 	special_cd = 2.0
 	game.on_boss_woke(self)
 
+func _draw() -> void:
+	if state == State.SLAM:
+		draw_circle(Vector2.ZERO, SLAM_R * (1.0 - t / SLAM_TIME), Color(1, 0.2, 0.2, 0.3))
+		draw_arc(Vector2.ZERO, SLAM_R, 0, TAU, 48, Color(1, 0.3, 0.3), 3.0)
+
 func special(dir: Vector2) -> void:
-	match cfg.special:
+	special_n += 1
+	match cfg.specials[special_n % cfg.specials.size()]:
+		"slam":
+			state = State.SLAM
+			t = SLAM_TIME
+			special_cd = 4.0
+			game.float_text(position, "!", Color(1, 0.3, 0.3))
+		"storm":  # feathers in every direction
+			for i in 12:
+				shoot(Vector2.RIGHT.rotated(TAU * i / 12.0) * 240.0, false, 2.5)
+			special_cd = 3.0
+		"burrow":  # digs under and pops up on the far side of the dog
+			game.poof(position, cfg.tint)
+			position = player.position + dir * 70.0
+			game.poof(position, cfg.tint)
+			bite_cd = 0.5  # a beat to react before it bites
+			special_cd = 4.0
 		"charge":
 			state = State.WINDUP
 			t = 0.6

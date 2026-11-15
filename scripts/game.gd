@@ -9,14 +9,16 @@ const NY := 5
 const WORLD := Vector2(3968, 2688)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128
 const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
 const DAY_LENGTH := 240.0
-const SAVE_PATH := "user://save.cfg"
-const SAVE_KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst"]
+const SAVE_KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst",
+	"points", "stat_hp", "stat_atk", "stat_spd"]
+const CAR_DMG := 30.0
 const MAX_PREY := 36
 const MAX_TREATS := 25
 
 const PreyScript := preload("res://scripts/prey.gd")
 const RaccoonScript := preload("res://scripts/raccoon.gd")
 const BossScript := preload("res://scripts/boss.gd")
+const CarScript := preload("res://scripts/car.gd")
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
@@ -33,11 +35,11 @@ const PREY := {
 # One boss per park (index into PARKS; park 0 is the dog's spawn). special: see boss.gd.
 const BOSSES := [
 	{"name": "King of Raccoons", "tex": "raccoon", "park": 3, "hp": 260.0, "speed": 150.0, "dmg": 14.0,
-		"special": "charge", "tint": Color(1, 0.85, 0.4), "treats": 40, "xp": 150},
+		"specials": ["charge", "slam"], "tint": Color(1, 0.85, 0.4), "treats": 40, "xp": 150},
 	{"name": "The Pideon Queen", "tex": "pigeon", "park": 1, "hp": 180.0, "speed": 175.0, "dmg": 9.0,
-		"special": "feathers", "tint": Color(1, 0.6, 0.9), "treats": 30, "xp": 120},
+		"specials": ["feathers", "storm"], "tint": Color(1, 0.6, 0.9), "treats": 30, "xp": 120},
 	{"name": "The Rat Meister", "tex": "rat", "park": 2, "hp": 220.0, "speed": 135.0, "dmg": 11.0,
-		"special": "rats", "tint": Color(0.6, 1, 0.5), "treats": 35, "xp": 135},
+		"specials": ["rats", "burrow"], "tint": Color(0.6, 1, 0.5), "treats": 35, "xp": 135},
 ]
 const BOSS_COLOR := Color(0.85, 0.3, 1)
 const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway
@@ -95,6 +97,10 @@ var boss_name: Label
 var death_panel: PanelContainer
 var death_why: Label
 var death_cause := "You blacked out."
+var save_path := "user://save.cfg"  # var so the smoke test can point it elsewhere
+var stat_panel: PanelContainer
+var stat_head: Label
+var stat_buttons: Array[Button] = []
 var station_sign: Label
 var fade: ColorRect
 var spawn_timer := 0.0
@@ -161,13 +167,19 @@ func _ready() -> void:
 		var boss_node: Node2D = BossScript.new()
 		add_child(boss_node)
 		boss_node.setup(b, block_origin(PARKS[b.park]) + BLOCK / 2.0 + Vector2(0, 110), tex[b.tex], self)
+	for lane in 2:  # one car per lane, keep-right traffic
+		for i in NX + 1:
+			add_car(Vector2(i * (BLOCK.x + ROAD) + 32 + lane * 64, randf() * WORLD.y), [Vector2.DOWN, Vector2.UP][lane])
+		for j in NY + 1:
+			add_car(Vector2(randf() * WORLD.x, j * (BLOCK.y + ROAD) + 32 + lane * 64), [Vector2.LEFT, Vector2.RIGHT][lane])
 
 	player.position = block_origin(PARKS[0]) + BLOCK / 2.0 + Vector2(0, 90)
 	player.spawn_point = player.position
 	set_inside("")
 	player.leveled.connect(func():
 		show_banner("LEVEL %d" % player.level)
-		sfx("levelup"))
+		sfx("levelup")
+		show_stats())
 	player.hit.connect(func():
 		shake_amt = 6.0
 		sfx("hurt"))
@@ -181,6 +193,7 @@ func _ready() -> void:
 
 	build_hud()
 	load_game()
+	show_stats()
 	for i in 12:
 		spawn_prey()
 		spawn_treat()
@@ -614,7 +627,43 @@ func respawn() -> void:
 	name_edit.hide()
 	player.respawn()
 	set_inside("")
+	get_tree().paused = stat_panel.visible
+
+## New game: wipe the dog's progress (volume survives) and rebuild the scene.
+func restart() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("ui", "volume", volume.value)
+	cfg.save(save_path)
 	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+## Level-up picker: stays up (game paused) until every stat point is spent.
+func show_stats() -> void:
+	stat_panel.visible = player.points > 0
+	get_tree().paused = stat_panel.visible or death_panel.visible
+	stat_head.text = "LEVEL UP!   %d stat point%s" % [player.points, "" if player.points == 1 else "s"]
+	for i in stat_buttons.size():
+		stat_buttons[i].text = "[%d]  %s   (x%d)" % [i + 1, player.STATS[i][1], player.get(player.STATS[i][0])]
+
+func pick_stat(i: int) -> void:
+	player.spend(i)
+	sfx("pickup")
+	show_stats()
+	save_game()
+
+func add_car(pos: Vector2, dir: Vector2) -> void:
+	var car: Node2D = CarScript.new()
+	car.position = pos
+	add_child(car)
+	car.setup(dir, self)
+
+func on_car_hit(_car: Node2D) -> void:
+	death_cause = "Hit by a car."
+	player.take_damage(CAR_DMG)
+	shake_amt = 10.0
+	if not player.dead:
+		death_cause = "You blacked out."
+		float_text(player.position, "HONK!", Color(1, 0.9, 0.3))
 
 func quit_game() -> void:
 	save_game()
@@ -777,14 +826,16 @@ func save_game() -> void:
 		cfg.set_value("dog", key, player.get(key))
 	cfg.set_value("world", "seen", landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
 	cfg.set_value("ui", "volume", volume.value)
-	cfg.save(SAVE_PATH)
+	cfg.save(save_path)
 
 func load_game() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
+	if cfg.load(save_path) != OK:
 		return
 	for key in SAVE_KEYS:
 		player.set(key, cfg.get_value("dog", key, player.get(key)))
+	if not cfg.has_section_key("dog", "points"):
+		player.points = player.level - 1  # save from before stat points: pay them out now
 	player.skin = clampi(player.skin, 0, player.BREEDS.size() - 1)
 	player.level = clampi(player.level, 1, 100)
 	volume.value = cfg.get_value("ui", "volume", 1.0)
@@ -1054,6 +1105,7 @@ func build_hud() -> void:
 	resume.shortcut = Shortcut.new()
 	resume.shortcut.events = [esc]  # only fires while the panel is visible
 	pv.add_child(resume)
+	restart_button(pv)
 	var quit := Button.new()
 	quit.text = "Save & Quit"
 	quit.pressed.connect(quit_game)
@@ -1076,12 +1128,43 @@ func build_hud() -> void:
 	again.text = "Respawn"
 	again.pressed.connect(respawn)
 	dv.add_child(again)
+	restart_button(dv)
 	var give_up := Button.new()
 	give_up.text = "Save & Quit"
 	give_up.pressed.connect(quit_game)
 	dv.add_child(give_up)
 	death_panel.hide()
 	center.add_child(death_panel)
+
+	stat_panel = panel(0.94)
+	var sv := VBoxContainer.new()
+	sv.add_theme_constant_override("separation", 8)
+	stat_panel.add_child(sv)
+	stat_head = hud_label(sv, 24, Color(1, 0.9, 0.3))
+	for i in player.STATS.size():
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE  # mashing Space (bite) must not pick a stat
+		b.pressed.connect(pick_stat.bind(i))
+		var key := InputEventKey.new()
+		key.keycode = (KEY_1 + i) as Key
+		b.shortcut = Shortcut.new()
+		b.shortcut.events = [key]
+		sv.add_child(b)
+		stat_buttons.append(b)
+	stat_panel.hide()
+	center.add_child(stat_panel)
+
+## Wipes the save, so it takes two clicks; re-arms whenever its panel reopens.
+func restart_button(parent: Control) -> void:
+	var b := Button.new()
+	b.text = "Restart (new game)"
+	b.pressed.connect(func():
+		if b.text.begins_with("Sure"):
+			restart()
+		else:
+			b.text = "Sure? Wipes your save - click again")
+	b.visibility_changed.connect(func(): b.text = "Restart (new game)")
+	parent.add_child(b)
 
 func set_paused(on: bool) -> void:
 	get_tree().paused = on
