@@ -9,13 +9,14 @@ const NY := 5
 const WORLD := Vector2(3968, 2688)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128
 const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
 const DAY_LENGTH := 240.0
-const SAVE_PATH := "user://save.cfg"
+var save_path := "user://save.cfg"  # var so tools/smoke_test.gd can point it away from the real save
 const SAVE_KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst"]
 const MAX_PREY := 36
 const MAX_TREATS := 25
 
 const PreyScript := preload("res://scripts/prey.gd")
 const RaccoonScript := preload("res://scripts/raccoon.gd")
+const HedgehogScript := preload("res://scripts/hedgehog.gd")
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
@@ -44,6 +45,43 @@ const SUB_O := Vector2(6000, 2000)
 const SUB_ROOM := Rect2(SUB_O, Vector2(1152, 448))
 const SUB_EXIT := SUB_O + Vector2(320, 112)
 const SUB_BOARD := SUB_O + Vector2(576, 112)
+const BOSS_O := Vector2(6000, 4000)
+const BOSS_ROOM := Rect2(BOSS_O, Vector2(960, 640))
+const BOSS_EXIT := BOSS_O + Vector2(480, 624)
+const BOSS_LEVEL_LOSS := 10  # levels lost when the Boss Hedgehog beats the dog
+
+# Quest lines run side by side, one step each at a time: [text, stat, target, treats, xp].
+# Stats are lifetime counters (see bump); "level" reads the dog's level.
+# The tutorial is just the first line — the tracker shows it alone until it is done.
+const QUESTS := {
+	"Tutorial": [
+		["Move with WASD or the arrow keys", "moved", 1, 0, 5],
+		["Hold Shift while moving to sprint", "sprinted", 1, 0, 5],
+		["Catch a pigeon, rat or squirrel:\nrun into it or bite with Space", "prey", 1, 2, 10],
+		["Stand by a fountain, hydrant or\nwater bowl to drink", "drank", 1, 2, 10],
+		["Find a bodega (orange dot on the\nmap) and press F at its door", "shop", 1, 5, 10],
+		["Press M for the god's-eye map", "map", 1, 5, 10],
+	],
+	"Street Hunter": [
+		["Catch 5 critters", "prey", 5, 5, 20],
+		["Catch 3 squirrels", "squirrels", 3, 10, 40],
+		["Beat 3 raccoons", "raccoons", 3, 15, 60],
+		["Catch 40 critters", "prey", 40, 40, 150],
+	],
+	"City Explorer": [
+		["Discover a skyscraper", "sights", 1, 5, 20],
+		["Ride the subway", "rides", 1, 5, 30],
+		["Discover both skyscrapers", "sights", 2, 15, 60],
+		["Ride the subway 5 times", "rides", 5, 20, 80],
+	],
+	"Top Dog": [
+		["Reach level 5", "level", 5, 10, 0],
+		["Buy something at a bodega", "bought", 1, 5, 30],
+		["Reach level 12", "level", 12, 25, 0],
+		["Enter the hedgehog burrow in\nthe south-east park", "burrow", 1, 0, 50],
+		["Defeat the Boss Hedgehog", "boss", 1, 100, 500],
+	],
+}
 
 const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4)]
 const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3)]
@@ -80,6 +118,12 @@ var spawn_timer := 0.0
 var save_timer := 20.0
 var shake_amt := 0.0
 var god_view := false
+var boss: Node2D
+var burrow := Vector2.ZERO  # street entrance to the boss den
+var stats := {}       # quest counters, saved
+var quest_step := {}  # quest line -> index of its current step, saved
+var quest_label: Label
+var skip_btn: Button
 
 var ground: Node2D
 var night: CanvasModulate
@@ -128,6 +172,7 @@ func _ready() -> void:
 	night = CanvasModulate.new()
 	add_child(night)
 
+	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
 	seed(CITY_SEED)
 	build_bounds()
 	for by in NY:
@@ -142,16 +187,27 @@ func _ready() -> void:
 	set_inside("")
 	player.leveled.connect(func():
 		show_banner("LEVEL %d" % player.level)
-		sfx("levelup"))
+		sfx("levelup")
+		check_quests())
 	player.hit.connect(func():
 		shake_amt = 6.0
 		sfx("hurt"))
 	player.died.connect(func():
+		var msg := "You blacked out... lost half your treats."
+		if inside == "boss":
+			boss.stop()
+			var lost := mini(BOSS_LEVEL_LOSS, player.level - 1)
+			player.level -= lost
+			player.xp = 0
+			player.hp = player.max_hp
+			msg = "The Boss Hedgehog flattened you... lost %d levels and half your treats." % lost
 		set_inside("")  # player.gd already moved the dog to its spawn point
-		show_msg("You blacked out... lost half your treats."))
+		show_msg(msg)
+		save_game())
 
 	build_hud()
 	load_game()
+	check_quests()
 	for i in 12:
 		spawn_prey()
 		spawn_treat()
@@ -159,7 +215,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
-	night.color = {"shop": Color(1, 0.96, 0.88), "subway": Color(0.8, 0.86, 0.82)}.get(
+	night.color = {"shop": Color(1, 0.96, 0.88), "subway": Color(0.8, 0.86, 0.82), "boss": Color(0.85, 0.78, 0.7)}.get(
 		inside, Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun()))
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
@@ -172,6 +228,8 @@ func _process(delta: float) -> void:
 	if save_timer <= 0.0:
 		save_timer = 20.0
 		save_game()
+	if player.velocity != Vector2.ZERO:
+		bump("sprinted" if player.sprinting else "moved", true)
 	update_steam(delta)
 	check_pickups()
 	check_landmarks()
@@ -211,6 +269,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_M:
 			if inside == "":
 				god_view = not god_view
+				bump("map", true)
 				zoom_tw = create_tween()
 				zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
 		KEY_1, KEY_2, KEY_3, KEY_4:
@@ -253,6 +312,13 @@ func draw_ground() -> void:
 	ground.draw_rect(Rect2(SUB_O + Vector2(0, 88), Vector2(SUB_ROOM.size.x, 8)), Color(0.15, 0.4, 0.25))
 	ground.draw_rect(Rect2(SUB_O + Vector2(0, 308), Vector2(SUB_ROOM.size.x, 12)), yellow)  # platform edge
 	ground.draw_texture_rect(tex.track, Rect2(SUB_O + Vector2(0, 320), Vector2(SUB_ROOM.size.x, 128)), true)
+	# boss den under the park, and the burrow that leads down to it
+	ground.draw_rect(BOSS_ROOM.grow(1200), Color.BLACK)
+	ground.draw_texture_rect(tex.grass, BOSS_ROOM, true, Color(1.0, 0.8, 0.55))
+	ground.draw_texture_rect(tex.station_wall, Rect2(BOSS_O, Vector2(BOSS_ROOM.size.x, WALL_H)), true, Color(0.5, 0.35, 0.25))
+	ground.draw_rect(Rect2(BOSS_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.1, 0.07, 0.05))
+	ground.draw_circle(burrow, 30.0, Color(0.35, 0.25, 0.15))
+	ground.draw_circle(burrow, 22.0, Color(0.05, 0.04, 0.03))
 
 func build_bounds() -> void:
 	for wall in [[Vector2(WORLD.x / 2, -16), Vector2(WORLD.x, 32)], [Vector2(WORLD.x / 2, WORLD.y + 16), Vector2(WORLD.x, 32)],
@@ -384,7 +450,10 @@ func add_manhole(pos: Vector2) -> void:
 # ---------- helpers ----------
 
 func build_interiors() -> void:
-	for r: Rect2 in [SHOP_ROOM, SUB_ROOM]:  # back wall + three bounds
+	boss = HedgehogScript.new()
+	add_child(boss)
+	boss.setup(self, BOSS_ROOM)
+	for r: Rect2 in [SHOP_ROOM, SUB_ROOM, BOSS_ROOM]:  # back wall + three bounds
 		add_static_box(r.position + Vector2(r.size.x / 2, WALL_H / 2), Vector2(r.size.x, WALL_H))
 		add_static_box(r.position + Vector2(-16, r.size.y / 2), Vector2(32, r.size.y))
 		add_static_box(r.position + Vector2(r.size.x + 16, r.size.y / 2), Vector2(32, r.size.y))
@@ -427,7 +496,7 @@ func build_interiors() -> void:
 ## Switch between the street ("") and an interior; clamps the camera to that area.
 func set_inside(room: String, at := player.position) -> void:
 	inside = room
-	var r: Rect2 = {"shop": SHOP_ROOM, "subway": SUB_ROOM}.get(room, Rect2(Vector2.ZERO, WORLD))
+	var r: Rect2 = {"shop": SHOP_ROOM, "subway": SUB_ROOM, "boss": BOSS_ROOM}.get(room, Rect2(Vector2.ZERO, WORLD))
 	cam.limit_left = int(r.position.x)
 	cam.limit_top = int(r.position.y)
 	cam.limit_right = int(r.end.x)
@@ -446,12 +515,19 @@ func interact() -> void:
 		"enter_shop":
 			return_pos = player.position
 			set_inside("shop", SHOP_EXIT - Vector2(0, 52))
+			bump("shop", true)
 		"enter_subway":
 			station_i = act_i
 			station_sign.text = stations[act_i].name
 			set_inside("subway", SUB_EXIT + Vector2(0, 60))
+		"enter_boss":
+			set_inside("boss", BOSS_EXIT - Vector2(0, 52))
+			boss.start()
+			bump("burrow", true)
 		"exit":
-			set_inside("", return_pos if inside == "shop" else stations[station_i].pos + Vector2(0, 62))
+			boss.stop()  # fleeing the den resets the fight
+			set_inside("", {"shop": return_pos, "boss": burrow + Vector2(0, 50)}.get(
+				inside, stations[station_i].pos + Vector2(0, 62)))
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:
@@ -471,6 +547,7 @@ func travel(n: int) -> void:
 		if inside == "subway":  # dog may have blacked out mid-ride
 			station_i = n
 			station_sign.text = stations[n].name
+			bump("rides")
 			player.position = SUB_BOARD + Vector2(0, 40)
 			cam.reset_smoothing())
 	tw.tween_property(fade, "color:a", 0.0, 0.3)
@@ -574,6 +651,7 @@ func check_landmarks() -> void:
 			player.add_xp(50)
 			show_msg("Discovered the %s!  +50 XP" % l.name)
 			sfx("levelup")
+			bump("sights")
 
 func spawn_treat() -> void:
 	var p := random_spot(200.0)
@@ -609,6 +687,7 @@ func spawn_prey() -> void:
 func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	sfx("bark")
 	poof(center, Color(1, 1, 1, 0.7))
+	boss.hurt(center, radius, dmg)
 	for r in get_tree().get_nodes_in_group("raccoon"):
 		if r.position.distance_to(center) < radius + 10.0:
 			r.hurt(dmg, player.position)
@@ -627,6 +706,9 @@ func on_prey_caught(prey: Node2D) -> void:
 	poof(prey.position, Color(0.85, 0.85, 0.9))
 	sfx("catch")
 	prey.queue_free()
+	if prey.kind == "squirrel":
+		bump("squirrels")
+	bump("prey")
 
 func on_prey_escaped(prey: Node2D) -> void:
 	float_text(prey.position, "up the tree!", Color(0.7, 1, 0.7))
@@ -639,6 +721,64 @@ func on_raccoon_beaten(rac: Node2D) -> void:
 	float_text(rac.position, "Raccoon beaten! +%d treats" % loot, Color(1, 0.85, 0.5))
 	poof(rac.position, Color(0.6, 0.6, 0.65))
 	sfx("catch")
+	bump("raccoons")
+
+func on_boss_beaten(at: Vector2) -> void:
+	show_banner("BOSS HEDGEHOG DEFEATED")
+	sfx("levelup")
+	poof(at, Color(0.45, 0.3, 0.18))
+	player.treats += 50
+	float_text(at, "+50 treats", Color(1, 0.85, 0.5))
+	show_msg("The den is yours. The door leads back to the street.")
+	bump("boss")
+	save_game()
+
+# ---------- quests ----------
+
+## Count a quest event; once = only the first time ever (tutorial flags).
+func bump(key: String, once := false) -> void:
+	if once and stats.has(key):
+		return
+	stats[key] = int(stats.get(key, 0)) + 1
+	check_quests()
+
+func stat(key: String) -> int:
+	return player.level if key == "level" else int(stats.get(key, 0))
+
+func tutorial_on() -> bool:
+	return int(quest_step.get("Tutorial", 0)) < QUESTS.Tutorial.size()
+
+func check_quests() -> void:
+	for line: String in QUESTS:
+		var steps: Array = QUESTS[line]
+		while int(quest_step.get(line, 0)) < steps.size():
+			var i := int(quest_step.get(line, 0))
+			var s: Array = steps[i]
+			if stat(s[1]) < int(s[2]):
+				break
+			quest_step[line] = i + 1  # advance first: the xp below can level up and re-enter
+			player.treats += int(s[3])
+			sfx("pickup")
+			show_msg("%s: %s  -  done!  +%d treats  +%d XP" % [line, str(s[0]).replace("\n", " "), s[3], s[4]])
+			if i + 1 == steps.size():
+				show_banner("%s COMPLETE" % line.to_upper())
+			player.add_xp(int(s[4]))
+
+## Tracker text: the tutorial on its own until it is finished, then every other line.
+func quest_text() -> String:
+	var out := PackedStringArray()
+	for line: String in QUESTS:
+		if (line == "Tutorial") != tutorial_on():
+			continue
+		var steps: Array = QUESTS[line]
+		var i := int(quest_step.get(line, 0))
+		if i >= steps.size():
+			out.append("%s  -  complete" % line.to_upper())
+			continue
+		var s: Array = steps[i]
+		var count := "  (%d/%d)" % [mini(stat(s[1]), s[2]), s[2]] if int(s[2]) > 1 else ""
+		out.append("%s  %d/%d\n%s%s" % [line.to_upper(), i + 1, steps.size(), s[0], count])
+	return "\n\n".join(out)
 
 func on_number(n: int) -> void:
 	if ctx == "bodega" and n < SHOP.size():
@@ -657,6 +797,7 @@ func on_number(n: int) -> void:
 		else:
 			player.set(item, player.get(item) + 1)
 			show_msg("Bought %s" % item)
+		bump("bought")
 		save_game()
 	elif ctx == "subway" and n < stations.size():
 		if n != station_i and not player.frozen:
@@ -679,11 +820,13 @@ func save_game() -> void:
 		cfg.set_value("dog", key, player.get(key))
 	cfg.set_value("world", "seen", landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
 	cfg.set_value("ui", "volume", volume.value)
-	cfg.save(SAVE_PATH)
+	cfg.set_value("quests", "stats", stats)
+	cfg.set_value("quests", "step", quest_step)
+	cfg.save(save_path)
 
 func load_game() -> void:
 	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
+	if cfg.load(save_path) != OK:
 		return
 	for key in SAVE_KEYS:
 		player.set(key, cfg.get_value("dog", key, player.get(key)))
@@ -693,6 +836,9 @@ func load_game() -> void:
 	var seen: Array = cfg.get_value("world", "seen", [])
 	for l in landmarks:
 		l.seen = l.name in seen
+	stats = cfg.get_value("quests", "stats", {})
+	quest_step = cfg.get_value("quests", "step", {})
+	stats.sights = maxi(stat("sights"), seen.size())  # saves from before quests existed
 	player.apply_skin()
 	player.hp = player.max_hp
 
@@ -849,6 +995,7 @@ func build_hud() -> void:
 		pois.append({"pos": st.pos, "text": "Subway", "color": Color(0.3, 0.6, 1)})
 	for w in water_spots:
 		pois.append({"pos": w, "text": "Drink", "color": Color(0.5, 0.8, 1)})
+	pois.append({"pos": burrow, "text": "Boss", "color": Color(0.85, 0.3, 0.9)})
 
 	# top-left: stats, inventory, clock
 	var stats := panel()
@@ -885,6 +1032,16 @@ func build_hud() -> void:
 	mini.draw.connect(draw_minimap)
 	hud.add_child(mini)
 	mini.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_KEEP_SIZE, 10)
+
+	# under the minimap: tutorial / quest tracker
+	var quests := panel()
+	quests.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quest_label = hud_label(quests, 12)
+	quest_label.custom_minimum_size.x = 184
+	hud.add_child(quests)
+	quests.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	quests.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 10)
+	quests.offset_top = mini.size.y + 18
 
 	# top-centre: level-up banner, breed card
 	banner = hud_label(hud, 44, Color(1, 0.9, 0.3))
@@ -928,7 +1085,7 @@ func build_hud() -> void:
 	pv.add_theme_constant_override("separation", 8)
 	pause_panel.add_child(pv)
 	hud_label(pv, 24).text = "PAUSED"
-	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace   bite\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
+	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace   bite\nQ / E   eat Purina / drink water\nF   doors, stairs, burrow\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
 	hud_label(pv, 14).text = "Volume"
 	volume = HSlider.new()
 	volume.max_value = 1.0
@@ -945,6 +1102,12 @@ func build_hud() -> void:
 	resume.shortcut = Shortcut.new()
 	resume.shortcut.events = [esc]  # only fires while the panel is visible
 	pv.add_child(resume)
+	skip_btn = Button.new()
+	skip_btn.text = "Skip tutorial"
+	skip_btn.pressed.connect(func():
+		quest_step.Tutorial = QUESTS.Tutorial.size()
+		skip_btn.hide())
+	pv.add_child(skip_btn)
 	var quit := Button.new()
 	quit.text = "Save & Quit"
 	quit.pressed.connect(func():
@@ -957,6 +1120,7 @@ func build_hud() -> void:
 func set_paused(on: bool) -> void:
 	get_tree().paused = on
 	pause_panel.visible = on
+	skip_btn.visible = tutorial_on()
 
 ## Toast queue: newest at the bottom, max 3, each fades on its own.
 func show_msg(text: String) -> void:
@@ -1019,6 +1183,8 @@ func update_hud(delta: float) -> void:
 	clock.queue_redraw()
 	card_t -= delta
 	card.visible = card_t > 0.0
+	quest_label.text = quest_text()
+	quest_label.modulate = Color(1, 0.9, 0.4) if tutorial_on() else Color.WHITE
 
 	ctx = ""
 	drinking = false
@@ -1027,6 +1193,7 @@ func update_hud(delta: float) -> void:
 		if player.position.distance_to(w) < 40.0:
 			player.drink(delta * 30.0)
 			drinking = true
+			bump("drank", true)
 	act = ""
 	var at := player.position
 	if player.frozen:
@@ -1050,7 +1217,13 @@ func update_hud(delta: float) -> void:
 			for k in stations.size():
 				rows.append(["[%d]  %s%s" % [k + 1, stations[k].name, "   (you are here)" if k == station_i else ""], k != station_i])
 			show_menu("SUBWAY MAP", rows)
+	elif inside == "boss":
+		if at.distance_to(BOSS_EXIT) < 40.0:
+			set_act("exit", "HEDGEHOG DEN", "[F]  Flee to the street" if boss.active else "[F]  Back to the street")
 	else:
+		if at.distance_to(burrow) < 50.0:
+			set_act("enter_boss", "HEDGEHOG BURROW   final boss, 3 waves",
+				"[F]  Challenge the Boss Hedgehog  (lose %d levels if you fall)" % BOSS_LEVEL_LOSS)
 		for d in bodega_doors:
 			if at.distance_to(d) < 70.0:
 				set_act("enter_shop", "BODEGA", "[F]  Go inside")
@@ -1071,6 +1244,14 @@ func update_hud(delta: float) -> void:
 func draw_overlay() -> void:
 	var xf := get_canvas_transform()  # world -> screen
 	var font := ThemeDB.fallback_font
+	if boss.active:
+		var bar := Rect2((overlay.size.x - 360.0) / 2.0, 34.0, 360.0, 14.0)
+		overlay.draw_rect(bar.grow(2), Color(0, 0, 0, 0.7))
+		overlay.draw_rect(Rect2(bar.position, Vector2(bar.size.x * maxf(boss.hp, 0.0) / boss.max_hp, bar.size.y)), Color(0.85, 0.3, 0.9))
+		overlay.draw_string_outline(font, Vector2(bar.position.x, 26.0), "BOSS HEDGEHOG   wave %d / %d" % [boss.wave + 1, boss.WAVES],
+			HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 14, 4, Color.BLACK)
+		overlay.draw_string(font, Vector2(bar.position.x, 26.0), "BOSS HEDGEHOG   wave %d / %d" % [boss.wave + 1, boss.WAVES],
+			HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 14)
 	if drinking:
 		overlay.draw_arc(xf * player.position, 30.0, -PI / 2, -PI / 2 + TAU * player.thirst / 100.0, 40, Color(0.35, 0.7, 1), 4.0)
 	if god_view:
@@ -1160,6 +1341,8 @@ func draw_minimap() -> void:
 		dog = return_pos
 	elif inside == "subway":
 		dog = stations[station_i].pos
+	elif inside == "boss":
+		dog = burrow
 	var c := dog * s
 	var a: float = player.facing.angle()
 	mini.draw_colored_polygon(PackedVector2Array([c + Vector2(6, 0).rotated(a),
