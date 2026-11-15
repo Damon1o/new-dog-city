@@ -14,9 +14,15 @@ const BREEDS := [
 	{"name": "Mastiff", "file": "mastiff", "scale": 3.6, "mph": 15.0, "hp": 160.0, "atk": 18.0, "scare": 1.4},
 ]
 
+const STATS := [["stat_hp", "+10 Max HP"], ["stat_atk", "+2 Bite"], ["stat_spd", "+1 mph Speed"]]
+
+var points := 0  # unspent stat points, one per level
+var stat_hp := 0
+var stat_atk := 0
+var stat_spd := 0
 var hp := 100.0
 var max_hp: float:
-	get: return float(BREEDS[skin].hp) + (level - 1) * 2.0
+	get: return float(BREEDS[skin].hp) + (level - 1) * 2.0 + stat_hp * 10.0
 var hunger := 100.0
 var thirst := 100.0
 var stamina := 100.0
@@ -30,6 +36,7 @@ var collar := ""  # ideas.md: Dog Collar [Name]
 
 var spawn_point := Vector2.ZERO
 var frozen := false  # true while typing the collar name
+var dead := false    # death screen is up (or the dog is mid-air off a train)
 var winded := false
 var sprinting := false  # read by the HUD
 var attack_cd := 0.0
@@ -58,7 +65,15 @@ func display_name() -> String:
 	return ("%s the %s" % [collar, breed().name]) if collar != "" else str(breed().name)
 
 func attack_damage() -> float:
-	return float(breed().atk) + level * 0.5
+	return float(breed().atk) + level * 0.5 + stat_atk * 2.0
+
+func spend(i: int) -> void:
+	if points <= 0:
+		return
+	points -= 1
+	var before := max_hp
+	set(STATS[i][0], get(STATS[i][0]) + 1)
+	hp += max_hp - before
 
 func _physics_process(delta: float) -> void:
 	attack_cd = maxf(attack_cd - delta, 0.0)
@@ -72,7 +87,7 @@ func _physics_process(delta: float) -> void:
 		).normalized()
 	var weak := hunger < 20.0 or thirst < 20.0
 	sprinting = dir != Vector2.ZERO and Input.is_key_pressed(KEY_SHIFT) and not winded
-	var top: float = float(breed().mph) * PX_PER_MPH * (0.75 if weak else 1.0)
+	var top: float = (float(breed().mph) + stat_spd) * PX_PER_MPH * (0.75 if weak else 1.0)
 	velocity = dir * (top if sprinting else top * 0.6)
 	if dir != Vector2.ZERO:
 		facing = dir
@@ -109,25 +124,40 @@ func bite() -> void:
 	get_parent().on_bite(position + facing * 26.0, 46.0, attack_damage())
 
 func take_damage(amount: float) -> void:
+	if dead:
+		return
 	hp -= amount
 	if amount >= 1.0:
 		sprite.modulate = Color(1, 0.4, 0.4)
 		create_tween().tween_property(sprite, "modulate", Color.WHITE, 0.25)
 		hit.emit()
 	if hp <= 0.0:
-		treats = treats / 2
-		hp = max_hp
-		hunger = 60.0
-		thirst = 60.0
-		stamina = 100.0
-		position = spawn_point
-		died.emit()
+		die()
+
+## Game shows the death screen on `died`; respawn() brings the dog back.
+func die() -> void:
+	dead = true
+	frozen = true
+	hp = 0.0
+	treats = treats / 2
+	died.emit()
+
+func respawn() -> void:
+	dead = false
+	frozen = false
+	hp = max_hp
+	hunger = 60.0
+	thirst = 60.0
+	stamina = 100.0
+	sprite.rotation = 0.0
+	position = spawn_point
 
 func add_xp(amount: int) -> void:
 	xp += amount
 	while xp >= xp_needed() and level < 100:
 		xp -= xp_needed()
 		level += 1
+		points += 1
 		hp = max_hp
 		leveled.emit()
 

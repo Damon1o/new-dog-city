@@ -2,7 +2,7 @@ extends Node2D
 ## Raccoon hiding in a trash can: pops out when the dog gets close, chases, bites.
 ## Has HP that scales with the dog's level; beat it for treats.
 
-enum State { HIDDEN, CHASE, RETURN }
+enum State { HIDDEN, CHASE, WINDUP, LUNGE, RETURN }
 
 const POP_DIST := 90.0
 const CHASE_SPEED := 190.0
@@ -14,6 +14,9 @@ var home := Vector2.ZERO
 var chase_left := 0.0
 var bite_cooldown := 0.0
 var hide_cooldown := 0.0
+var special_cd := 0.0
+var t := 0.0  # windup / lunge timer
+var lunge_dir := Vector2.ZERO
 var hp := 0.0
 var max_hp := 1.0
 var knock := Vector2.ZERO
@@ -57,8 +60,29 @@ func _process(delta: float) -> void:
 			if to_player.length() < BITE_DIST and bite_cooldown <= 0.0:
 				player.take_damage(8.0 + player.level * 0.3)
 				bite_cooldown = 1.0
+			special_cd -= delta
+			if special_cd <= 0.0 and to_player.length() > 50.0 and to_player.length() < 170.0:
+				state = State.WINDUP  # special: pounce at a dog that keeps its distance
+				t = 0.4
+				special_cd = 3.0
 			if chase_left <= 0.0:
 				state = State.RETURN
+		State.WINDUP:  # flashes in place; a bite interrupts it (see hurt)
+			t -= delta
+			sprite.modulate = Color.WHITE if int(t * 20.0) % 2 == 0 else Color(1, 0.5, 0.2)
+			if t <= 0.0:
+				sprite.modulate = Color.WHITE
+				lunge_dir = position.direction_to(player.position)
+				state = State.LUNGE
+				t = 0.3
+		State.LUNGE:
+			t -= delta
+			position += lunge_dir * CHASE_SPEED * 3.2 * delta
+			if position.distance_to(player.position) < BITE_DIST + 6.0 and bite_cooldown <= 0.0:
+				player.take_damage((8.0 + player.level * 0.3) * 1.5)
+				bite_cooldown = 1.0
+			if t <= 0.0:
+				state = State.CHASE
 		State.RETURN:
 			var to_home := home - position
 			if to_home.length() < 6.0:
