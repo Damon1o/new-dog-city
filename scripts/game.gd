@@ -1,81 +1,145 @@
 extends Node2D
-## New Dog City — builds the city, spawns animals, runs HUD / shop / subway / steam.
+## New Dog City — procedural Manhattan grid, animals, HUD, bodega, subway,
+## steam, day/night, minimap / god's-eye view, autosave.
 
-const TILE := 32
-const COLS := 60
-const ROWS := 40
+const BLOCK := Vector2(512, 384)
+const ROAD := 128.0
+const NX := 6
+const NY := 5
+const WORLD := Vector2(3968, 2688)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128
+const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
+const DAY_LENGTH := 240.0
+const SAVE_PATH := "user://save.cfg"
+const SAVE_KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst"]
+const MAX_PREY := 36
+const MAX_TREATS := 25
 
 const PreyScript := preload("res://scripts/prey.gd")
 const RaccoonScript := preload("res://scripts/raccoon.gd")
 
-const TEX := {
-	"road": preload("res://assets/road.png"),
-	"road_dash": preload("res://assets/road_dash.png"),
-	"sidewalk": preload("res://assets/sidewalk.png"),
-	"grass": preload("res://assets/grass.png"),
-	"building_a": preload("res://assets/building_a.png"),
-	"building_b": preload("res://assets/building_b.png"),
-	"empire": preload("res://assets/empire_state.png"),
-	"chrysler": preload("res://assets/chrysler.png"),
-	"bodega": preload("res://assets/bodega.png"),
-	"subway": preload("res://assets/subway.png"),
-	"trashcan": preload("res://assets/trashcan.png"),
-	"manhole": preload("res://assets/manhole.png"),
-	"steam": preload("res://assets/steam.png"),
-	"water_bowl": preload("res://assets/water_bowl.png"),
-	"pigeon": preload("res://assets/pigeon.png"),
-	"rat": preload("res://assets/rat.png"),
-	"squirrel": preload("res://assets/squirrel.png"),
-	"raccoon": preload("res://assets/raccoon.png"),
+const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
+	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
+	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant"]
+const SFX_NAMES := ["bark", "catch", "hurt", "buy", "levelup", "steam", "subway", "pickup"]
+
+const PREY := {
+	"pigeon": {"speed": 120.0, "flee": 150.0, "treats": 2, "xp": 8, "food": 8.0},
+	"rat": {"speed": 105.0, "flee": 110.0, "treats": 1, "xp": 5, "food": 5.0},
+	"squirrel": {"speed": 150.0, "flee": 190.0, "treats": 4, "xp": 14, "food": 10.0},
 }
+const SHOP := [["purina", 5], ["water", 3], ["collar", 25]]
 
-const PREY_KINDS := {
-	"pigeon": {"speed": 130.0, "treats": 2, "xp": 8},
-	"rat": {"speed": 110.0, "treats": 1, "xp": 5},
-	"squirrel": {"speed": 160.0, "treats": 3, "xp": 12},
-}
-const MAX_PREY := 10
+const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4)]
+const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3)]
+const LANDMARKS := {Vector2i(3, 1): ["empire_state", "Empire State Building"],
+	Vector2i(1, 1): ["chrysler", "Chrysler Building"]}
+const STATIONS := {Vector2i(4, 0): "Uptown", Vector2i(2, 1): "Midtown",
+	Vector2i(1, 4): "Downtown", Vector2i(5, 2): "East Side"}
 
-# road bands in tile indices
-const V_ROADS := [[14, 17], [42, 45]]
-const H_ROADS := [[12, 15], [28, 31]]
-const PARK := Rect2i(24, 20, 13, 7)
-
+var tex := {}
+var sounds := {}
 var building_rects: Array[Rect2] = []
-var manholes: Array[Dictionary] = []
-var subway_spots: Array[Vector2] = [Vector2(300, 1150), Vector2(1660, 330)]
-var water_bowls: Array[Vector2] = []
-var bodega_door := Vector2.ZERO
-var subway_cooldown := 0.0
-var prey_count := 0
+var parks: Array[Rect2] = []
+var trees: Array[Vector2] = []
+var cans: Array[Vector2] = []
+var water_spots: Array[Vector2] = []
+var bodega_doors: Array[Vector2] = []
+var stations: Array[Dictionary] = []   # {pos, name}
+var landmarks: Array[Dictionary] = []  # {pos, name, seen}
+var manholes: Array[Dictionary] = []   # {pos, steam, t, on}
+var treat_sprites: Array[Sprite2D] = []
+
+var tod := 0.33  # time of day 0..1, 0.5 = noon
+var ctx := ""    # "bodega" / "subway" — what number keys do right now
 var spawn_timer := 0.0
-var hud: Label
-var msg: Label
+var save_timer := 20.0
 var msg_timer := 0.0
+var shake_amt := 0.0
+var god_view := false
+
+var ground: Node2D
+var night: CanvasModulate
+var bars := {}
+var title: Label
+var info: Label
+var msg: Label
+var prompt: Label
+var mini: Control
+var name_edit: LineEdit
 
 @onready var player: CharacterBody2D = $Player
-
-func world_rect() -> Rect2:
-	return Rect2(0, 0, COLS * TILE, ROWS * TILE)
+@onready var cam: Camera2D = $Player/Camera2D
 
 func _ready() -> void:
-	build_ground()
+	for n in TEX_NAMES:
+		tex[n] = load("res://assets/%s.png" % n)
+	for n in SFX_NAMES:
+		sounds[n] = load("res://assets/sfx/%s.wav" % n)
+	y_sort_enabled = true
+	ground = Node2D.new()
+	ground.z_index = -10
+	ground.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	ground.draw.connect(draw_ground)
+	add_child(ground)
+	night = CanvasModulate.new()
+	add_child(night)
+
+	seed(CITY_SEED)
 	build_bounds()
-	place_structures()
+	for by in NY:
+		for bx in NX:
+			build_block(Vector2i(bx, by))
+	place_manholes()
+	randomize()
+
+	player.position = block_origin(PARKS[0]) + BLOCK / 2.0 + Vector2(0, 90)
+	player.spawn_point = player.position
+	cam.limit_left = 0
+	cam.limit_top = 0
+	cam.limit_right = int(WORLD.x)
+	cam.limit_bottom = int(WORLD.y)
+	player.leveled.connect(func():
+		float_text(player.position, "LEVEL UP!", Color(1, 0.9, 0.3))
+		sfx("levelup"))
+	player.hit.connect(func():
+		shake_amt = 6.0
+		sfx("hurt"))
+	player.died.connect(func():
+		cam.reset_smoothing()
+		show_msg("You blacked out... lost half your treats."))
+
 	build_hud()
-	for i in MAX_PREY:
+	load_game()
+	for i in 12:
 		spawn_prey()
+		spawn_treat()
+	show_msg("WASD move | SHIFT sprint | SPACE bite | Q/E use items | TAB breed | M god's eye")
 
 func _process(delta: float) -> void:
-	subway_cooldown = maxf(subway_cooldown - delta, 0.0)
+	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
+	night.color = Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun())
 	spawn_timer -= delta
-	if prey_count < MAX_PREY and spawn_timer <= 0.0:
-		spawn_timer = 2.0
-		spawn_prey()
+	if spawn_timer <= 0.0:
+		spawn_timer = 1.5
+		if get_tree().get_nodes_in_group("prey").size() < MAX_PREY:
+			spawn_prey()
+		if treat_sprites.size() < MAX_TREATS:
+			spawn_treat()
+	save_timer -= delta
+	if save_timer <= 0.0:
+		save_timer = 20.0
+		save_game()
 	update_steam(delta)
-	check_subway()
-	check_water(delta)
+	check_pickups()
+	check_landmarks()
+	cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake_amt
+	shake_amt = lerpf(shake_amt, 0.0, minf(delta * 10.0, 1.0))
 	update_hud(delta)
+	mini.queue_redraw()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		save_game()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
@@ -83,51 +147,57 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	match event.keycode:
 		KEY_TAB:
 			player.cycle_skin()
-			show_msg("Skin: " + player.skin_name())
-		KEY_1, KEY_KP_1:
-			try_buy("purina")
-		KEY_2, KEY_KP_2:
-			try_buy("water")
+			show_msg("Breed: %s  (%d mph, %d HP, %d ATK)" % [player.breed().name,
+				player.breed().mph, player.max_hp, player.attack_damage()])
+		KEY_SPACE:
+			player.bite()
+		KEY_Q:
+			if player.use_purina():
+				sfx("pickup")
+				float_text(player.position, "+HP", Color(0.5, 1, 0.5))
+		KEY_E:
+			if player.use_water():
+				sfx("pickup")
+				float_text(player.position, "+water", Color(0.5, 0.8, 1))
+		KEY_M:
+			god_view = not god_view
+			create_tween().tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
+		KEY_1, KEY_2, KEY_3, KEY_4:
+			on_number(event.keycode - KEY_1)
+
+func sun() -> float:
+	return clampf(sin((tod - 0.25) * TAU) * 1.5 + 0.6, 0.0, 1.0)
 
 # ---------- world building ----------
 
-func build_ground() -> void:
-	for ty in ROWS:
-		for tx in COLS:
-			var tex: Texture2D = TEX.sidewalk
-			var on_v := in_band(tx, V_ROADS)
-			var on_h := in_band(ty, H_ROADS)
-			if on_v or on_h:
-				tex = TEX.road_dash if (is_band_center(tx, V_ROADS) or is_band_center(ty, H_ROADS)) and not (on_v and on_h) else TEX.road
-			elif PARK.has_point(Vector2i(tx, ty)):
-				tex = TEX.grass
-			var s := Sprite2D.new()
-			s.texture = tex
-			s.centered = false
-			s.position = Vector2(tx * TILE, ty * TILE)
-			s.z_index = -10
-			add_child(s)
+func block_origin(b: Vector2i) -> Vector2:
+	return Vector2(ROAD + b.x * (BLOCK.x + ROAD), ROAD + b.y * (BLOCK.y + ROAD))
 
-func in_band(i: int, bands: Array) -> bool:
-	for b in bands:
-		if i >= b[0] and i <= b[1]:
-			return true
-	return false
-
-func is_band_center(i: int, bands: Array) -> bool:
-	for b in bands:
-		if i == (b[0] + b[1]) / 2:
-			return true
-	return false
+func draw_ground() -> void:
+	ground.draw_texture_rect(tex.sidewalk, Rect2(Vector2.ZERO, WORLD), true)
+	var step := BLOCK + Vector2(ROAD, ROAD)
+	var yellow := Color(0.82, 0.7, 0.24)
+	for i in NX + 1:
+		ground.draw_texture_rect(tex.road, Rect2(i * step.x, 0, ROAD, WORLD.y), true)
+	for j in NY + 1:
+		ground.draw_texture_rect(tex.road, Rect2(0, j * step.y, WORLD.x, ROAD), true)
+	for i in NX + 1:  # lane dashes, skipping intersections
+		for j in NY:
+			for k in int(BLOCK.y / 32):
+				ground.draw_rect(Rect2(i * step.x + 62, ROAD + j * step.y + k * 32 + 6, 4, 20), yellow)
+	for j in NY + 1:
+		for i in NX:
+			for k in int(BLOCK.x / 32):
+				ground.draw_rect(Rect2(ROAD + i * step.x + k * 32 + 6, j * step.y + 62, 20, 4), yellow)
+	for p in parks:
+		ground.draw_texture_rect(tex.grass, p.grow(-8), true)
 
 func build_bounds() -> void:
-	var w := COLS * TILE
-	var h := ROWS * TILE
-	for wall in [[Vector2(w / 2.0, -16), Vector2(w, 32)], [Vector2(w / 2.0, h + 16), Vector2(w, 32)],
-			[Vector2(-16, h / 2.0), Vector2(32, h)], [Vector2(w + 16, h / 2.0), Vector2(32, h)]]:
+	for wall in [[Vector2(WORLD.x / 2, -16), Vector2(WORLD.x, 32)], [Vector2(WORLD.x / 2, WORLD.y + 16), Vector2(WORLD.x, 32)],
+			[Vector2(-16, WORLD.y / 2), Vector2(32, WORLD.y)], [Vector2(WORLD.x + 16, WORLD.y / 2), Vector2(32, WORLD.y)]]:
 		add_static_box(wall[0], wall[1])
 
-func add_static_box(pos: Vector2, size: Vector2) -> StaticBody2D:
+func add_static_box(pos: Vector2, size: Vector2) -> void:
 	var body := StaticBody2D.new()
 	body.position = pos
 	var shape := CollisionShape2D.new()
@@ -136,62 +206,181 @@ func add_static_box(pos: Vector2, size: Vector2) -> StaticBody2D:
 	shape.shape = rect
 	body.add_child(shape)
 	add_child(body)
-	return body
 
-func add_building(tex: Texture2D, pos: Vector2, scl := 1.5) -> void:
+## Sprite anchored at its base so y-sort lets the dog walk behind it.
+func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> void:
 	var s := Sprite2D.new()
-	s.texture = tex
-	s.position = pos
+	s.texture = t
 	s.scale = Vector2(scl, scl)
-	s.z_index = 2
+	s.offset = Vector2(0, -t.get_height() / 2.0)
+	s.position = base
+	s.modulate = tint
 	add_child(s)
-	var size := tex.get_size() * scl
-	add_static_box(pos, size)
-	building_rects.append(Rect2(pos - size / 2.0, size))
 
-func place_structures() -> void:
-	add_building(TEX.empire, Vector2(640, 190))
-	add_building(TEX.chrysler, Vector2(1180, 190))
-	add_building(TEX.building_a, Vector2(230, 240))
-	add_building(TEX.building_b, Vector2(1700, 800))
-	add_building(TEX.building_a, Vector2(950, 1150))
-	add_building(TEX.building_b, Vector2(230, 760))
-	# Bodega (sells items)
-	var bodega_pos := Vector2(820, 700)
-	add_building(TEX.bodega, bodega_pos, 2.0)
-	bodega_door = bodega_pos + Vector2(60, 90)
-	add_sprite(TEX.water_bowl, bodega_pos + Vector2(-80, 80), 2.5)
-	water_bowls.append(bodega_pos + Vector2(-80, 80))
-	add_sprite(TEX.water_bowl, Vector2(980, 740), 2.5)
-	water_bowls.append(Vector2(980, 740))
-	# Subway entrances (fast travel)
-	for spot in subway_spots:
-		add_sprite(TEX.subway, spot, 1.5)
-	# Trash cans with raccoons
-	for pos in [Vector2(380, 620), Vector2(1250, 560), Vector2(700, 1080),
-			Vector2(1540, 1120), Vector2(240, 980), Vector2(1800, 250)]:
-		add_sprite(TEX.trashcan, pos, 2.0)
-		var rac: Node2D = RaccoonScript.new()
-		add_child(rac)
-		rac.setup(pos, TEX.raccoon, self)
-	# Manholes on road centers, with steam bursts
-	for pos in [Vector2(512, 448), Vector2(1408, 448), Vector2(512, 960), Vector2(1408, 960)]:
-		add_sprite(TEX.manhole, pos, 1.5)
-		var steam := Sprite2D.new()
-		steam.texture = TEX.steam
-		steam.position = pos + Vector2(0, -14)
-		steam.scale = Vector2(3, 3)
-		steam.visible = false
-		steam.z_index = 3
-		add_child(steam)
-		manholes.append({"pos": pos, "sprite": steam, "t": randf_range(2.0, 7.0), "on": false})
+## foot = fraction of sprite height that is solid footprint (rest is walk-behind).
+func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := Color.WHITE) -> void:
+	add_prop(t, base, scl, tint)
+	var size := t.get_size() * scl
+	var foot_size := Vector2(size.x, size.y * foot)
+	add_static_box(base - Vector2(0, foot_size.y / 2.0), foot_size)
+	building_rects.append(Rect2(base - Vector2(size.x / 2.0, foot_size.y), foot_size))
 
-func add_sprite(tex: Texture2D, pos: Vector2, scl: float) -> void:
+func add_tree(pos: Vector2) -> void:
+	add_prop(tex.tree, pos, 2.5)
+	add_static_box(pos - Vector2(0, 5), Vector2(14, 10))
+	trees.append(pos)
+
+func add_can(pos: Vector2) -> void:
+	add_prop(tex.trashcan, pos, 2.0)
+	add_static_box(pos - Vector2(0, 6), Vector2(20, 12))
+	cans.append(pos)
+	var rac: Node2D = RaccoonScript.new()
+	add_child(rac)
+	rac.setup(pos + Vector2(0, 2), tex.raccoon, self)
+
+func build_block(b: Vector2i) -> void:
+	var o := block_origin(b)
+	var c := o + BLOCK / 2.0
+	if b in PARKS:
+		parks.append(Rect2(o, BLOCK))
+		add_prop(tex.fountain, c, 2.5)
+		add_static_box(c - Vector2(0, 20), Vector2(90, 36))
+		water_spots.append(c + Vector2(0, 6))
+		for i in 8:
+			var p := o + Vector2(randf_range(40, 472), randf_range(70, 364))
+			if p.distance_to(c) > 110.0:
+				add_tree(p)
+	elif LANDMARKS.has(b):
+		var base := o + Vector2(256, 372)
+		add_building(tex[LANDMARKS[b][0]], base, 2.5, 0.45)
+		landmarks.append({"pos": base, "name": LANDMARKS[b][1], "seen": false})
+		add_tree(o + Vector2(60, 360))
+		add_tree(o + Vector2(452, 360))
+	elif b in BODEGAS:
+		var base := o + Vector2(256, 240)
+		add_building(tex.bodega, base, 2.0, 0.6)
+		bodega_doors.append(base + Vector2(54, 24))
+		add_prop(tex.water_bowl, base + Vector2(-70, 34), 2.5)
+		water_spots.append(base + Vector2(-70, 30))
+		add_can(o + Vector2(450, 250))
+		add_tree(o + Vector2(60, 340))
+	else:
+		for i in 3:
+			if randf() < 0.85:
+				var kind: String = ["building_a", "building_b", "building_c"].pick_random()
+				add_building(tex[kind], o + Vector2(96 + i * 160, 236), 1.5, 0.6,
+					Color.from_hsv(randf(), 0.15, randf_range(0.8, 1.0)))
+		add_can(o + Vector2(randf_range(40, 170), randf_range(285, 360)))
+		if randf() < 0.5:
+			add_can(o + Vector2(randf_range(340, 470), randf_range(285, 360)))
+		if STATIONS.has(b):
+			var pos := o + Vector2(256, 340)
+			add_prop(tex.subway, pos, 1.5)
+			stations.append({"pos": pos, "name": STATIONS[b]})
+		elif randf() < 0.5:
+			add_prop(tex.hydrant, o + Vector2(256, 300), 2.0)
+			water_spots.append(o + Vector2(256, 300))
+		else:
+			add_tree(o + Vector2(256, 330))
+
+func place_manholes() -> void:
+	var step := BLOCK + Vector2(ROAD, ROAD)
+	for i in range(1, NX):
+		for j in NY:
+			if randf() < 0.4:
+				add_manhole(Vector2(i * step.x + 64, ROAD + j * step.y + BLOCK.y / 2))
+	for j in range(1, NY):
+		for i in NX:
+			if randf() < 0.25:
+				add_manhole(Vector2(ROAD + i * step.x + BLOCK.x / 2, j * step.y + 64))
+
+func add_manhole(pos: Vector2) -> void:
 	var s := Sprite2D.new()
-	s.texture = tex
+	s.texture = tex.manhole
 	s.position = pos
-	s.scale = Vector2(scl, scl)
+	s.scale = Vector2(1.5, 1.5)
+	s.z_index = -5
 	add_child(s)
+	var p := CPUParticles2D.new()
+	p.position = pos
+	p.z_index = 5
+	p.emitting = false
+	p.amount = 40
+	p.lifetime = 0.9
+	p.direction = Vector2.UP
+	p.spread = 18.0
+	p.gravity = Vector2(0, -40)
+	p.initial_velocity_min = 90.0
+	p.initial_velocity_max = 160.0
+	p.scale_amount_min = 4.0
+	p.scale_amount_max = 9.0
+	p.color = Color(1, 1, 1, 0.55)
+	add_child(p)
+	manholes.append({"pos": pos, "steam": p, "t": randf_range(2.0, 7.0), "on": false})
+
+# ---------- helpers ----------
+
+func blocked(p: Vector2) -> bool:
+	for r in building_rects:
+		if r.has_point(p):
+			return true
+	return false
+
+func nearest_tree(p: Vector2) -> Vector2:
+	var best := trees[0]
+	for t in trees:
+		if p.distance_squared_to(t) < p.distance_squared_to(best):
+			best = t
+	return best
+
+## Random walkable point at least min_dist from the dog; x < 0 if none found.
+func random_spot(min_dist: float) -> Vector2:
+	for attempt in 30:
+		var p := Vector2(randf_range(48, WORLD.x - 48), randf_range(48, WORLD.y - 48))
+		if p.distance_to(player.position) >= min_dist and not blocked(p):
+			return p
+	return Vector2(-1, -1)
+
+func sfx(sound: String) -> void:
+	var p := AudioStreamPlayer.new()
+	p.stream = sounds[sound]
+	p.pitch_scale = randf_range(0.92, 1.08)
+	add_child(p)
+	p.play()
+	p.finished.connect(p.queue_free)
+
+func float_text(pos: Vector2, text: String, color := Color.WHITE) -> void:
+	var l := Label.new()
+	l.text = text
+	l.position = pos + Vector2(-20, -44)
+	l.z_index = 20
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 4)
+	add_child(l)
+	var tw := create_tween()
+	tw.tween_property(l, "position:y", l.position.y - 40.0, 0.8)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8)
+	tw.tween_callback(l.queue_free)
+
+func poof(pos: Vector2, color: Color) -> void:
+	var p := CPUParticles2D.new()
+	p.position = pos
+	p.z_index = 5
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = 14
+	p.lifetime = 0.5
+	p.spread = 180.0
+	p.gravity = Vector2.ZERO
+	p.initial_velocity_min = 40.0
+	p.initial_velocity_max = 110.0
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 4.0
+	p.color = color
+	add_child(p)
+	p.emitting = true
+	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
 
 # ---------- systems ----------
 
@@ -200,106 +389,263 @@ func update_steam(delta: float) -> void:
 		m.t -= delta
 		if m.t <= 0.0:
 			m.on = not m.on
-			m.sprite.visible = m.on
+			m.steam.emitting = m.on
 			m.t = 1.5 if m.on else randf_range(3.5, 8.0)
-		if m.on and player.position.distance_to(m.pos) < 34.0:
-			player.take_damage(delta * 25.0)
+			if m.on and player.position.distance_to(m.pos) < 500.0:
+				sfx("steam")
+		if m.on and player.position.distance_to(m.pos) < 38.0:
+			player.take_damage(delta * 30.0)
+			shake_amt = maxf(shake_amt, 2.0)
 
-func check_subway() -> void:
-	if subway_cooldown > 0.0:
+func check_pickups() -> void:
+	for s in treat_sprites:
+		if player.position.distance_to(s.position) < 26.0:
+			player.treats += 1
+			float_text(s.position, "+1 treat", Color(1, 0.85, 0.5))
+			sfx("pickup")
+			treat_sprites.erase(s)
+			s.queue_free()
+			return  # one per frame; list was mutated
+
+func check_landmarks() -> void:
+	for l in landmarks:
+		if not l.seen and player.position.distance_to(l.pos) < 170.0:
+			l.seen = true
+			player.add_xp(50)
+			show_msg("Discovered the %s!  +50 XP" % l.name)
+			sfx("levelup")
+
+func spawn_treat() -> void:
+	var p := random_spot(200.0)
+	if p.x < 0:
 		return
-	for i in subway_spots.size():
-		if player.position.distance_to(subway_spots[i]) < 45.0:
-			var other: Vector2 = subway_spots[(i + 1) % subway_spots.size()]
-			player.position = other + Vector2(0, 60)
-			subway_cooldown = 2.0
-			show_msg("Took the subway downtown!")
-			return
-
-func check_water(delta: float) -> void:
-	for pos in water_bowls:
-		if player.position.distance_to(pos) < 30.0:
-			player.drink(delta * 25.0)
-
-func try_buy(item: String) -> void:
-	if player.position.distance_to(bodega_door) > 80.0:
-		return
-	if item == "purina":
-		if player.treats >= 5:
-			player.treats -= 5
-			player.eat(50.0, 30.0)
-			show_msg("Bought Purina! +HP +hunger")
-		else:
-			show_msg("Need 5 treats for Purina")
-	elif item == "water":
-		if player.treats >= 3:
-			player.treats -= 3
-			player.drink(60.0)
-			show_msg("Bought water! +thirst")
-		else:
-			show_msg("Need 3 treats for water")
+	var s := Sprite2D.new()
+	s.texture = tex.treat
+	s.position = p
+	s.scale = Vector2(2, 2)
+	add_child(s)
+	treat_sprites.append(s)
 
 func spawn_prey() -> void:
-	var kind: String = PREY_KINDS.keys()[randi() % PREY_KINDS.size()]
-	var cfg: Dictionary = PREY_KINDS[kind]
-	var pos := Vector2.ZERO
-	for attempt in 20:
-		pos = Vector2(randf_range(64, COLS * TILE - 64), randf_range(64, ROWS * TILE - 64))
-		if pos.distance_to(player.position) < 300.0:
-			continue
-		var blocked := false
-		for r in building_rects:
-			if r.grow(20).has_point(pos):
-				blocked = true
-				break
-		if not blocked:
-			break
-	var prey: Node2D = PreyScript.new()
-	prey.position = pos
-	add_child(prey)
-	prey.setup(kind, TEX[kind], cfg.speed, cfg.treats, cfg.xp, self)
-	prey_count += 1
+	var kind := "pigeon"
+	var pos := random_spot(350.0)
+	var roll := randf()
+	if roll < 0.3:  # squirrels live in parks
+		kind = "squirrel"
+		var r: Rect2 = parks.pick_random()
+		pos = r.position + Vector2(randf(), randf()) * r.size
+	elif roll < (0.75 if sun() < 0.3 else 0.55):  # rats by the trash, more at night
+		kind = "rat"
+		var can: Vector2 = cans.pick_random()
+		pos = can + Vector2(randf_range(-60, 60), randf_range(10, 50))
+	if pos.x < 0 or pos.distance_to(player.position) < 350.0:
+		return
+	for i in (3 if kind == "pigeon" else 1):  # pigeons flock
+		var prey: Node2D = PreyScript.new()
+		prey.position = pos + Vector2(randf_range(-30, 30), randf_range(-30, 30)) * float(i > 0)
+		add_child(prey)
+		prey.setup(kind, PREY[kind], tex[kind], self)
+
+func on_bite(center: Vector2, radius: float, dmg: float) -> void:
+	sfx("bark")
+	poof(center, Color(1, 1, 1, 0.7))
+	for r in get_tree().get_nodes_in_group("raccoon"):
+		if r.position.distance_to(center) < radius + 10.0:
+			r.hurt(dmg, player.position)
+	for p in get_tree().get_nodes_in_group("prey"):
+		if p.position.distance_to(center) < radius:
+			on_prey_caught(p)
 
 func on_prey_caught(prey: Node2D) -> void:
-	player.treats += prey.treat_reward
-	player.add_xp(prey.xp_reward)
-	player.eat(prey.hunger_reward, 0.0)
-	show_msg("Caught %s! +%d treats" % [prey.kind, prey.treat_reward])
-	prey_count -= 1
+	if prey.is_queued_for_deletion():
+		return
+	var cfg: Dictionary = prey.cfg
+	player.treats += cfg.treats
+	player.add_xp(cfg.xp)
+	player.eat(cfg.food, 0.0)
+	float_text(prey.position, "+%d treats" % cfg.treats, Color(1, 0.85, 0.5))
+	poof(prey.position, Color(0.85, 0.85, 0.9))
+	sfx("catch")
 	prey.queue_free()
 
+func on_prey_escaped(prey: Node2D) -> void:
+	float_text(prey.position, "up the tree!", Color(0.7, 1, 0.7))
+	prey.queue_free()
+
+func on_raccoon_beaten(rac: Node2D) -> void:
+	var loot := 3 + randi() % 4
+	player.treats += loot
+	player.add_xp(20 + player.level)
+	float_text(rac.position, "Raccoon beaten! +%d treats" % loot, Color(1, 0.85, 0.5))
+	poof(rac.position, Color(0.6, 0.6, 0.65))
+	sfx("catch")
+
+func on_number(n: int) -> void:
+	if ctx == "bodega" and n < SHOP.size():
+		var item: String = SHOP[n][0]
+		var price: int = SHOP[n][1]
+		if player.treats < price:
+			show_msg("Need %d treats for that" % price)
+			return
+		player.treats -= price
+		sfx("buy")
+		if item == "collar":
+			player.frozen = true
+			name_edit.text = player.collar
+			name_edit.show()
+			name_edit.grab_focus()
+		else:
+			player.set(item, player.get(item) + 1)
+			show_msg("Bought %s" % item)
+		save_game()
+	elif ctx == "subway" and n < stations.size():
+		var dest: Vector2 = stations[n].pos + Vector2(0, 62)
+		if player.position.distance_to(dest) < 100.0:
+			return  # already here
+		player.position = dest
+		cam.reset_smoothing()
+		sfx("subway")
+		show_msg("Took the subway to %s" % stations[n].name)
+
+func on_name_entered(text: String) -> void:
+	player.collar = text.strip_edges() if text.strip_edges() != "" else "Dog"
+	player.apply_skin()
+	player.frozen = false
+	name_edit.release_focus()
+	name_edit.hide()
+	show_msg("New collar: %s" % player.collar)
+	save_game()
+
+# ---------- save ----------
+
+func save_game() -> void:
+	var cfg := ConfigFile.new()
+	for key in SAVE_KEYS:
+		cfg.set_value("dog", key, player.get(key))
+	cfg.set_value("world", "seen", landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
+	cfg.save(SAVE_PATH)
+
+func load_game() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SAVE_PATH) != OK:
+		return
+	for key in SAVE_KEYS:
+		player.set(key, cfg.get_value("dog", key, player.get(key)))
+	player.skin = clampi(player.skin, 0, player.BREEDS.size() - 1)
+	player.level = clampi(player.level, 1, 100)
+	var seen: Array = cfg.get_value("world", "seen", [])
+	for l in landmarks:
+		l.seen = l.name in seen
+	player.apply_skin()
+	player.hp = player.max_hp
+
 # ---------- HUD ----------
+
+func hud_label(layer: CanvasLayer, pos: Vector2, font_size: int, color := Color.WHITE) -> Label:
+	var l := Label.new()
+	l.position = pos
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", color)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 4)
+	layer.add_child(l)
+	return l
+
+func make_bar(layer: CanvasLayer, y: float, color: Color, tag: String) -> ProgressBar:
+	hud_label(layer, Vector2(12, y - 1), 12).text = tag
+	var bar := ProgressBar.new()
+	bar.position = Vector2(70, y)
+	bar.size = Vector2(170, 12)
+	bar.show_percentage = false
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = color
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(0, 0, 0, 0.55)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", bg)
+	layer.add_child(bar)
+	return bar
 
 func build_hud() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	hud = Label.new()
-	hud.position = Vector2(12, 10)
-	hud.add_theme_font_size_override("font_size", 18)
-	hud.add_theme_color_override("font_color", Color.WHITE)
-	hud.add_theme_color_override("font_outline_color", Color.BLACK)
-	hud.add_theme_constant_override("outline_size", 4)
-	layer.add_child(hud)
-	msg = Label.new()
-	msg.position = Vector2(12, 600)
-	msg.add_theme_font_size_override("font_size", 22)
-	msg.add_theme_color_override("font_color", Color(1, 0.9, 0.4))
-	msg.add_theme_color_override("font_outline_color", Color.BLACK)
-	msg.add_theme_constant_override("outline_size", 5)
-	layer.add_child(msg)
-	show_msg("WASD move | TAB skin | catch prey, avoid raccoons & steam")
+	title = hud_label(layer, Vector2(12, 8), 18)
+	bars.hp = make_bar(layer, 38, Color(0.85, 0.2, 0.2), "HP")
+	bars.hunger = make_bar(layer, 58, Color(0.9, 0.55, 0.15), "Hunger")
+	bars.thirst = make_bar(layer, 78, Color(0.25, 0.55, 0.95), "Thirst")
+	bars.stamina = make_bar(layer, 98, Color(0.9, 0.85, 0.2), "Stamina")
+	bars.xp = make_bar(layer, 118, Color(0.65, 0.4, 0.9), "XP")
+	info = hud_label(layer, Vector2(12, 140), 14)
+	msg = hud_label(layer, Vector2(12, 612), 18, Color(1, 0.9, 0.4))
+	prompt = hud_label(layer, Vector2(0, 566), 20, Color(0.6, 1, 0.7))
+	prompt.size = Vector2(1152, 30)
+	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mini = Control.new()
+	mini.size = Vector2(176, 176 * WORLD.y / WORLD.x)
+	mini.position = Vector2(1152 - 186, 10)
+	mini.draw.connect(draw_minimap)
+	layer.add_child(mini)
+	name_edit = LineEdit.new()
+	name_edit.placeholder_text = "Name your dog, then Enter"
+	name_edit.max_length = 12
+	name_edit.position = Vector2(446, 300)
+	name_edit.size = Vector2(260, 36)
+	name_edit.visible = false
+	name_edit.text_submitted.connect(on_name_entered)
+	layer.add_child(name_edit)
 
 func show_msg(text: String) -> void:
 	msg.text = text
-	msg_timer = 3.5
+	msg_timer = 4.0
 
 func update_hud(delta: float) -> void:
 	msg_timer -= delta
 	if msg_timer <= 0.0:
 		msg.text = ""
-		if player.position.distance_to(bodega_door) <= 80.0:
-			msg.text = "BODEGA  [1] Purina 5t (+HP)   [2] Water 3t"
-	hud.text = "%s  Lv %d  (%d/%d xp)\nHP %d/%d   Treats %d\nHunger %d   Thirst %d" % [
-		player.skin_name(), player.level, player.xp, player.xp_needed(),
-		int(player.hp), int(player.max_hp), player.treats,
-		int(player.hunger), int(player.thirst)]
+	title.text = "%s   Lv %d" % [player.display_name(), player.level]
+	bars.hp.max_value = player.max_hp
+	bars.hp.value = player.hp
+	bars.hunger.value = player.hunger
+	bars.thirst.value = player.thirst
+	bars.stamina.value = player.stamina
+	bars.xp.max_value = player.xp_needed()
+	bars.xp.value = player.xp
+	var mins := int(tod * 1440.0)
+	info.text = "Treats %d   Purina %d [Q]   Water %d [E]\n%d mph   %02d:%02d" % [
+		player.treats, player.purina, player.water,
+		int(player.velocity.length() / player.PX_PER_MPH), mins / 60, mins % 60]
+
+	ctx = ""
+	prompt.text = ""
+	for w in water_spots:
+		if player.position.distance_to(w) < 40.0:
+			player.drink(delta * 30.0)
+			prompt.text = "Drinking..."
+	for d in bodega_doors:
+		if player.position.distance_to(d) < 70.0:
+			ctx = "bodega"
+			prompt.text = "BODEGA   [1] Purina 5t   [2] Water 3t   [3] Name Collar 25t"
+	for i in stations.size():
+		if player.position.distance_to(stations[i].pos) < 50.0:
+			ctx = "subway"
+			var parts := []
+			for k in stations.size():
+				if k != i:
+					parts.append("[%d] %s" % [k + 1, stations[k].name])
+			prompt.text = "SUBWAY   " + "   ".join(parts)
+
+func draw_minimap() -> void:
+	var s := mini.size.x / WORLD.x
+	mini.draw_rect(Rect2(Vector2.ZERO, mini.size), Color(0.08, 0.08, 0.1, 0.8))
+	for by in NY:
+		for bx in NX:
+			var b := Vector2i(bx, by)
+			var col := Color(0.3, 0.6, 0.3) if b in PARKS else Color(0.45, 0.45, 0.48)
+			mini.draw_rect(Rect2(block_origin(b) * s, BLOCK * s), col)
+	for d in bodega_doors:
+		mini.draw_circle(d * s, 3.0, Color(1, 0.55, 0.15))
+	for st in stations:
+		mini.draw_circle(st.pos * s, 3.0, Color(0.3, 0.6, 1))
+	for l in landmarks:
+		mini.draw_circle(l.pos * s, 3.0, Color.WHITE)
+	mini.draw_circle(player.position * s, 3.0, Color(1, 0.9, 0.2))

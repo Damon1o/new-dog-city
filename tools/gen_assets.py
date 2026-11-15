@@ -1,5 +1,5 @@
 """Generate all pixel-art PNG assets for New Dog City. Pure stdlib."""
-import os, struct, zlib
+import os, random, struct, wave, zlib
 
 OUT = os.path.join(os.path.dirname(__file__), "..", "assets")
 
@@ -22,24 +22,40 @@ def write_png(name, pixels):
 T = (0, 0, 0, 0)  # transparent
 
 def grid(rows, pal):
+    assert len({len(r) for r in rows}) == 1, f"ragged sprite grid: {rows}"
     return [[pal[c] for c in row] for row in rows]
 
-# ---------- creatures (hand-drawn grids) ----------
-# Dog: near-white base so Godot modulate tints it per skin.
-DOG_PAL = {".": T, "W": (235, 235, 235, 255), "G": (170, 170, 170, 255),
-           "K": (25, 25, 25, 255), "P": (240, 150, 160, 255)}
+def flip(rows):
+    return [r[::-1] for r in rows]
+
+# ---------- creatures (hand-drawn grids, all facing right) ----------
+# Dog: W body, S saddle, M mask/ears, B belly, G paws. Two walk frames per breed.
 DOG = [
-    "....WW..........",
-    "...WWWW.....WW..",
-    "...WKWW....WWW..",
-    "..WWWWWWWWWWW...",
-    "..KWWWWWWWWW....",
-    "..WWWWWWWWWW....",
-    "..PWWWWWWWWWW...",
-    "...WWWWWWWWWWW..",
-    "...WW..WW..WW...",
-    "...GG..GG..GG...",
+    "..........MM....",
+    "..WW.....MWWW...",
+    "..WWW....WWKW...",
+    "...WWSSSSSWWMM..",
+    "....WSSSSSWWMK..",
+    "....WWWWWWWWMM..",
+    "...WWWWWWWWWWP..",
+    "..WWBBBBBBWWW...",
 ]
+DOG_LEGS = [["...WW..WW..WW...", "...GG..GG..GG..."],
+            ["....WW.WW.WW....", "....GG.GG.GG...."]]
+BREEDS = {  # body, saddle, mask, belly
+    "pug": ((222, 184, 135), (222, 184, 135), (50, 40, 35), (235, 205, 165)),
+    "husky": ((235, 235, 240), (110, 115, 130), (110, 115, 130), (250, 250, 250)),
+    "chihuahua": ((200, 150, 95), (200, 150, 95), (170, 120, 70), (235, 215, 180)),
+    "great_dane": ((120, 125, 135), (120, 125, 135), (90, 95, 105), (150, 155, 165)),
+    "mastiff": ((205, 165, 115), (205, 165, 115), (60, 45, 40), (220, 185, 140)),
+}
+
+def dog_sheet(body, saddle, mask, belly):
+    pal = {".": T, "W": body + (255,), "S": saddle + (255,), "M": mask + (255,),
+           "B": belly + (255,), "G": tuple(c * 3 // 4 for c in body) + (255,),
+           "K": (25, 25, 25, 255), "P": (240, 150, 160, 255)}
+    frames = [grid(DOG + legs, pal) for legs in DOG_LEGS]
+    return [a + b for a, b in zip(*frames)]
 RAT_PAL = {".": T, "B": (130, 115, 105, 255), "D": (90, 78, 70, 255),
            "K": (20, 20, 20, 255), "P": (225, 170, 170, 255)}
 RAT = [
@@ -270,6 +286,59 @@ def water_bowl():
     rect(px, 3, 3, 8, 2, (140, 190, 235, 255))
     return px
 
+def tree():
+    px = blank(24, 32, T)
+    rect(px, 10, 20, 4, 12, (95, 65, 40, 255))
+    for j in range(24):
+        for i in range(24):
+            if (i - 11.5) ** 2 + (j - 11.5) ** 2 <= 121:
+                px[j][i] = (70, 135, 60, 255) if (i * 7 + j * 5) % 6 else (50, 105, 48, 255)
+    return px
+
+def fountain():
+    px = blank(40, 28, T)
+    rect(px, 2, 10, 36, 18, (150, 150, 155, 255))
+    rect(px, 5, 13, 30, 12, (90, 150, 215, 255))
+    rect(px, 18, 3, 4, 16, (175, 175, 180, 255))
+    rect(px, 15, 0, 10, 4, (170, 215, 245, 255))
+    return px
+
+def hydrant():
+    px = blank(10, 14, T)
+    rect(px, 3, 2, 4, 12, (200, 50, 45, 255))
+    rect(px, 1, 5, 8, 3, (200, 50, 45, 255))
+    rect(px, 2, 0, 6, 2, (160, 35, 32, 255))
+    rect(px, 2, 12, 6, 2, (160, 35, 32, 255))
+    return px
+
+def brownstone():
+    px = building(80, 88, (125, 85, 70, 255), (225, 200, 120, 255))
+    rect(px, 34, 70, 12, 18, (60, 40, 30, 255))  # door
+    return px
+
+# ---------- sound effects (stdlib wave) ----------
+SR = 22050
+
+def sweep(f0, f1, dur, noise=0.0, vol=0.6):
+    """Square-wave pitch sweep with optional noise mix and linear fade-out."""
+    n = int(SR * dur)
+    out, phase = [], 0.0
+    for i in range(n):
+        t = i / n
+        phase += (f0 + (f1 - f0) * t) / SR
+        s = (1.0 if phase % 1 < 0.5 else -1.0) * (1 - noise) + random.uniform(-1, 1) * noise
+        out.append(s * vol * (1 - t))
+    return out
+
+def write_wav(name, samples):
+    os.makedirs(os.path.join(OUT, "sfx"), exist_ok=True)
+    with wave.open(os.path.join(OUT, "sfx", name + ".wav"), "wb") as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(SR)
+        f.writeframes(b"".join(struct.pack("<h", int(s * 32000)) for s in samples))
+    print(f"sfx/{name}.wav: {len(samples) / SR:.2f}s")
+
 def purina_bag():
     px = blank(12, 14, T)
     rect(px, 1, 1, 10, 13, (190, 60, 50, 255))
@@ -278,11 +347,26 @@ def purina_bag():
     return px
 
 os.makedirs(OUT, exist_ok=True)
-write_png("dog.png", grid(DOG, DOG_PAL))
+for breed, colors in BREEDS.items():
+    write_png(f"dog_{breed}.png", dog_sheet(*colors))
 write_png("rat.png", grid(RAT, RAT_PAL))
 write_png("pigeon.png", grid(PIGEON, PIGEON_PAL))
-write_png("squirrel.png", grid(SQUIRREL, SQUIRREL_PAL))
-write_png("raccoon.png", grid(RACCOON, RACCOON_PAL))
+write_png("squirrel.png", grid(flip(SQUIRREL), SQUIRREL_PAL))
+write_png("raccoon.png", grid(flip(RACCOON), RACCOON_PAL))
+write_png("tree.png", tree())
+write_png("fountain.png", fountain())
+write_png("hydrant.png", hydrant())
+write_png("building_c.png", brownstone())
+
+random.seed(1)
+write_wav("bark", sweep(420, 180, 0.09, 0.3) + sweep(380, 150, 0.12, 0.3))
+write_wav("catch", sweep(600, 1300, 0.12))
+write_wav("hurt", sweep(300, 90, 0.22, 0.2))
+write_wav("buy", sweep(880, 880, 0.08) + sweep(1320, 1320, 0.12))
+write_wav("levelup", sum((sweep(f, f, 0.1) for f in (523, 659, 784, 1047)), []))
+write_wav("steam", sweep(100, 100, 0.6, 1.0, 0.35))
+write_wav("subway", sweep(70, 50, 0.7, 0.5, 0.5))
+write_wav("pickup", sweep(1000, 1500, 0.06, 0.0, 0.4))
 write_png("steam.png", grid(STEAM, STEAM_PAL))
 write_png("treat.png", grid(TREAT, TREAT_PAL))
 write_png("road.png", road_tile())

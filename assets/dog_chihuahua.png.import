@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c133nqbwdfkou"
-path="res://.godot/imported/dog.png-22fd8e54b7fcf6dc6f7801548af10917.ctex"
+uid="uid://ctdmovj16jvm2"
+path="res://.godot/imported/dog_chihuahua.png-d43ac698b10d0018a8731732662852d2.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/dog.png"
-dest_files=["res://.godot/imported/dog.png-22fd8e54b7fcf6dc6f7801548af10917.ctex"]
+source_file="res://assets/dog_chihuahua.png"
+dest_files=["res://.godot/imported/dog_chihuahua.png-d43ac698b10d0018a8731732662852d2.ctex"]
 
 [params]
 
