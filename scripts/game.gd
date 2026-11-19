@@ -89,6 +89,8 @@ var boss_name: Label
 var death_panel: PanelContainer
 var death_why: Label
 var death_cause := "You blacked out."
+var save_version := 2  # version of the file last loaded (1 = before meta/version)
+var save_extra := {}  # v2 keys no system owns yet, see Save.V2
 var save_path := "user://save.cfg"  # var so the smoke test can point it elsewhere
 var stat_panel: PanelContainer
 var stat_head: Label

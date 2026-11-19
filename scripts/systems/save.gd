@@ -4,6 +4,21 @@ extends RefCounted
 
 const KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst",
 	"points", "stat_hp", "stat_atk", "stat_spd"]
+const VERSION := 2
+## Schema v2 keys no system owns yet ("section/key" -> default). They round-trip through
+## game.save_extra until their system lands and reads/writes them directly.
+const V2 := {
+	"meta/rebirths": 0, "meta/true_ending": false,
+	"dog/bones": 0, "dog/buffs": {},
+	"world/city": "nyc", "world/pos": Vector2.ZERO, "world/tod": 0.33, "world/day": 1, "world/weather": {},
+	"story/flags": [], "story/items": [], "story/keycards": [], "story/floors": {},
+	"cats/points": {}, "cats/today": {},
+	"territory/markers": [], "territory/rep": {},
+	"wardrobe/owned": [], "wardrobe/equipped": {"skin": 0, "collar": "name", "hat": "", "overlay": ""},
+	"stocks/prices": {}, "stocks/history": {}, "stocks/held": {},
+	"ui/reduce_motion": false,
+}
+const VOLS := {"Music": "vol_music", "SFX": "vol_sfx", "Ambience": "vol_amb"}
 
 static func write(g: Node) -> void:
 	var cfg := ConfigFile.new()
@@ -11,6 +26,12 @@ static func write(g: Node) -> void:
 		cfg.set_value("dog", key, g.player.get(key))
 	cfg.set_value("world", "seen", g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
 	cfg.set_value("ui", "volume", g.volume.value)
+	cfg.set_value("meta", "version", VERSION)
+	for bus in VOLS:
+		cfg.set_value("ui", VOLS[bus], g.vols[bus].value)
+	for k: String in V2:
+		var sk := k.split("/")
+		cfg.set_value(sk[0], sk[1], g.save_extra.get(k, V2[k]))
 	cfg.set_value("quests", "stats", g.stats)
 	cfg.set_value("quests", "step", g.quest_step)
 	cfg.save(g.save_path)
@@ -27,6 +48,14 @@ static func read(g: Node) -> void:
 	player.skin = clampi(player.skin, 0, player.BREEDS.size() - 1)
 	player.level = clampi(player.level, 1, 100)
 	g.volume.value = cfg.get_value("ui", "volume", 1.0)
+	g.save_version = cfg.get_value("meta", "version", 1)
+	for bus in VOLS:
+		g.vols[bus].value = cfg.get_value("ui", VOLS[bus], 1.0)
+	g.save_extra = {}
+	for k: String in V2:
+		var sk := k.split("/")
+		var d: Variant = V2[k]
+		g.save_extra[k] = cfg.get_value(sk[0], sk[1], d.duplicate(true) if d is Dictionary or d is Array else d)
 	var seen: Array = cfg.get_value("world", "seen", [])
 	for l in g.landmarks:
 		l.seen = l.name in seen
