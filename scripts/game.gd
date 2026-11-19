@@ -280,6 +280,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			card_art.queue_redraw()
 		KEY_SPACE:
 			player.bite()
+		KEY_C:
+			player.dash()
 		KEY_Q:
 			if player.use_purina():
 				sfx("pickup")

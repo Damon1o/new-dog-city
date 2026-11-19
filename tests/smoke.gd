@@ -23,6 +23,28 @@ func _initialize() -> void:
 	assert(player.points == 0 and not paused and not game.stat_panel.visible)
 	assert(player.max_hp == hp_cap + 12.0, "+10 from the point, +2 from the level")
 
+	# dash (M1-3): 200-240 px burst, no damage mid-dash, cooldown + stamina cost
+	player.position = Vector2(700, 64)  # top road, open to the right
+	player.facing = Vector2.RIGHT
+	player.hp = player.max_hp
+	player.stamina = 100.0
+	var dash_from: Vector2 = player.position
+	assert(player.dash(), "dash fires")
+	assert(not player.dash(), "dash on cooldown")
+	await frames(3)
+	player.take_damage(50.0)
+	assert(player.hp == player.max_hp, "no damage mid-dash")
+	await frames(12)
+	var dash_len: float = player.position.distance_to(dash_from)
+	assert(dash_len >= 200.0 and dash_len <= 240.0, "dash covers 200-240 px, got %f" % dash_len)
+	assert(player.stamina < 100.0 - player.DASH_COST + 5.0, "dash costs stamina")
+	player.take_damage(1.0)
+	assert(player.hp < player.max_hp, "damage lands after the dash")
+	player.dash_cd = 0.0
+	player.stamina = 10.0
+	assert(not player.dash(), "too winded to dash")
+	player.stamina = 100.0
+
 	# cars: one per lane, and they hurt
 	var cars := get_nodes_in_group("car")
 	assert(cars.size() == 2 * (game.NX + 1) + 2 * (game.NY + 1))
