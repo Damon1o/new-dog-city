@@ -65,6 +65,7 @@ func _ready() -> void:
 			AudioServer.set_bus_send(i, "Master")
 	for n in SFX_NAMES:
 		sounds[n] = load("res://assets/sfx/%s.wav" % n)
+	sounds["bark_scare"] = sounds["bark"]  # ponytail: pitched-down bark (lower, longer); swap for its own synth/wav later
 	for i in 2:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Music"
@@ -76,7 +77,7 @@ func sfx(sound: String) -> void:
 	var p := AudioStreamPlayer.new()
 	p.stream = sounds[sound]
 	p.bus = "SFX"
-	p.pitch_scale = randf_range(0.92, 1.08)
+	p.pitch_scale = randf_range(0.92, 1.08) * (0.7 if sound == "bark_scare" else 1.0)
 	add_child(p)
 	p.play()
 	p.finished.connect(p.queue_free)

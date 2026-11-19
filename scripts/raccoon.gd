@@ -2,7 +2,7 @@ extends Node2D
 ## Raccoon hiding in a trash can: pops out when the dog gets close, chases, bites.
 ## Has a level from where its can sits (systems/levels.gd); beat it for treats.
 
-enum State { HIDDEN, CHASE, WINDUP, LUNGE, RETURN }
+enum State { HIDDEN, CHASE, WINDUP, LUNGE, RETURN, FLEE, STUN }
 
 const POP_DIST := 90.0
 const CHASE_SPEED := 190.0
@@ -94,6 +94,16 @@ func _process(delta: float) -> void:
 				bite_cooldown = 1.0
 			if t <= 0.0:
 				state = State.CHASE
+		State.FLEE:  # scared by a bark: run from the dog, then go home
+			t -= delta
+			position += player.position.direction_to(position) * CHASE_SPEED * delta
+			if t <= 0.0:
+				state = State.RETURN
+		State.STUN:
+			t -= delta
+			if t <= 0.0:
+				state = State.CHASE
+				chase_left = CHASE_TIME
 		State.RETURN:
 			var to_home := home - position
 			if to_home.length() < 6.0:
@@ -106,6 +116,24 @@ func go_home(cooldown: float) -> void:
 	visible = false
 	state = State.HIDDEN
 	hide_cooldown = cooldown
+
+## Bark (spec 05): flee 4 s if the dog is 5+ levels above, stun 0.5 s within 4 levels, else ignore.
+func scare(dog_level: int) -> void:
+	var gap := dog_level - level
+	if state == State.HIDDEN:
+		return
+	if gap >= 5:
+		stun(4.0)
+		state = State.FLEE
+	elif gap >= -4:
+		stun(0.5)
+
+func stun(time: float) -> void:
+	if state == State.HIDDEN:
+		return
+	sprite.modulate = Color.WHITE  # a stunned windup must not stay orange
+	state = State.STUN
+	t = time
 
 func hurt(dmg: float, from: Vector2, crit := false) -> void:
 	if state == State.HIDDEN:

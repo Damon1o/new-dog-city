@@ -129,6 +129,45 @@ func _initialize() -> void:
 		assert(b.level == boss_lv[b.cfg.name] and b.cfg.level == b.level, "park boss level")
 	assert(game.hedgehog.level == 15)
 
+	# bark (M1-4): low raccoon flees, close one is stunned, higher one ignores it
+	var racs := get_nodes_in_group("raccoon")
+	var rac_lv: Array = racs.map(func(r): return r.level)
+	player.position = Vector2(700, 64)
+	player.stamina = 100.0
+	player.level = 10
+	for i in 3:
+		racs[i].position = player.position + Vector2(60, 0).rotated(i * 2.0)
+		racs[i].state = racs[i].State.CHASE
+		racs[i].level = [1, 20, 12][i]
+	assert(player.bark(), "bark fires")
+	assert(not player.bark(), "bark on cooldown")
+	assert(racs[0].state == racs[0].State.FLEE, "raccoon 9 levels below flees")
+	assert(racs[1].state == racs[1].State.CHASE, "raccoon 10 levels above ignores the bark")
+	assert(racs[2].state == racs[2].State.STUN, "raccoon within 4 levels is stunned")
+	# pounce (M1-8): 160 px leap, landing hit = 2x bite damage
+	assert(not player.pounce(), "pounce needs level 30")
+	player.level = 30
+	player.facing = Vector2.RIGHT
+	var target: Node2D = racs[0]
+	target.position = player.position + Vector2(player.POUNCE_PX + 26.0, 0)
+	target.stun(10.0)
+	target.hp = 1000.0
+	assert(player.pounce(), "pounce fires at level 30")
+	await frames(25)
+	assert(is_equal_approx(1000.0 - target.hp, player.attack_damage() * 2.0), "pounce lands 2x bite, got %f" % (1000.0 - target.hp))
+	assert(target.state == target.State.STUN, "pounce stuns")
+	# ability bar (M1-7): exists, cooldown sweep follows <name>_cd, pounce hidden below level 30
+	await frames(1)
+	assert(game.abilities.has("dash") and game.abilities.has("bark"), "ability bar built")
+	assert(game.abilities.bark.v > 0.9 and game.abilities.bark.v < 1.0, "bark cooldown on the bar")
+	assert(game.abilities.pounce.ctl.visible, "pounce shown at level 30")
+	player.level = 1
+	await frames(1)
+	assert(not game.abilities.pounce.ctl.visible, "pounce locked below level 30")
+	for i in racs.size():
+		racs[i].level = rac_lv[i]
+		racs[i].go_home(0.0)
+
 	var bosses := get_nodes_in_group("boss")
 	assert(bosses.size() == 3)
 	var names := bosses.map(func(b): return b.cfg.name)
