@@ -19,6 +19,7 @@ const BossScript := preload("res://scripts/boss.gd")
 const CarScript := preload("res://scripts/car.gd")
 const HedgehogScript := preload("res://scripts/hedgehog.gd")
 const Save := preload("res://scripts/systems/save.gd")
+const Quests := preload("res://scripts/systems/quests.gd")
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
@@ -63,39 +64,6 @@ const BOSS_O := Vector2(6000, 4000)
 const BOSS_ROOM := Rect2(BOSS_O, Vector2(960, 640))
 const BOSS_EXIT := BOSS_O + Vector2(480, 624)
 const BOSS_LEVEL_LOSS := 10  # levels lost when the Boss Hedgehog beats the dog
-
-# Quest lines run side by side, one step each at a time: [text, stat, target, treats, xp].
-# Stats are lifetime counters (see bump); "level" reads the dog's level.
-# The tutorial is just the first line — the tracker shows it alone until it is done.
-const QUESTS := {
-	"Tutorial": [
-		["Move with WASD or the arrow keys", "moved", 1, 0, 5],
-		["Hold Shift while moving to sprint", "sprinted", 1, 0, 5],
-		["Catch a pigeon, rat or squirrel:\nrun into it or bite with Space", "prey", 1, 2, 10],
-		["Stand by a fountain, hydrant or\nwater bowl to drink", "drank", 1, 2, 10],
-		["Find a bodega (orange dot on the\nmap) and press F at its door", "shop", 1, 5, 10],
-		["Press M for the god's-eye map", "map", 1, 5, 10],
-	],
-	"Street Hunter": [
-		["Catch 5 critters", "prey", 5, 5, 20],
-		["Catch 3 squirrels", "squirrels", 3, 10, 40],
-		["Beat 3 raccoons", "raccoons", 3, 15, 60],
-		["Catch 40 critters", "prey", 40, 40, 150],
-	],
-	"City Explorer": [
-		["Discover a skyscraper", "sights", 1, 5, 20],
-		["Ride the subway", "rides", 1, 5, 30],
-		["Discover both skyscrapers", "sights", 2, 15, 60],
-		["Ride the subway 5 times", "rides", 5, 20, 80],
-	],
-	"Top Dog": [
-		["Reach level 5", "level", 5, 10, 0],
-		["Buy something at a bodega", "bought", 1, 5, 30],
-		["Reach level 12", "level", 12, 25, 0],
-		["Enter the hedgehog burrow in\nthe south-east park", "burrow", 1, 0, 50],
-		["Defeat the Boss Hedgehog", "boss", 1, 100, 500],
-	],
-}
 
 const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4)]
 const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3)]
@@ -913,50 +881,20 @@ func on_hedgehog_beaten(at: Vector2) -> void:
 
 # ---------- quests ----------
 
-## Count a quest event; once = only the first time ever (tutorial flags).
 func bump(key: String, once := false) -> void:
-	if once and stats.has(key):
-		return
-	stats[key] = int(stats.get(key, 0)) + 1
-	check_quests()
+	Quests.bump(self, key, once)
 
 func stat(key: String) -> int:
-	return player.level if key == "level" else int(stats.get(key, 0))
+	return Quests.stat(self, key)
 
 func tutorial_on() -> bool:
-	return int(quest_step.get("Tutorial", 0)) < QUESTS.Tutorial.size()
+	return Quests.tutorial_on(self)
 
 func check_quests() -> void:
-	for line: String in QUESTS:
-		var steps: Array = QUESTS[line]
-		while int(quest_step.get(line, 0)) < steps.size():
-			var i := int(quest_step.get(line, 0))
-			var s: Array = steps[i]
-			if stat(s[1]) < int(s[2]):
-				break
-			quest_step[line] = i + 1  # advance first: the xp below can level up and re-enter
-			player.treats += int(s[3])
-			sfx("pickup")
-			show_msg("%s: %s  -  done!  +%d treats  +%d XP" % [line, str(s[0]).replace("\n", " "), s[3], s[4]])
-			if i + 1 == steps.size():
-				show_banner("%s COMPLETE" % line.to_upper())
-			player.add_xp(int(s[4]))
+	Quests.check(self)
 
-## Tracker text: the tutorial on its own until it is finished, then every other line.
 func quest_text() -> String:
-	var out := PackedStringArray()
-	for line: String in QUESTS:
-		if (line == "Tutorial") != tutorial_on():
-			continue
-		var steps: Array = QUESTS[line]
-		var i := int(quest_step.get(line, 0))
-		if i >= steps.size():
-			out.append("%s  -  complete" % line.to_upper())
-			continue
-		var s: Array = steps[i]
-		var count := "  (%d/%d)" % [mini(stat(s[1]), s[2]), s[2]] if int(s[2]) > 1 else ""
-		out.append("%s  %d/%d\n%s%s" % [line.to_upper(), i + 1, steps.size(), s[0], count])
-	return "\n\n".join(out)
+	return Quests.text(self)
 
 func on_number(n: int) -> void:
 	if ctx == "bodega" and n < SHOP.size():
@@ -1273,7 +1211,7 @@ func build_hud() -> void:
 	skip_btn = Button.new()
 	skip_btn.text = "Skip tutorial"
 	skip_btn.pressed.connect(func():
-		quest_step.Tutorial = QUESTS.Tutorial.size()
+		quest_step.Tutorial = Quests.QUESTS.Tutorial.size()
 		skip_btn.hide())
 	pv.add_child(skip_btn)
 	var quit := Button.new()
