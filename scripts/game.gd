@@ -652,8 +652,15 @@ func update_train(delta: float) -> void:
 
 # ---------- scripts/world/fx.gd ----------
 
-func float_text(pos: Vector2, text: String, color := Color.WHITE) -> void:
-	fx.float_text(pos, text, color)
+## crit: yellow, bigger, with "!" (spec 06). x jitter keeps stacked numbers apart.
+func float_text(pos: Vector2, text: String, color := Color.WHITE, crit := false) -> void:
+	pos.x += randf_range(-10.0, 10.0)
+	if not crit:
+		fx.float_text(pos, text, color)
+		return
+	fx.float_text(pos, text + "!", Color(1, 0.9, 0.2))
+	var l: Label = get_child(-1)  # the label fx just added
+	l.add_theme_font_size_override("font_size", 24)
 
 func poof(pos: Vector2, color: Color) -> void:
 	fx.poof(pos, color)
