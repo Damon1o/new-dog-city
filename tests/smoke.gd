@@ -116,6 +116,51 @@ func _initialize() -> void:
 	for k: String in Save.V2:
 		assert(game.save_extra[k] == {"synthetic": k}, "v2 round trip " + k)
 
+	# economy (M4-1): discount never above 25%, stable shop rolls, struck price, x5 buy, bones saved
+	var Economy: GDScript = load("res://scripts/systems/economy.gd")
+	var eco: Node = game.economy
+	for d: float in [-1.0, 0.0, 0.1, 0.25, 0.26, 0.9, 5.0]:
+		for base: int in [1, 3, 5, 25, 100]:
+			assert(Economy.final_price(base, 1.0, 1.0, d) >= maxi(1, roundi(base * 0.75)), "discount capped at 25%")
+			assert(Economy.final_price(base, 1.0, 1.0, d) >= 1, "price min 1")
+	for i in 50:
+		var roll: float = Economy.shop_roll("nyc_bodega_%d" % i)
+		assert(roll >= 0.85 and roll <= 1.15 and roll == Economy.shop_roll("nyc_bodega_%d" % i), "shop roll stable, in range")
+	eco.set_discount("cat_mango", 0.10, "Mango likes you")
+	eco.set_discount("block", 0.05, "Your block")
+	eco.set_discount("test_extra", 0.30, "Test")
+	assert(eco.discount() == 0.25 and "capped" in eco.discount_label(), "discount never above 25%")
+	var roll0: float = Economy.shop_roll("nyc_bodega_0")
+	assert(eco.price(100, "nyc_bodega_0") == roundi(100 * roll0 * 0.75))
+	game.save_extra["world/city"] = "nyc"
+	game.return_pos = game.bodega_doors[0]
+	game.shop.refresh()
+	var row0: Dictionary = game.shop.rows[0]
+	assert("[s]" in row0.price.text, "discounted price strikes the list price")
+	player.treats = 1000
+	game.shop.buy(0, 1)  # first purchase pays the "Buy something" quest; get it out of the way
+	player.treats = 1000
+	var purina: int = player.purina
+	var each: int = game.shop.price_of(0)
+	assert(game.shop.buy(0, 5) == 5 and player.treats == 1000 - 5 * each and player.purina == purina + 5, "buy x5")
+	player.treats = each - 1
+	assert(game.shop.buy(0, 1) == 0 and player.treats == each - 1, "can't buy what you can't afford")
+	for id in ["cat_mango", "block", "test_extra"]:
+		eco.clear_discount(id)
+	game.shop.refresh()
+	assert(not "[s]" in row0.price.text and eco.discount_label() == "")
+	eco.bones = 7
+	game.save_game()
+	eco.bones = 0
+	game.load_game()
+	assert(eco.bones == 7, "bones saved")
+	var v1b := ConfigFile.new()
+	v1b.set_value("dog", "level", 5)
+	v1b.set_value("dog", "points", 0)
+	v1b.save(SAVE)
+	game.load_game()
+	assert(eco.bones == 0, "v1 save: bones default 0")
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game

@@ -8,4 +8,10 @@ const PREY := {
 }
 
 const SHOP := [["purina", 5], ["water", 3], ["collar", 25]]
-const SHOP_INFO := {"purina": "Purina  (+50 food, +40 HP)", "water": "Water  (+60 thirst)", "collar": "Name Collar"}
+## Shop rows (spec 11 Shop): display name, effect line, icon (game.tex key, "" = none).
+const ITEM_INFO := {
+	"purina": {"name": "Purina", "effect": "+50 food, +40 HP", "icon": "purina"},
+	"water": {"name": "Water", "effect": "+60 thirst", "icon": "water_bowl"},
+	"collar": {"name": "Name Collar", "effect": "rename your dog", "icon": ""},
+}
+const SHOP_INFO :={"purina": "Purina  (+50 food, +40 HP)", "water": "Water  (+60 thirst)", "collar": "Name Collar"}

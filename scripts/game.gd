@@ -27,6 +27,8 @@ const Subway := preload("res://scripts/world/subway.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
 const Items := preload("res://scripts/data/items.gd")
+const Economy := preload("res://scripts/systems/economy.gd")
+const ShopUi := preload("res://scripts/ui/shop.gd")
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
 const SHOP := Items.SHOP
@@ -123,6 +125,8 @@ var spawner: Node  # scripts/world/spawner.gd
 var fx: Node  # scripts/world/fx.gd
 var subway: Node  # scripts/world/subway.gd
 var city: Node  # scripts/world/city_builder.gd
+var economy: Node  # scripts/systems/economy.gd
+var shop: Node  # scripts/ui/shop.gd
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var pois: Array[Dictionary] = []  # {pos, text, color} — shops, stations, water
@@ -157,7 +161,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street]]:
+	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["economy", Economy]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -510,24 +514,8 @@ func quest_text() -> String:
 	return Quests.text(self)
 
 func on_number(n: int) -> void:
-	if ctx == "bodega" and n < SHOP.size():
-		var item: String = SHOP[n][0]
-		var price: int = SHOP[n][1]
-		if player.treats < price:
-			show_msg("Need %d treats for that" % price)
-			return
-		player.treats -= price
-		sfx("buy")
-		if item == "collar":
-			player.frozen = true
-			name_edit.text = player.collar
-			name_edit.show()
-			name_edit.grab_focus()
-		else:
-			player.set(item, player.get(item) + 1)
-			show_msg("Bought %s" % item)
-		bump("bought")
-		save_game()
+	if ctx == "bodega":
+		shop.buy(n, 5 if Input.is_key_pressed(KEY_SHIFT) else 1)
 	elif ctx == "subway" and n < stations.size():
 		if n != station_i and not player.frozen:
 			travel(n)
@@ -556,6 +544,10 @@ func build_hud() -> void:
 	ui.g = self
 	add_child(ui)
 	ui.build_hud()
+	shop = ShopUi.new()
+	shop.g = self
+	add_child(shop)
+	shop.build()
 
 func update_hud(delta: float) -> void:
 	ui.update_hud(delta)
@@ -591,12 +583,7 @@ func update_prompts(delta: float) -> void:
 		if at.distance_to(SHOP_EXIT) < 36.0:
 			set_act("exit", "BODEGA", "[F]  Back to the street")
 		elif at.distance_to(SHOP_COUNTER) < 60.0:
-			ctx = "bodega"
-			var rows := []
-			for i in SHOP.size():
-				rows.append(["[%d]  %s   %d treats" % [i + 1, SHOP_INFO[SHOP[i][0]], SHOP[i][1]],
-					player.treats >= SHOP[i][1]])
-			show_menu("BODEGA   you have %d treats" % player.treats, rows)
+			ctx = "bodega"  # scripts/ui/shop.gd shows its panel while ctx is "bodega"
 	elif inside == "subway":
 		if at.distance_to(SUB_EXIT) < 45.0:
 			set_act("exit", "%s STATION" % stations[station_i].name.to_upper(), "[F]  Stairs up to the street")
