@@ -4,9 +4,9 @@ extends Node2D
 
 const BLOCK := Vector2(512, 384)
 const ROAD := 128.0
-const NX := 6
-const NY := 5
-const WORLD := Vector2(3968, 2688)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128
+const NX := 9
+const NY := 7
+const WORLD := Vector2(5888, 3712)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128; the old 6 x 5 is the top-left
 const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
 const DAY_LENGTH := 240.0
 const CAR_DMG := 30.0
@@ -26,7 +26,11 @@ const Fx := preload("res://scripts/world/fx.gd")
 const Subway := preload("res://scripts/world/subway.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
+const XP := preload("res://scripts/systems/xp.gd")
+const Weather := preload("res://scripts/systems/weather.gd")
 const Items := preload("res://scripts/data/items.gd")
+const Economy := preload("res://scripts/systems/economy.gd")
+const ShopUi := preload("res://scripts/ui/shop.gd")
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
 const SHOP := Items.SHOP
@@ -46,21 +50,20 @@ const LOW_KEYS := ["hp", "hunger", "thirst"]
 
 # Interiors live far off the street map; F at a door / stairwell moves the dog there.
 const WALL_H := 96.0
-const SHOP_O := Vector2(6000, 0)
+const SHOP_O := Vector2(20000, 0)
 const SHOP_ROOM := Rect2(SHOP_O, Vector2(768, 448))
 const SHOP_EXIT := SHOP_O + Vector2(384, 432)
 const SHOP_COUNTER := SHOP_O + Vector2(620, 280)
-const SUB_O := Vector2(6000, 2000)
+const SUB_O := Vector2(20000, 2000)
 const SUB_ROOM := Rect2(SUB_O, Vector2(1152, 448))
 const SUB_EXIT := SUB_O + Vector2(320, 112)
 const SUB_BOARD := SUB_O + Vector2(576, 112)
-const BOSS_O := Vector2(6000, 4000)
+const BOSS_O := Vector2(20000, 4000)
 const BOSS_ROOM := Rect2(BOSS_O, Vector2(960, 640))
 const BOSS_EXIT := BOSS_O + Vector2(480, 624)
-const BOSS_LEVEL_LOSS := 10  # levels lost when the Boss Hedgehog beats the dog
 
-const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4)]
-const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3)]
+const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4), Vector2i(7, 5)]
+const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3), Vector2i(7, 1), Vector2i(2, 6)]
 const LANDMARKS := {Vector2i(3, 1): ["empire_state", "Empire State Building"],
 	Vector2i(1, 1): ["chrysler", "Chrysler Building"]}
 const STATIONS := {Vector2i(4, 0): "Uptown", Vector2i(2, 1): "Midtown",
@@ -123,6 +126,9 @@ var spawner: Node  # scripts/world/spawner.gd
 var fx: Node  # scripts/world/fx.gd
 var subway: Node  # scripts/world/subway.gd
 var city: Node  # scripts/world/city_builder.gd
+var weather: Node  # scripts/systems/weather.gd
+var economy: Node  # scripts/systems/economy.gd
+var shop: Node  # scripts/ui/shop.gd
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var pois: Array[Dictionary] = []  # {pos, text, color} — shops, stations, water
@@ -157,7 +163,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street]]:
+	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -174,9 +180,7 @@ func _ready() -> void:
 	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
 	seed(CITY_SEED)
 	build_bounds()
-	for by in NY:
-		for bx in NX:
-			build_block(Vector2i(bx, by))
+	city.build_blocks()
 	place_manholes()
 	build_interiors()
 	randomize()
@@ -192,6 +196,7 @@ func _ready() -> void:
 
 	player.position = block_origin(PARKS[0]) + BLOCK / 2.0 + Vector2(0, 90)
 	player.spawn_point = player.position
+	Sound.music("", Sound.BOSS)  # a restart mid-fight leaves no boss theme behind
 	set_inside("")
 	player.leveled.connect(func():
 		show_banner("LEVEL %d" % player.level)
@@ -204,10 +209,8 @@ func _ready() -> void:
 	player.died.connect(func():
 		if inside == "boss":
 			hedgehog.stop()
-			var lost := mini(BOSS_LEVEL_LOSS, player.level - 1)
-			player.level -= lost
-			player.xp = 0
-			death_cause = "The Boss Hedgehog flattened you... lost %d levels." % lost
+			player.treats = mini(player.treats, 20)  # spec 06: the hedgehog keeps treats above 20
+			death_cause = "The Boss Hedgehog flattened you... it kept your treats over 20."
 		death_why.text = death_cause + "\nLost half your treats."
 		death_cause = "You blacked out."
 		fade.color.a = 0.0  # in case the dog starved mid-ride
@@ -227,6 +230,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
+	Sound.night = sun() < 0.2
 	night.color = {"shop": Color(1, 0.96, 0.88), "subway": Color(0.8, 0.86, 0.82), "boss": Color(0.85, 0.78, 0.7)}.get(
 		inside, Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun()))
 	spawn_timer -= delta
@@ -280,6 +284,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			card_art.queue_redraw()
 		KEY_SPACE:
 			player.bite()
+		KEY_C:
+			player.dash()
 		KEY_Q:
 			if player.use_purina():
 				sfx("pickup")
@@ -309,6 +315,7 @@ func sun() -> float:
 ## Switch between the street ("") and an interior; clamps the camera to that area.
 func set_inside(room: String, at := player.position) -> void:
 	inside = room
+	Sound.room(room)
 	var r: Rect2 = {"shop": SHOP_ROOM, "subway": SUB_ROOM, "boss": BOSS_ROOM}.get(room, Rect2(Vector2.ZERO, WORLD))
 	cam.limit_left = int(r.position.x)
 	cam.limit_top = int(r.position.y)
@@ -423,6 +430,7 @@ func quit_game() -> void:
 
 func on_boss_woke(b: Node2D) -> void:
 	boss = b
+	Sound.music("boss_fatcat", Sound.BOSS)  # placeholder until each boss has a theme
 	boss_name.text = b.cfg.name
 	show_banner(str(b.cfg.name).to_upper())
 	sfx("bark")
@@ -430,13 +438,14 @@ func on_boss_woke(b: Node2D) -> void:
 func on_boss_left(b: Node2D) -> void:
 	if boss == b:
 		boss = null
+		Sound.music("", Sound.BOSS)
 
 func on_boss_beaten(b: Node2D) -> void:
 	on_boss_left(b)
 	player.treats += b.cfg.treats
-	player.add_xp(b.cfg.xp)
+	var got := XP.award(self, b.cfg.xp, b)
 	show_banner("%s DEFEATED" % str(b.cfg.name).to_upper())
-	show_msg("+%d treats   +%d XP" % [b.cfg.treats, b.cfg.xp])
+	show_msg("+%d treats   +%d XP" % [b.cfg.treats, got])
 	poof(b.position, b.cfg.tint)
 	sfx("levelup")
 
@@ -459,7 +468,7 @@ func on_prey_caught(prey: Node2D) -> void:
 		return
 	var cfg: Dictionary = prey.cfg
 	player.treats += cfg.treats
-	player.add_xp(cfg.xp)
+	XP.award(self, cfg.xp, prey)
 	player.eat(cfg.food, 0.0)
 	float_text(prey.position, "+%d treats" % cfg.treats, Color(1, 0.85, 0.5))
 	poof(prey.position, Color(0.85, 0.85, 0.9))
@@ -474,9 +483,9 @@ func on_prey_escaped(prey: Node2D) -> void:
 	prey.queue_free()
 
 func on_raccoon_beaten(rac: Node2D) -> void:
-	var loot := 3 + randi() % 4
+	var loot: int = rac.stats.treats + randi() % 4
 	player.treats += loot
-	player.add_xp(20 + player.level)
+	XP.award(self, rac.stats.xp, rac)
 	float_text(rac.position, "Raccoon beaten! +%d treats" % loot, Color(1, 0.85, 0.5))
 	poof(rac.position, Color(0.6, 0.6, 0.65))
 	sfx("catch")
@@ -510,24 +519,8 @@ func quest_text() -> String:
 	return Quests.text(self)
 
 func on_number(n: int) -> void:
-	if ctx == "bodega" and n < SHOP.size():
-		var item: String = SHOP[n][0]
-		var price: int = SHOP[n][1]
-		if player.treats < price:
-			show_msg("Need %d treats for that" % price)
-			return
-		player.treats -= price
-		sfx("buy")
-		if item == "collar":
-			player.frozen = true
-			name_edit.text = player.collar
-			name_edit.show()
-			name_edit.grab_focus()
-		else:
-			player.set(item, player.get(item) + 1)
-			show_msg("Bought %s" % item)
-		bump("bought")
-		save_game()
+	if ctx == "bodega":
+		shop.buy(n, 5 if Input.is_key_pressed(KEY_SHIFT) else 1)
 	elif ctx == "subway" and n < stations.size():
 		if n != station_i and not player.frozen:
 			travel(n)
@@ -556,6 +549,10 @@ func build_hud() -> void:
 	ui.g = self
 	add_child(ui)
 	ui.build_hud()
+	shop = ShopUi.new()
+	shop.g = self
+	add_child(shop)
+	shop.build()
 
 func update_hud(delta: float) -> void:
 	ui.update_hud(delta)
@@ -591,12 +588,7 @@ func update_prompts(delta: float) -> void:
 		if at.distance_to(SHOP_EXIT) < 36.0:
 			set_act("exit", "BODEGA", "[F]  Back to the street")
 		elif at.distance_to(SHOP_COUNTER) < 60.0:
-			ctx = "bodega"
-			var rows := []
-			for i in SHOP.size():
-				rows.append(["[%d]  %s   %d treats" % [i + 1, SHOP_INFO[SHOP[i][0]], SHOP[i][1]],
-					player.treats >= SHOP[i][1]])
-			show_menu("BODEGA   you have %d treats" % player.treats, rows)
+			ctx = "bodega"  # scripts/ui/shop.gd shows its panel while ctx is "bodega"
 	elif inside == "subway":
 		if at.distance_to(SUB_EXIT) < 45.0:
 			set_act("exit", "%s STATION" % stations[station_i].name.to_upper(), "[F]  Stairs up to the street")
@@ -612,7 +604,7 @@ func update_prompts(delta: float) -> void:
 	else:
 		if at.distance_to(burrow) < 50.0:
 			set_act("enter_boss", "HEDGEHOG BURROW   final boss, 3 waves",
-				"[F]  Challenge the Boss Hedgehog  (lose %d levels if you fall)" % BOSS_LEVEL_LOSS)
+				"[F]  Challenge the Boss Hedgehog  (it keeps treats over 20 if you fall)")
 		for d in bodega_doors:
 			if at.distance_to(d) < 70.0:
 				set_act("enter_shop", "BODEGA", "[F]  Go inside")

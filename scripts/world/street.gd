@@ -1,6 +1,8 @@
 extends Node
 ## Per-frame street checks: manhole steam, landmark discovery (moved from game.gd).
 
+const XP := preload("res://scripts/systems/xp.gd")
+
 var g: Node2D
 
 func update_steam(delta: float) -> void:
@@ -20,7 +22,6 @@ func check_landmarks() -> void:
 	for l in g.landmarks:
 		if not l.seen and g.player.position.distance_to(l.pos) < 170.0:
 			l.seen = true
-			g.player.add_xp(50)
-			g.show_msg("Discovered the %s!  +50 XP" % l.name)
+			g.show_msg("Discovered the %s!  +%d XP" % [l.name, XP.award(g, 50)])
 			g.sfx("levelup")
 			g.bump("sights")

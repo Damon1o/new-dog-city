@@ -2,6 +2,7 @@ extends RefCounted
 ## Quest tracking. State lives on game (stats, quest_step) so save and tests see it there.
 
 const QUESTS := preload("res://scripts/data/quests.gd").QUESTS
+const XP := preload("res://scripts/systems/xp.gd")
 
 ## Count a quest event; once = only the first time ever (tutorial flags).
 static func bump(g: Node, key: String, once := false) -> void:
@@ -30,7 +31,7 @@ static func check(g: Node) -> void:
 			g.show_msg("%s: %s  -  done!  +%d treats  +%d XP" % [line, str(s[0]).replace("\n", " "), s[3], s[4]])
 			if i + 1 == steps.size():
 				g.show_banner("%s COMPLETE" % line.to_upper())
-			g.player.add_xp(int(s[4]))
+			XP.award(g, int(s[4]))
 
 ## Tracker text: the tutorial on its own until it is finished, then every other line.
 static func text(g: Node) -> String:

@@ -2,7 +2,10 @@ extends Node2D
 ## Prey (pigeon / rat / squirrel): wanders, flees the dog, tires out, gets caught.
 ## Pigeons take wing while fresh; squirrels escape up trees.
 
+const Levels := preload("res://scripts/systems/levels.gd")
+
 var kind := "pigeon"
+var level := 1
 var cfg: Dictionary
 var game: Node2D
 var player: CharacterBody2D
@@ -13,7 +16,8 @@ var tired := 0.0
 
 func setup(p_kind: String, p_cfg: Dictionary, tex: Texture2D, p_game: Node2D) -> void:
 	kind = p_kind
-	cfg = p_cfg
+	level = Levels.level_at(position, p_game.WORLD)
+	cfg = Levels.scale_for_level(p_cfg, level)  # treats and xp
 	game = p_game
 	player = p_game.get_node("Player")
 	sprite = Sprite2D.new()

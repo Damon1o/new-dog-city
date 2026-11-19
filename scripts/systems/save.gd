@@ -5,12 +5,12 @@ extends RefCounted
 const KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst",
 	"points", "stat_hp", "stat_atk", "stat_spd"]
 const VERSION := 2
-## Schema v2 keys no system owns yet ("section/key" -> default). They round-trip through
-## game.save_extra until their system lands and reads/writes them directly.
+## Schema v2 keys ("section/key" -> default). Keys no system owns yet round-trip through
+## game.save_extra; "story/*" keys belong to the Story autoload (Story.to_save / from_save).
 const V2 := {
 	"meta/rebirths": 0, "meta/true_ending": false,
-	"dog/bones": 0, "dog/buffs": {},
-	"world/city": "nyc", "world/pos": Vector2.ZERO, "world/tod": 0.33, "world/day": 1, "world/weather": {},
+	"dog/buffs": {},
+	"world/city": "nyc", "world/tod": 0.33, "world/day": 1, "world/weather": {},
 	"story/flags": [], "story/items": [], "story/keycards": [], "story/floors": {},
 	"cats/points": {}, "cats/today": {},
 	"territory/markers": [], "territory/rep": {},
@@ -24,14 +24,17 @@ static func write(g: Node) -> void:
 	var cfg := ConfigFile.new()
 	for key in KEYS:
 		cfg.set_value("dog", key, g.player.get(key))
+	cfg.set_value("world", "pos", street_pos(g))
+	cfg.set_value("dog", "bones", g.economy.bones)
 	cfg.set_value("world", "seen", g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
 	cfg.set_value("ui", "volume", g.volume.value)
 	cfg.set_value("meta", "version", VERSION)
 	for bus in VOLS:
 		cfg.set_value("ui", VOLS[bus], g.vols[bus].value)
+	var owned: Dictionary = Story.to_save()
 	for k: String in V2:
 		var sk := k.split("/")
-		cfg.set_value(sk[0], sk[1], g.save_extra.get(k, V2[k]))
+		cfg.set_value(sk[0], sk[1], owned[k] if owned.has(k) else g.save_extra.get(k, V2[k]))
 	cfg.set_value("quests", "stats", g.stats)
 	cfg.set_value("quests", "step", g.quest_step)
 	cfg.save(g.save_path)
@@ -39,12 +42,14 @@ static func write(g: Node) -> void:
 static func read(g: Node) -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(g.save_path) != OK:
+		Story.reset()
 		return
 	var player: Node = g.player
 	for key in KEYS:
 		player.set(key, cfg.get_value("dog", key, player.get(key)))
 	if not cfg.has_section_key("dog", "points"):
 		player.points = player.level - 1  # save from before stat points: pay them out now
+	g.economy.bones = maxi(int(cfg.get_value("dog", "bones", 0)), 0)
 	player.skin = clampi(player.skin, 0, player.BREEDS.size() - 1)
 	player.level = clampi(player.level, 1, 100)
 	g.volume.value = cfg.get_value("ui", "volume", 1.0)
@@ -56,6 +61,12 @@ static func read(g: Node) -> void:
 		var sk := k.split("/")
 		var d: Variant = V2[k]
 		g.save_extra[k] = cfg.get_value(sk[0], sk[1], d.duplicate(true) if d is Dictionary or d is Array else d)
+	var pos: Variant = cfg.get_value("world", "pos", false)
+	if pos is Vector2 and g.inside == "":  # no pos (v1 save): stay at the park spawn
+		g.player.position = g.city.fix_pos(pos)
+	Story.from_save(g.save_extra)
+	for k: String in Story.to_save():
+		g.save_extra.erase(k)
 	var seen: Array = cfg.get_value("world", "seen", [])
 	for l in g.landmarks:
 		l.seen = l.name in seen
@@ -64,3 +75,11 @@ static func read(g: Node) -> void:
 	g.stats.sights = maxi(g.stat("sights"), seen.size())  # saves from before quests existed
 	player.apply_skin()
 	player.hp = player.max_hp
+
+## world/pos: the street spot, or indoors the door the dog went in through.
+static func street_pos(g: Node) -> Vector2:
+	match g.inside:
+		"shop": return g.return_pos
+		"subway": return g.stations[g.station_i].pos
+		"boss": return g.burrow
+	return g.player.position

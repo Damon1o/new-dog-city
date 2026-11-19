@@ -5,6 +5,7 @@ signal leveled
 signal died
 signal hit
 
+const XP := preload("res://scripts/systems/xp.gd")
 const PX_PER_MPH := 16.0  # ideas.md top speed 15-20 mph -> 240-320 px/s
 const BREEDS := [
 	{"name": "Pug", "file": "pug", "scale": 2.4, "mph": 15.0, "hp": 90.0, "atk": 8.0, "scare": 0.8},
@@ -14,9 +15,15 @@ const BREEDS := [
 	{"name": "Mastiff", "file": "mastiff", "scale": 3.6, "mph": 15.0, "hp": 160.0, "atk": 18.0, "scare": 1.4},
 ]
 
+# spec 05: dash (C) = 220 px along `facing` over 0.15 s, invulnerable, 25 stamina, 1.2 s cooldown
+const DASH_PX := 220.0
+const DASH_TIME := 0.15
+const DASH_CD := 1.2
+const DASH_COST := 25.0
+
 const STATS := [["stat_hp", "+10 Max HP"], ["stat_atk", "+2 Bite"], ["stat_spd", "+1 mph Speed"]]
 
-var points := 0  # unspent stat points, one per level
+var points := 0  # unspent stat points, one per level (+1 every 10th)
 var stat_hp := 0
 var stat_atk := 0
 var stat_spd := 0
@@ -40,6 +47,8 @@ var dead := false    # death screen is up (or the dog is mid-air off a train)
 var winded := false
 var sprinting := false  # read by the HUD
 var attack_cd := 0.0
+var dash_t := 0.0   # dash time left; > 0 means mid-dash and invulnerable
+var dash_cd := 0.0  # read by the ability bar (M1-7)
 var facing := Vector2.RIGHT
 var anim_t := 0.0
 var name_tag: Label
@@ -77,6 +86,14 @@ func spend(i: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	attack_cd = maxf(attack_cd - delta, 0.0)
+	dash_cd = maxf(dash_cd - delta, 0.0)
+	if dash_t > 0.0:
+		# last step is clamped so the burst covers exactly DASH_PX; walls still stop it
+		var step: float = minf(delta, dash_t)
+		dash_t -= step
+		velocity = facing * (DASH_PX / DASH_TIME) * (step / delta)
+		move_and_slide()
+		return
 	var dir := Vector2.ZERO
 	if not frozen:
 		dir = Vector2(
@@ -88,7 +105,8 @@ func _physics_process(delta: float) -> void:
 	var weak := hunger < 20.0 or thirst < 20.0
 	sprinting = dir != Vector2.ZERO and Input.is_key_pressed(KEY_SHIFT) and not winded
 	var top: float = (float(breed().mph) + stat_spd) * PX_PER_MPH * (0.75 if weak else 1.0)
-	velocity = dir * (top if sprinting else top * 0.6)
+	var w: Node = get_parent().get("weather")  # scripts/systems/weather.gd modifiers
+	velocity = dir * (top * (w.sprint_mult() if w else 1.0) if sprinting else top * 0.6)
 	if dir != Vector2.ZERO:
 		facing = dir
 		anim_t += delta * (14.0 if sprinting else 8.0)
@@ -106,7 +124,7 @@ func _physics_process(delta: float) -> void:
 		stamina = minf(stamina + delta * (6.0 if weak else 16.0), 100.0)
 		winded = winded and stamina < 25.0
 	hunger = maxf(hunger - delta * 0.5, 0.0)
-	thirst = maxf(thirst - delta * (1.4 if sprinting else 0.7), 0.0)
+	thirst = maxf(thirst - delta * (1.4 if sprinting else 0.7) * (w.thirst_mult() if w else 1.0), 0.0)
 	if hunger <= 0.0 or thirst <= 0.0:
 		take_damage(delta * 4.0)
 	elif hunger > 50.0 and thirst > 50.0 and hp < max_hp:
@@ -123,8 +141,18 @@ func bite() -> void:
 	tw.tween_property(sprite, "position", Vector2.ZERO, 0.1)
 	get_parent().on_bite(position + facing * 26.0, 46.0, attack_damage())
 
+## C key. Prey are plain Node2Ds, so the dash already passes through them.
+## ponytail: rain slide (+30%, less steering) waits for weather (M3).
+func dash() -> bool:
+	if frozen or dash_cd > 0.0 or dash_t > 0.0 or stamina < DASH_COST:
+		return false
+	stamina -= DASH_COST
+	dash_cd = DASH_CD
+	dash_t = DASH_TIME
+	return true
+
 func take_damage(amount: float) -> void:
-	if dead:
+	if dead or dash_t > 0.0:
 		return
 	hp -= amount
 	if amount >= 1.0:
@@ -157,12 +185,12 @@ func add_xp(amount: int) -> void:
 	while xp >= xp_needed() and level < 100:
 		xp -= xp_needed()
 		level += 1
-		points += 1
+		points += XP.points_for(level)
 		hp = max_hp
 		leveled.emit()
 
 func xp_needed() -> int:
-	return 20 + level * 10
+	return XP.needed(level)
 
 func eat(hunger_gain: float, hp_gain: float) -> void:
 	hunger = minf(hunger + hunger_gain, 100.0)

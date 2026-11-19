@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="New Dog City"
-run/main_scene="res://scenes/Main.tscn"
+run/main_scene="res://scenes/Home.tscn"
 config/features=PackedStringArray("4.7")
 
 [display]
@@ -26,3 +26,4 @@ textures/canvas_textures/default_texture_filter=0
 [autoload]
 
 Sound="*res://autoload/sound.gd"
+Story="*res://autoload/story.gd"

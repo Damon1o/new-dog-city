@@ -1,6 +1,6 @@
 extends Node2D
 ## Raccoon hiding in a trash can: pops out when the dog gets close, chases, bites.
-## Has HP that scales with the dog's level; beat it for treats.
+## Has a level from where its can sits (systems/levels.gd); beat it for treats.
 
 enum State { HIDDEN, CHASE, WINDUP, LUNGE, RETURN }
 
@@ -8,6 +8,8 @@ const POP_DIST := 90.0
 const CHASE_SPEED := 190.0
 const CHASE_TIME := 4.0
 const BITE_DIST := 24.0
+const BASE := {"hp": 28.0, "dmg": 8.0, "xp": 21, "treats": 3}  # level 1
+const Levels := preload("res://scripts/systems/levels.gd")
 
 var state := State.HIDDEN
 var home := Vector2.ZERO
@@ -17,6 +19,8 @@ var hide_cooldown := 0.0
 var special_cd := 0.0
 var t := 0.0  # windup / lunge timer
 var lunge_dir := Vector2.ZERO
+var level := 1
+var stats: Dictionary = BASE  # BASE scaled to level
 var hp := 0.0
 var max_hp := 1.0
 var knock := Vector2.ZERO
@@ -28,6 +32,8 @@ func setup(p_home: Vector2, tex: Texture2D, p_game: Node2D) -> void:
 	home = p_home
 	position = home
 	game = p_game
+	level = Levels.level_at(home, p_game.WORLD)
+	stats = Levels.scale_for_level(BASE, level)
 	player = p_game.get_node("Player")
 	sprite = Sprite2D.new()
 	sprite.texture = tex
@@ -45,7 +51,7 @@ func _process(delta: float) -> void:
 	match state:
 		State.HIDDEN:
 			if hide_cooldown <= 0.0 and player.position.distance_to(home) < POP_DIST:
-				max_hp = 24.0 + player.level * 4.0
+				max_hp = stats.hp
 				hp = max_hp
 				queue_redraw()
 				visible = true
@@ -58,7 +64,7 @@ func _process(delta: float) -> void:
 			position += to_player.normalized() * CHASE_SPEED * delta
 			sprite.flip_h = to_player.x < 0.0
 			if to_player.length() < BITE_DIST and bite_cooldown <= 0.0:
-				player.take_damage(8.0 + player.level * 0.3)
+				player.take_damage(stats.dmg)
 				bite_cooldown = 1.0
 			special_cd -= delta
 			if special_cd <= 0.0 and to_player.length() > 50.0 and to_player.length() < 170.0:
@@ -79,7 +85,7 @@ func _process(delta: float) -> void:
 			t -= delta
 			position += lunge_dir * CHASE_SPEED * 3.2 * delta
 			if position.distance_to(player.position) < BITE_DIST + 6.0 and bite_cooldown <= 0.0:
-				player.take_damage((8.0 + player.level * 0.3) * 1.5)
+				player.take_damage(stats.dmg * 1.5)
 				bite_cooldown = 1.0
 			if t <= 0.0:
 				state = State.CHASE
