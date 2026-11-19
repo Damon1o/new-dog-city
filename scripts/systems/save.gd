@@ -10,7 +10,7 @@ const VERSION := 2
 const V2 := {
 	"meta/rebirths": 0, "meta/true_ending": false,
 	"dog/bones": 0, "dog/buffs": {},
-	"world/city": "nyc", "world/pos": Vector2.ZERO, "world/tod": 0.33, "world/day": 1, "world/weather": {},
+	"world/city": "nyc", "world/tod": 0.33, "world/day": 1, "world/weather": {},
 	"story/flags": [], "story/items": [], "story/keycards": [], "story/floors": {},
 	"cats/points": {}, "cats/today": {},
 	"territory/markers": [], "territory/rep": {},
@@ -24,6 +24,7 @@ static func write(g: Node) -> void:
 	var cfg := ConfigFile.new()
 	for key in KEYS:
 		cfg.set_value("dog", key, g.player.get(key))
+	cfg.set_value("world", "pos", street_pos(g))
 	cfg.set_value("world", "seen", g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
 	cfg.set_value("ui", "volume", g.volume.value)
 	cfg.set_value("meta", "version", VERSION)
@@ -56,6 +57,9 @@ static func read(g: Node) -> void:
 		var sk := k.split("/")
 		var d: Variant = V2[k]
 		g.save_extra[k] = cfg.get_value(sk[0], sk[1], d.duplicate(true) if d is Dictionary or d is Array else d)
+	var pos: Variant = cfg.get_value("world", "pos", false)
+	if pos is Vector2 and g.inside == "":  # no pos (v1 save): stay at the park spawn
+		g.player.position = g.city.fix_pos(pos)
 	var seen: Array = cfg.get_value("world", "seen", [])
 	for l in g.landmarks:
 		l.seen = l.name in seen
@@ -64,3 +68,11 @@ static func read(g: Node) -> void:
 	g.stats.sights = maxi(g.stat("sights"), seen.size())  # saves from before quests existed
 	player.apply_skin()
 	player.hp = player.max_hp
+
+## world/pos: the street spot, or indoors the door the dog went in through.
+static func street_pos(g: Node) -> Vector2:
+	match g.inside:
+		"shop": return g.return_pos
+		"subway": return g.stations[g.station_i].pos
+		"boss": return g.burrow
+	return g.player.position
