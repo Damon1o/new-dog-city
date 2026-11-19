@@ -15,6 +15,12 @@ const BREEDS := [
 	{"name": "Mastiff", "file": "mastiff", "scale": 3.6, "mph": 15.0, "hp": 160.0, "atk": 18.0, "scare": 1.4},
 ]
 
+# spec 05: dash (C) = 220 px along `facing` over 0.15 s, invulnerable, 25 stamina, 1.2 s cooldown
+const DASH_PX := 220.0
+const DASH_TIME := 0.15
+const DASH_CD := 1.2
+const DASH_COST := 25.0
+
 const STATS := [["stat_hp", "+10 Max HP"], ["stat_atk", "+2 Bite"], ["stat_spd", "+1 mph Speed"]]
 
 var points := 0  # unspent stat points, one per level (+1 every 10th)
@@ -41,6 +47,8 @@ var dead := false    # death screen is up (or the dog is mid-air off a train)
 var winded := false
 var sprinting := false  # read by the HUD
 var attack_cd := 0.0
+var dash_t := 0.0   # dash time left; > 0 means mid-dash and invulnerable
+var dash_cd := 0.0  # read by the ability bar (M1-7)
 var facing := Vector2.RIGHT
 var anim_t := 0.0
 var name_tag: Label
@@ -78,6 +86,14 @@ func spend(i: int) -> void:
 
 func _physics_process(delta: float) -> void:
 	attack_cd = maxf(attack_cd - delta, 0.0)
+	dash_cd = maxf(dash_cd - delta, 0.0)
+	if dash_t > 0.0:
+		# last step is clamped so the burst covers exactly DASH_PX; walls still stop it
+		var step: float = minf(delta, dash_t)
+		dash_t -= step
+		velocity = facing * (DASH_PX / DASH_TIME) * (step / delta)
+		move_and_slide()
+		return
 	var dir := Vector2.ZERO
 	if not frozen:
 		dir = Vector2(
@@ -124,8 +140,18 @@ func bite() -> void:
 	tw.tween_property(sprite, "position", Vector2.ZERO, 0.1)
 	get_parent().on_bite(position + facing * 26.0, 46.0, attack_damage())
 
+## C key. Prey are plain Node2Ds, so the dash already passes through them.
+## ponytail: rain slide (+30%, less steering) waits for weather (M3).
+func dash() -> bool:
+	if frozen or dash_cd > 0.0 or dash_t > 0.0 or stamina < DASH_COST:
+		return false
+	stamina -= DASH_COST
+	dash_cd = DASH_CD
+	dash_t = DASH_TIME
+	return true
+
 func take_damage(amount: float) -> void:
-	if dead:
+	if dead or dash_t > 0.0:
 		return
 	hp -= amount
 	if amount >= 1.0:
