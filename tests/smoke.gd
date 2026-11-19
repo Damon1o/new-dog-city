@@ -99,6 +99,23 @@ func _initialize() -> void:
 	await frames(20)
 	assert(player.hp < player.max_hp, "pounce bites")
 
+	# enemy tag (M1-2): shows after a hit, hides 3 s later; Lv colors; crit numbers
+	rac.set_process(false)  # hold it still, away from the dog
+	player.position = rac.position + Vector2(600, 0)
+	await frames(1)
+	assert(not rac.tag.visible, "tag hidden: far and unhurt")
+	var rac_hp: float = rac.hp
+	rac.hurt(1.0, player.position, true)
+	assert(rac.tag.visible and rac.hp == rac_hp - 1.0, "tag shows after a hit")
+	assert(game.get_child(-1).text == "1!", "crit number gets a !")
+	await frames(170)
+	assert(rac.tag.visible, "tag still up before 3 s")
+	await frames(15)
+	assert(not rac.tag.visible, "tag hides 3 s after the hit")
+	rac.set_process(true)
+	var Tag: GDScript = load("res://scripts/ui/enemy_tag.gd")
+	assert(Tag.level_color(-5) != Color.WHITE and Tag.level_color(4) == Color.WHITE and Tag.level_color(9) != Tag.level_color(10))
+
 	# enemy levels: stats come from the enemy's level, not the dog's
 	var Levels: GDScript = load("res://scripts/systems/levels.gd")
 	var l20: Dictionary = Levels.scale_for_level(rac.BASE, 20)
