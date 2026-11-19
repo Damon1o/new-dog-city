@@ -88,6 +88,34 @@ func _initialize() -> void:
 	player.take_damage(1e9)
 	assert(paused and game.death_panel.visible)
 
+	# Sound autoload: buses exist and route to Master; sfx plays on the SFX bus
+	for bus in ["Music", "SFX", "Ambience"]:
+		var bi := AudioServer.get_bus_index(bus)
+		assert(bi > 0 and AudioServer.get_bus_send(bi) == "Master", "bus " + bus)
+	var sound: Node = root.get_node("Sound")
+	var before := sound.get_child_count()
+	sound.sfx("bark")
+	assert(sound.get_child_count() == before + 1 and sound.get_child(-1).bus == "SFX")
+
+	# save v2: a v1-shaped file loads with defaults; a fully filled v2 save round-trips
+	var Save: GDScript = load("res://scripts/systems/save.gd")
+	var v1 := ConfigFile.new()
+	v1.set_value("dog", "level", 5)
+	v1.set_value("dog", "points", 0)
+	v1.save(SAVE)
+	game.load_game()
+	assert(game.save_version == 1 and player.level == 5 and game.save_extra["world/city"] == "nyc")
+	for k: String in Save.V2:
+		game.save_extra[k] = {"synthetic": k}
+	game.vols.Music.value = 0.25
+	game.save_game()
+	game.save_extra = {}
+	game.vols.Music.value = 1.0
+	game.load_game()
+	assert(game.save_version == 2 and game.vols.Music.value == 0.25)
+	for k: String in Save.V2:
+		assert(game.save_extra[k] == {"synthetic": k}, "v2 round trip " + k)
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game
