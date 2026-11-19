@@ -9,8 +9,6 @@ const NY := 5
 const WORLD := Vector2(3968, 2688)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128
 const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
 const DAY_LENGTH := 240.0
-const SAVE_KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst",
-	"points", "stat_hp", "stat_atk", "stat_spd"]
 const CAR_DMG := 30.0
 const MAX_PREY := 36
 const MAX_TREATS := 25
@@ -20,6 +18,7 @@ const RaccoonScript := preload("res://scripts/raccoon.gd")
 const BossScript := preload("res://scripts/boss.gd")
 const CarScript := preload("res://scripts/car.gd")
 const HedgehogScript := preload("res://scripts/hedgehog.gd")
+const Save := preload("res://scripts/systems/save.gd")
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
@@ -994,34 +993,10 @@ func on_name_entered(text: String) -> void:
 # ---------- save ----------
 
 func save_game() -> void:
-	var cfg := ConfigFile.new()
-	for key in SAVE_KEYS:
-		cfg.set_value("dog", key, player.get(key))
-	cfg.set_value("world", "seen", landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
-	cfg.set_value("ui", "volume", volume.value)
-	cfg.set_value("quests", "stats", stats)
-	cfg.set_value("quests", "step", quest_step)
-	cfg.save(save_path)
+	Save.write(self)
 
 func load_game() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(save_path) != OK:
-		return
-	for key in SAVE_KEYS:
-		player.set(key, cfg.get_value("dog", key, player.get(key)))
-	if not cfg.has_section_key("dog", "points"):
-		player.points = player.level - 1  # save from before stat points: pay them out now
-	player.skin = clampi(player.skin, 0, player.BREEDS.size() - 1)
-	player.level = clampi(player.level, 1, 100)
-	volume.value = cfg.get_value("ui", "volume", 1.0)
-	var seen: Array = cfg.get_value("world", "seen", [])
-	for l in landmarks:
-		l.seen = l.name in seen
-	stats = cfg.get_value("quests", "stats", {})
-	quest_step = cfg.get_value("quests", "step", {})
-	stats.sights = maxi(stat("sights"), seen.size())  # saves from before quests existed
-	player.apply_skin()
-	player.hp = player.max_hp
+	Save.read(self)
 
 # ---------- HUD ----------
 # Everything hangs off `hud` (full-rect) via anchors/containers, so it survives window resizes.
