@@ -25,6 +25,8 @@ const Spawner := preload("res://scripts/world/spawner.gd")
 const Fx := preload("res://scripts/world/fx.gd")
 const Subway := preload("res://scripts/world/subway.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
+const Interior := preload("res://scripts/world/interior.gd")
+const Rooms := preload("res://scripts/data/rooms.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
 const XP := preload("res://scripts/systems/xp.gd")
 const Weather := preload("res://scripts/systems/weather.gd")
@@ -48,19 +50,9 @@ const TRAIN_HALF := 480.0  # half the train's length: 4 cars * 96 px * 2.5 / 2
 const LOW := 0.25  # stat fraction where bars pulse and the vignette appears
 const LOW_KEYS := ["hp", "hunger", "thirst"]
 
-# Interiors live far off the street map; F at a door / stairwell moves the dog there.
+# Interiors (scripts/world/interior.gd) are built one at a time far off the street map.
 const WALL_H := 96.0
-const SHOP_O := Vector2(20000, 0)
-const SHOP_ROOM := Rect2(SHOP_O, Vector2(768, 448))
-const SHOP_EXIT := SHOP_O + Vector2(384, 432)
-const SHOP_COUNTER := SHOP_O + Vector2(620, 280)
-const SUB_O := Vector2(20000, 2000)
-const SUB_ROOM := Rect2(SUB_O, Vector2(1152, 448))
-const SUB_EXIT := SUB_O + Vector2(320, 112)
-const SUB_BOARD := SUB_O + Vector2(576, 112)
-const BOSS_O := Vector2(20000, 4000)
-const BOSS_ROOM := Rect2(BOSS_O, Vector2(960, 640))
-const BOSS_EXIT := BOSS_O + Vector2(480, 624)
+const BOSS_EXIT := Interior.O + Vector2(480, 624)  # burrow exit spot; tools/smoke_test.gd parks the dog by it
 
 const PARKS: Array = NYC.parks
 const BODEGAS: Array = NYC.bodegas
@@ -74,6 +66,8 @@ var trees: Array[Vector2] = []
 var cans: Array[Vector2] = []
 var water_spots: Array[Vector2] = []
 var bodega_doors: Array[Vector2] = []
+var doors: Array[Dictionary] = []      # every street door {pos, template, id, seed, floors, name}
+var door := {}                         # the door under the dog right now (F enters it)
 var stations: Array[Dictionary] = []   # {pos, name}
 var landmarks: Array[Dictionary] = []  # {pos, name, seen}
 var manholes: Array[Dictionary] = []   # {pos, steam, t, on}
@@ -83,8 +77,7 @@ var tod := 0.33  # time of day 0..1, 0.5 = noon
 var ctx := ""    # "bodega" / "subway" — what number keys do right now; "door" = F prompt showing
 var inside := ""  # "" street / "shop" / "subway"
 var act := ""     # what F does right now
-var act_i := 0
-var return_pos := Vector2.ZERO  # street spot the bodega exit leads back to
+var return_pos := Vector2.ZERO  # street door the dog went in by; leaving puts it back there
 var station_i := 0              # station the subway room currently is
 var zoom_tw: Tween
 var train: Sprite2D
@@ -124,6 +117,7 @@ var spawner: Node  # scripts/world/spawner.gd
 var fx: Node  # scripts/world/fx.gd
 var subway: Node  # scripts/world/subway.gd
 var city: Node  # scripts/world/city_builder.gd
+var interior: Node  # scripts/world/interior.gd
 var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
@@ -162,7 +156,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -177,8 +171,10 @@ func _ready() -> void:
 	add_child(night)
 
 	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
-	build_interiors()  # before the city: interiors stay on game, the city node gets freed on travel
 	city.build("nyc")
+	hedgehog = HedgehogScript.new()
+	add_child(hedgehog)
+	hedgehog.setup(self, Rect2(Interior.O, Rooms.ROOMS.burrow.size))
 	randomize()
 	for b in BOSSES:
 		var boss_node: Node2D = BossScript.new()
@@ -227,8 +223,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
 	Sound.night = sun() < 0.2
-	night.color = {"shop": Color(1, 0.96, 0.88), "subway": Color(0.8, 0.86, 0.82), "boss": Color(0.85, 0.78, 0.7)}.get(
-		inside, Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun()))
+	night.color = interior.tint if inside != "" else Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun())
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
 		spawn_timer = 1.5
@@ -314,7 +309,9 @@ func sun() -> float:
 func set_inside(room: String, at := player.position) -> void:
 	inside = room
 	Sound.room(room)
-	var r: Rect2 = {"shop": SHOP_ROOM, "subway": SUB_ROOM, "boss": BOSS_ROOM}.get(room, Rect2(Vector2.ZERO, WORLD))
+	if room == "":
+		interior.clear()
+	var r: Rect2 = interior.rect if room != "" else Rect2(Vector2.ZERO, WORLD)
 	cam.limit_left = int(r.position.x)
 	cam.limit_top = int(r.position.y)
 	cam.limit_right = int(r.end.x)
@@ -330,22 +327,12 @@ func interact() -> void:
 	if player.frozen:
 		return
 	match act:
-		"enter_shop":
-			return_pos = player.position
-			set_inside("shop", SHOP_EXIT - Vector2(0, 52))
-			bump("shop", true)
-		"enter_subway":
-			station_i = act_i
-			station_sign.text = stations[act_i].name
-			set_inside("subway", SUB_EXIT + Vector2(0, 60))
-		"enter_boss":
-			set_inside("boss", BOSS_EXIT - Vector2(0, 52))
-			hedgehog.start()
-			bump("burrow", true)
+		"enter":
+			interior.enter(door)
+		"enter_boss":  # shortcut tools/smoke_test.gd uses
+			interior.enter(doors.filter(func(d): return d.template == "burrow")[0])
 		"exit":
-			hedgehog.stop()  # fleeing the den resets the fight
-			set_inside("", {"shop": return_pos, "boss": burrow + Vector2(0, 50)}.get(
-				inside, stations[station_i].pos + Vector2(0, 62)))
+			interior.leave()
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:
@@ -582,34 +569,29 @@ func update_prompts(delta: float) -> void:
 	var at := player.position
 	if player.frozen:
 		pass  # riding the train or typing a name: no prompts
-	elif inside == "shop":
-		if at.distance_to(SHOP_EXIT) < 36.0:
-			set_act("exit", "BODEGA", "[F]  Back to the street")
-		elif at.distance_to(SHOP_COUNTER) < 60.0:
+	elif inside != "":
+		var spots: Dictionary = interior.spots
+		if interior.room == null:
+			pass  # a test set `inside` without going through a door
+		elif at.distance_to(spots.exit) < 40.0:
+			var e: Array = interior.data().exit
+			var n: String = interior.door.name
+			set_act("exit", e[0].format({"name": n, "NAME": n.to_upper()}),
+				"[F]  Flee to the street" if inside == "boss" and hedgehog.active else e[1])
+		elif spots.has("counter") and at.distance_to(spots.counter) < 60.0:
 			ctx = "bodega"  # scripts/ui/shop.gd shows its panel while ctx is "bodega"
-	elif inside == "subway":
-		if at.distance_to(SUB_EXIT) < 45.0:
-			set_act("exit", "%s STATION" % stations[station_i].name.to_upper(), "[F]  Stairs up to the street")
-		elif at.distance_to(SUB_BOARD) < 50.0:
+		elif spots.has("board") and at.distance_to(spots.board) < 50.0:
 			ctx = "subway"
 			var rows := []
 			for k in stations.size():
 				rows.append(["[%d]  %s%s" % [k + 1, stations[k].name, "   (you are here)" if k == station_i else ""], k != station_i])
 			show_menu("SUBWAY MAP", rows)
-	elif inside == "boss":
-		if at.distance_to(BOSS_EXIT) < 40.0:
-			set_act("exit", "HEDGEHOG DEN", "[F]  Flee to the street" if hedgehog.active else "[F]  Back to the street")
 	else:
-		if at.distance_to(burrow) < 50.0:
-			set_act("enter_boss", "HEDGEHOG BURROW   final boss, 3 waves",
-				"[F]  Challenge the Boss Hedgehog  (it keeps treats over 20 if you fall)")
-		for d in bodega_doors:
-			if at.distance_to(d) < 70.0:
-				set_act("enter_shop", "BODEGA", "[F]  Go inside")
-		for i in stations.size():
-			if at.distance_to(stations[i].pos) < 50.0:
-				act_i = i
-				set_act("enter_subway", "SUBWAY   %s" % stations[i].name, "[F]  Take the stairs down")
+		for d in doors:
+			if at.distance_to(d.pos) < 45.0:
+				door = d
+				var t: Array = Rooms.ROOMS[d.template].door
+				set_act("enter", t[0].format({"name": d.name, "NAME": d.name.to_upper()}).strip_edges(), t[1])
 
 	marker = {}
 	var best := 260.0
@@ -636,9 +618,6 @@ func build_block(b: Vector2i) -> void:
 
 func place_manholes() -> void:
 	city.place_manholes()
-
-func build_interiors() -> void:
-	city.build_interiors()
 
 # ---------- scripts/world/subway.gd ----------
 

@@ -1,5 +1,5 @@
 extends Node
-## City building: ground, blocks, props, interiors (moved from game.gd).
+## City building: ground, blocks, props, street doors (moved from game.gd).
 
 var g: Node2D
 
@@ -19,7 +19,7 @@ func build(city_id: String) -> void:
 	var seen: Array = g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name)
 	if root:
 		root.free()
-	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.stations, g.landmarks, g.manholes]:
+	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.doors, g.stations, g.landmarks, g.manholes]:
 		list.clear()
 	id = city_id
 	root = Node2D.new()
@@ -132,22 +132,6 @@ func draw_ground() -> void:
 				g.ground.draw_rect(Rect2(g.ROAD + i * step.x + k * 32 + 6, j * step.y + 62, 20, 4), yellow)
 	for p in g.parks:
 		g.ground.draw_texture_rect(g.tex.grass, p.grow(-8), true)
-	# interiors, on black so a wide window never shows past the walls
-	g.ground.draw_rect(g.SHOP_ROOM.grow(1200), Color.BLACK)
-	g.ground.draw_rect(g.SUB_ROOM.grow(1200), Color.BLACK)
-	g.ground.draw_texture_rect(g.tex.shop_floor, g.SHOP_ROOM, true)
-	g.ground.draw_texture_rect(g.tex.shop_wall, Rect2(g.SHOP_O, Vector2(g.SHOP_ROOM.size.x, g.WALL_H)), true)
-	g.ground.draw_rect(Rect2(g.SHOP_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.55, 0.15, 0.15))  # door mat
-	g.ground.draw_texture_rect(g.tex.platform, g.SUB_ROOM, true)
-	g.ground.draw_texture_rect(g.tex.station_wall, Rect2(g.SUB_O, Vector2(g.SUB_ROOM.size.x, g.WALL_H)), true)
-	g.ground.draw_rect(Rect2(g.SUB_O + Vector2(0, 88), Vector2(g.SUB_ROOM.size.x, 8)), Color(0.15, 0.4, 0.25))
-	g.ground.draw_rect(Rect2(g.SUB_O + Vector2(0, 308), Vector2(g.SUB_ROOM.size.x, 12)), yellow)  # platform edge
-	g.ground.draw_texture_rect(g.tex.track, Rect2(g.SUB_O + Vector2(0, 320), Vector2(g.SUB_ROOM.size.x, 128)), true)
-	# g.boss den under the park, and the g.burrow that leads down to it
-	g.ground.draw_rect(g.BOSS_ROOM.grow(1200), Color.BLACK)
-	g.ground.draw_texture_rect(g.tex.grass, g.BOSS_ROOM, true, Color(1.0, 0.8, 0.55))
-	g.ground.draw_texture_rect(g.tex.station_wall, Rect2(g.BOSS_O, Vector2(g.BOSS_ROOM.size.x, g.WALL_H)), true, Color(0.5, 0.35, 0.25))
-	g.ground.draw_rect(Rect2(g.BOSS_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.1, 0.07, 0.05))
 	g.ground.draw_circle(g.burrow, 30.0, Color(0.35, 0.25, 0.15))
 	g.ground.draw_circle(g.burrow, 22.0, Color(0.05, 0.04, 0.03))
 
@@ -198,11 +182,20 @@ func add_can(pos: Vector2) -> void:
 	holder().add_child(rac)
 	rac.setup(pos + Vector2(0, 2), g.tex.raccoon, g)
 
+## Street door (spec 03). id "<city>:<bx>,<by>:<slot>" is stable, so per-room state can be saved.
+func add_door(pos: Vector2, template: String, b: Vector2i, slot: int, floors := 1, door_name := "") -> Dictionary:
+	var id := "%s:%d,%d:%d" % [g.save_extra.get("world/city", "nyc"), b.x, b.y, slot]
+	var d := {"pos": pos, "template": template, "id": id, "seed": hash(id), "floors": floors, "name": door_name}
+	g.doors.append(d)
+	return d
+
 func build_block(b: Vector2i) -> void:
 	var o := block_origin(b)
 	var c = o + g.BLOCK / 2.0
 	if b in g.PARKS:
 		g.parks.append(Rect2(o, g.BLOCK))
+		if Rect2(o, g.BLOCK).has_point(g.burrow):
+			add_door(g.burrow, "burrow", b, 0)
 		add_prop(g.tex.fountain, c, 2.5)
 		add_static_box(c - Vector2(0, 20), Vector2(90, 36))
 		g.water_spots.append(c + Vector2(0, 6))
@@ -214,12 +207,14 @@ func build_block(b: Vector2i) -> void:
 		var base := o + Vector2(256, 372)
 		add_building(g.tex[g.LANDMARKS[b][0]], base, 2.5, 0.45)
 		g.landmarks.append({"pos": base, "name": g.LANDMARKS[b][1], "seen": false})
+		add_door(base + Vector2(0, 18), "office", b, 0, 6, g.LANDMARKS[b][1])
 		add_tree(o + Vector2(60, 360))
 		add_tree(o + Vector2(452, 360))
 	elif b in g.BODEGAS:
 		var base := o + Vector2(256, 240)
 		add_building(g.tex.bodega, base, 2.0, 0.6)
 		g.bodega_doors.append(base + Vector2(54, 24))
+		add_door(base + Vector2(54, 24), "bodega", b, 0)
 		add_prop(g.tex.water_bowl, base + Vector2(-70, 34), 2.5)
 		g.water_spots.append(base + Vector2(-70, 30))
 		add_can(o + Vector2(450, 250))
@@ -230,13 +225,14 @@ func build_block(b: Vector2i) -> void:
 				var kind: String = ["building_a", "building_b", "building_c"].pick_random()
 				add_building(g.tex[kind], o + Vector2(96 + i * 160, 236), 1.5, 0.6,
 					Color.from_hsv(randf(), 0.15, randf_range(0.8, 1.0)))
+				add_door(o + Vector2(96 + i * 160, 256), g.Rooms.BY_BUILDING[kind], b, i)
 		add_can(o + Vector2(randf_range(40, 170), randf_range(285, 360)))
 		if randf() < 0.5:
 			add_can(o + Vector2(randf_range(340, 470), randf_range(285, 360)))
 		if g.STATIONS.has(b):
 			var pos := o + Vector2(256, 340)
 			add_prop(g.tex.subway, pos, 1.5)
-			g.stations.append({"pos": pos, "name": g.STATIONS[b]})
+			g.stations.append({"pos": pos, "name": g.STATIONS[b], "door": add_door(pos, "subway", b, 3, 1, g.STATIONS[b])})
 		elif randf() < 0.5:
 			add_prop(g.tex.hydrant, o + Vector2(256, 300), 2.0)
 			g.water_spots.append(o + Vector2(256, 300))
@@ -277,46 +273,3 @@ func add_manhole(pos: Vector2) -> void:
 	p.color = Color(1, 1, 1, 0.55)
 	holder().add_child(p)
 	g.manholes.append({"pos": pos, "steam": p, "t": randf_range(2.0, 7.0), "on": false})
-
-func build_interiors() -> void:
-	g.hedgehog = g.HedgehogScript.new()
-	g.add_child(g.hedgehog)
-	g.hedgehog.setup(g, g.BOSS_ROOM)
-	for r: Rect2 in [g.SHOP_ROOM, g.SUB_ROOM, g.BOSS_ROOM]:  # back wall + three bounds
-		add_static_box(r.position + Vector2(r.size.x / 2, g.WALL_H / 2), Vector2(r.size.x, g.WALL_H))
-		add_static_box(r.position + Vector2(-16, r.size.y / 2), Vector2(32, r.size.y))
-		add_static_box(r.position + Vector2(r.size.x + 16, r.size.y / 2), Vector2(32, r.size.y))
-		add_static_box(r.position + Vector2(r.size.x / 2, r.size.y + 16), Vector2(r.size.x, 32))
-
-	# bodega: shelves on the back wall and the floor, counter with the cat in charge
-	for p in [Vector2(80, 130), Vector2(190, 130), Vector2(300, 130), Vector2(410, 130),
-			Vector2(150, 320), Vector2(330, 320)]:
-		add_prop(g.tex.shelf, g.SHOP_O + p, 2.0)
-		add_static_box(g.SHOP_O + p - Vector2(0, 12), Vector2(96, 24))
-	var counter = g.SHOP_COUNTER - Vector2(0, 30)
-	add_prop(g.tex.counter, counter, 2.0)
-	add_static_box(counter - Vector2(0, 20), Vector2(128, 40))
-	add_prop(g.tex.cat, counter + Vector2(-30, 1), 2.5).offset.y -= 22.0  # sits on the countertop
-
-	# subway: exit stairs and map board set into the wall, pillars, tracks, g.train
-	add_prop(g.tex.stairs, g.SUB_EXIT - Vector2(0, 12), 2.0)
-	add_prop(g.tex.map_board, g.SUB_O + Vector2(576, 84), 2.0)
-	for x in [200, 456, 712, 968]:
-		add_prop(g.tex.pillar, g.SUB_O + Vector2(x, 296), 2.5)
-		add_static_box(g.SUB_O + Vector2(x, 291), Vector2(20, 10))
-	g.station_sign = Label.new()
-	g.station_sign.position = g.SUB_O + Vector2(476, 6)
-	g.station_sign.size = Vector2(200, 26)
-	g.station_sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var sign_bg := StyleBoxFlat.new()
-	sign_bg.bg_color = Color(0.08, 0.08, 0.1)
-	g.station_sign.add_theme_stylebox_override("normal", sign_bg)
-	g.add_child(g.station_sign)
-	g.train = Sprite2D.new()
-	g.train.texture = g.tex.train
-	g.train.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	g.train.region_enabled = true
-	g.train.region_rect = Rect2(0, 0, g.tex.train.get_width() * 4, g.tex.train.get_height())  # 4 cars
-	g.train.scale = Vector2(2.5, 2.5)
-	g.train.position = g.SUB_O + Vector2(-600, 372)
-	g.add_child(g.train)
