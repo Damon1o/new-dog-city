@@ -20,6 +20,9 @@ const CarScript := preload("res://scripts/car.gd")
 const HedgehogScript := preload("res://scripts/hedgehog.gd")
 const Save := preload("res://scripts/systems/save.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
+const Street := preload("res://scripts/world/street.gd")
+const Spawner := preload("res://scripts/world/spawner.gd")
+const Fx := preload("res://scripts/world/fx.gd")
 const Subway := preload("res://scripts/world/subway.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
@@ -115,6 +118,9 @@ var ground: Node2D
 var night: CanvasModulate
 var hud: Control  # HUD root Control (built by ui)
 var ui: Node  # scripts/ui/hud.gd
+var street: Node  # scripts/world/street.gd
+var spawner: Node  # scripts/world/spawner.gd
+var fx: Node  # scripts/world/fx.gd
 var subway: Node  # scripts/world/subway.gd
 var city: Node  # scripts/world/city_builder.gd
 var bars := {}   # key -> {ctl, color, v, ghost, text}
@@ -151,7 +157,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["subway", Subway]]:
+	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -366,39 +372,6 @@ func random_spot(min_dist: float) -> Vector2:
 func sfx(sound: String) -> void:
 	Sound.sfx(sound)
 
-func float_text(pos: Vector2, text: String, color := Color.WHITE) -> void:
-	var l := Label.new()
-	l.text = text
-	l.position = pos + Vector2(-20, -44)
-	l.z_index = 20
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_outline_color", Color.BLACK)
-	l.add_theme_constant_override("outline_size", 4)
-	add_child(l)
-	var tw := create_tween()
-	tw.tween_property(l, "position:y", l.position.y - 40.0, 0.8)
-	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8)
-	tw.tween_callback(l.queue_free)
-
-func poof(pos: Vector2, color: Color) -> void:
-	var p := CPUParticles2D.new()
-	p.position = pos
-	p.z_index = 5
-	p.one_shot = true
-	p.explosiveness = 1.0
-	p.amount = 14
-	p.lifetime = 0.5
-	p.spread = 180.0
-	p.gravity = Vector2.ZERO
-	p.initial_velocity_min = 40.0
-	p.initial_velocity_max = 110.0
-	p.scale_amount_min = 2.0
-	p.scale_amount_max = 4.0
-	p.color = color
-	add_child(p)
-	p.emitting = true
-	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
-
 # ---------- systems ----------
 
 func respawn() -> void:
@@ -466,92 +439,6 @@ func on_boss_beaten(b: Node2D) -> void:
 	show_msg("+%d treats   +%d XP" % [b.cfg.treats, b.cfg.xp])
 	poof(b.position, b.cfg.tint)
 	sfx("levelup")
-
-func update_steam(delta: float) -> void:
-	for m in manholes:
-		m.t -= delta
-		if m.t <= 0.0:
-			m.on = not m.on
-			m.steam.emitting = m.on
-			m.t = 1.5 if m.on else randf_range(3.5, 8.0)
-			if m.on and player.position.distance_to(m.pos) < 500.0:
-				sfx("steam")
-		if m.on and player.position.distance_to(m.pos) < 38.0:
-			player.take_damage(delta * 30.0)
-			shake_amt = maxf(shake_amt, 2.0)
-
-func check_pickups() -> void:
-	for s in treat_sprites:
-		if player.position.distance_to(s.position) < 26.0:
-			player.treats += 1
-			float_text(s.position, "+1 treat", Color(1, 0.85, 0.5))
-			sfx("pickup")
-			treat_sprites.erase(s)
-			s.queue_free()
-			return  # one per frame; list was mutated
-
-func check_landmarks() -> void:
-	for l in landmarks:
-		if not l.seen and player.position.distance_to(l.pos) < 170.0:
-			l.seen = true
-			player.add_xp(50)
-			show_msg("Discovered the %s!  +50 XP" % l.name)
-			sfx("levelup")
-			bump("sights")
-
-func spawn_treat() -> void:
-	var p := random_spot(200.0)
-	if p.x < 0:
-		return
-	var s := Sprite2D.new()
-	s.texture = tex.treat
-	s.position = p
-	s.scale = Vector2(2, 2)
-	add_child(s)
-	treat_sprites.append(s)
-
-func spawn_prey() -> void:
-	var kind := "pigeon"
-	var pos := random_spot(350.0)
-	var roll := randf()
-	if roll < 0.3:  # squirrels live in parks
-		kind = "squirrel"
-		var r: Rect2 = parks.pick_random()
-		pos = r.position + Vector2(randf(), randf()) * r.size
-	elif roll < (0.75 if sun() < 0.3 else 0.55):  # rats by the trash, more at night
-		kind = "rat"
-		var can: Vector2 = cans.pick_random()
-		pos = can + Vector2(randf_range(-60, 60), randf_range(10, 50))
-	if pos.x < 0 or pos.distance_to(player.position) < 350.0:
-		return
-	for i in (3 if kind == "pigeon" else 1):  # pigeons flock
-		var prey: Node2D = PreyScript.new()
-		prey.position = pos + Vector2(randf_range(-30, 30), randf_range(-30, 30)) * float(i > 0)
-		add_child(prey)
-		prey.setup(kind, PREY[kind], tex[kind], self)
-
-## Three claw marks that pop at the hit point, facing the attack, then fade.
-func scratch(center: Vector2, dir: Vector2) -> void:
-	var n := Node2D.new()
-	n.position = center
-	n.rotation = dir.angle()
-	n.z_index = 6
-	n.scale = Vector2(0.4, 0.4)
-	for i in 3:
-		var x := (i - 1) * 10.0
-		for stroke in [[6.0, Color(0.75, 0.1, 0.1)], [3.0, Color(1, 0.96, 0.9)]]:  # red edge, white core
-			var l := Line2D.new()
-			l.points = PackedVector2Array([Vector2(x + 12, -18), Vector2(x - 12, 18)])
-			l.width = stroke[0]
-			l.default_color = stroke[1]
-			l.begin_cap_mode = Line2D.LINE_CAP_ROUND
-			l.end_cap_mode = Line2D.LINE_CAP_ROUND
-			n.add_child(l)
-	add_child(n)
-	var tw := create_tween()
-	tw.tween_property(n, "scale", Vector2.ONE * 1.25, 0.08)
-	tw.tween_property(n, "modulate:a", 0.0, 0.2)
-	tw.tween_callback(n.queue_free)
 
 func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	sfx("bark")
@@ -770,3 +657,33 @@ func travel(n: int) -> void:
 
 func update_train(delta: float) -> void:
 	subway.update_train(delta)
+
+# ---------- scripts/world/fx.gd ----------
+
+func float_text(pos: Vector2, text: String, color := Color.WHITE) -> void:
+	fx.float_text(pos, text, color)
+
+func poof(pos: Vector2, color: Color) -> void:
+	fx.poof(pos, color)
+
+func scratch(center: Vector2, dir: Vector2) -> void:
+	fx.scratch(center, dir)
+
+# ---------- scripts/world/spawner.gd ----------
+
+func spawn_treat() -> void:
+	spawner.spawn_treat()
+
+func spawn_prey() -> void:
+	spawner.spawn_prey()
+
+func check_pickups() -> void:
+	spawner.check_pickups()
+
+# ---------- scripts/world/street.gd ----------
+
+func update_steam(delta: float) -> void:
+	street.update_steam(delta)
+
+func check_landmarks() -> void:
+	street.check_landmarks()
