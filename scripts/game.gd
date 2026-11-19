@@ -20,6 +20,11 @@ const CarScript := preload("res://scripts/car.gd")
 const HedgehogScript := preload("res://scripts/hedgehog.gd")
 const Save := preload("res://scripts/systems/save.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
+const Items := preload("res://scripts/data/items.gd")
+const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
+const PREY := Items.PREY
+const SHOP := Items.SHOP
+const SHOP_INFO := Items.SHOP_INFO
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
@@ -28,25 +33,9 @@ const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "bu
 	"pillar", "stairs", "map_board", "train"]
 const SFX_NAMES := ["bark", "catch", "hurt", "buy", "levelup", "steam", "subway", "pickup"]
 
-const PREY := {
-	"pigeon": {"speed": 120.0, "flee": 150.0, "treats": 2, "xp": 8, "food": 8.0},
-	"rat": {"speed": 105.0, "flee": 110.0, "treats": 1, "xp": 5, "food": 5.0},
-	"squirrel": {"speed": 150.0, "flee": 190.0, "treats": 4, "xp": 14, "food": 10.0},
-}
-# One boss per park (index into PARKS; park 0 is the dog's spawn). special: see boss.gd.
-const BOSSES := [
-	{"name": "King of Raccoons", "tex": "raccoon", "park": 3, "hp": 260.0, "speed": 150.0, "dmg": 14.0,
-		"specials": ["charge", "slam"], "tint": Color(1, 0.85, 0.4), "treats": 40, "xp": 150},
-	{"name": "The Pideon Queen", "tex": "pigeon", "park": 1, "hp": 180.0, "speed": 175.0, "dmg": 9.0,
-		"specials": ["feathers", "storm"], "tint": Color(1, 0.6, 0.9), "treats": 30, "xp": 120},
-	{"name": "The Rat Meister", "tex": "rat", "park": 2, "hp": 220.0, "speed": 135.0, "dmg": 11.0,
-		"specials": ["rats", "burrow"], "tint": Color(0.6, 1, 0.5), "treats": 35, "xp": 135},
-]
 const BOSS_COLOR := Color(0.85, 0.3, 1)
 const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway
 const TRAIN_HALF := 480.0  # half the train's length: 4 cars * 96 px * 2.5 / 2
-const SHOP := [["purina", 5], ["water", 3], ["collar", 25]]
-const SHOP_INFO := {"purina": "Purina  (+50 food, +40 HP)", "water": "Water  (+60 thirst)", "collar": "Name Collar"}
 const LOW := 0.25  # stat fraction where bars pulse and the vignette appears
 const LOW_KEYS := ["hp", "hunger", "thirst"]
 
