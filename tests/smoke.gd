@@ -105,16 +105,52 @@ func _initialize() -> void:
 	v1.save(SAVE)
 	game.load_game()
 	assert(game.save_version == 1 and player.level == 5 and game.save_extra["world/city"] == "nyc")
+	var story: Node = root.get_node("Story")
+	assert(story.flags.is_empty() and story.keycards.is_empty(), "v1 save: empty story")
 	for k: String in Save.V2:
-		game.save_extra[k] = {"synthetic": k}
+		if not k.begins_with("story/"):  # owned by Story, filled below
+			game.save_extra[k] = {"synthetic": k}
+	story.set_flag("ch1_bodega")
+	story.add_item("lanyard")
+	story.add_keycard("nyc")
+	story.clear_floor("nyc_1", 41.5)
+	var story_saved: Dictionary = story.to_save()
 	game.vols.Music.value = 0.25
 	game.save_game()
 	game.save_extra = {}
+	story.reset()
 	game.vols.Music.value = 1.0
 	game.load_game()
 	assert(game.save_version == 2 and game.vols.Music.value == 0.25)
 	for k: String in Save.V2:
-		assert(game.save_extra[k] == {"synthetic": k}, "v2 round trip " + k)
+		if not k.begins_with("story/"):
+			assert(game.save_extra[k] == {"synthetic": k}, "v2 round trip " + k)
+	assert(story.to_save() == story_saved, "story round trip")
+
+	# Story gates: G1 needs level 20 + the NYC keycard; popup shows why and Find XP sets a waypoint
+	story.reset()
+	assert(story.objective() == "Find Sam's things at the bodega" and story.target() == story.NO_TARGET)
+	story.spots["bodega"] = Vector2(100, 200)
+	assert(story.target() == Vector2(100, 200))
+	story.set_flag("ch1_bodega")
+	assert(story.objective().contains("Fat Cat"))
+	assert(not story.gate_open("G1", 20) and story.gate_block("G1", 20).contains("keycard"))
+	story.add_keycard("nyc")
+	assert(not story.gate_open("G1", 19) and story.gate_block("G1", 19) == "Level 20 required (you are 19)")
+	assert(story.gate_open("G1", 20), "G1 open at 20 with keycard")
+	assert(not story.gate_open("G2", 99) and story.gate_open("G0", 1))
+	player.level = 19
+	var GatePopup: GDScript = load("res://scripts/ui/gate_popup.gd")
+	var popup: Node = GatePopup.open(game, "G1")
+	assert(player.frozen and popup.req.text == "Level 20 required (you are 19)")
+	bosses[1].show()  # all bosses were beaten above; stand one back up as open side content
+	popup.find_btn.pressed.emit()
+	assert(not player.frozen and story.waypoint == bosses[1].home, "Find XP sets the waypoint")
+	bosses[1].hide()
+	await frames(1)
+	assert(not is_instance_valid(popup))
+	story.reset()
+	player.level = 5
 
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)

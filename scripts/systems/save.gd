@@ -5,8 +5,8 @@ extends RefCounted
 const KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst",
 	"points", "stat_hp", "stat_atk", "stat_spd"]
 const VERSION := 2
-## Schema v2 keys no system owns yet ("section/key" -> default). They round-trip through
-## game.save_extra until their system lands and reads/writes them directly.
+## Schema v2 keys ("section/key" -> default). Keys no system owns yet round-trip through
+## game.save_extra; "story/*" keys belong to the Story autoload (Story.to_save / from_save).
 const V2 := {
 	"meta/rebirths": 0, "meta/true_ending": false,
 	"dog/bones": 0, "dog/buffs": {},
@@ -29,9 +29,10 @@ static func write(g: Node) -> void:
 	cfg.set_value("meta", "version", VERSION)
 	for bus in VOLS:
 		cfg.set_value("ui", VOLS[bus], g.vols[bus].value)
+	var owned: Dictionary = Story.to_save()
 	for k: String in V2:
 		var sk := k.split("/")
-		cfg.set_value(sk[0], sk[1], g.save_extra.get(k, V2[k]))
+		cfg.set_value(sk[0], sk[1], owned[k] if owned.has(k) else g.save_extra.get(k, V2[k]))
 	cfg.set_value("quests", "stats", g.stats)
 	cfg.set_value("quests", "step", g.quest_step)
 	cfg.save(g.save_path)
@@ -39,6 +40,7 @@ static func write(g: Node) -> void:
 static func read(g: Node) -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(g.save_path) != OK:
+		Story.reset()
 		return
 	var player: Node = g.player
 	for key in KEYS:
@@ -56,6 +58,9 @@ static func read(g: Node) -> void:
 		var sk := k.split("/")
 		var d: Variant = V2[k]
 		g.save_extra[k] = cfg.get_value(sk[0], sk[1], d.duplicate(true) if d is Dictionary or d is Array else d)
+	Story.from_save(g.save_extra)
+	for k: String in Story.to_save():
+		g.save_extra.erase(k)
 	var seen: Array = cfg.get_value("world", "seen", [])
 	for l in g.landmarks:
 		l.seen = l.name in seen
