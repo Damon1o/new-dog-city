@@ -26,6 +26,7 @@ const Fx := preload("res://scripts/world/fx.gd")
 const Subway := preload("res://scripts/world/subway.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
+const XP := preload("res://scripts/systems/xp.gd")
 const Items := preload("res://scripts/data/items.gd")
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
@@ -57,7 +58,6 @@ const SUB_BOARD := SUB_O + Vector2(576, 112)
 const BOSS_O := Vector2(6000, 4000)
 const BOSS_ROOM := Rect2(BOSS_O, Vector2(960, 640))
 const BOSS_EXIT := BOSS_O + Vector2(480, 624)
-const BOSS_LEVEL_LOSS := 10  # levels lost when the Boss Hedgehog beats the dog
 
 const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4)]
 const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3)]
@@ -204,10 +204,8 @@ func _ready() -> void:
 	player.died.connect(func():
 		if inside == "boss":
 			hedgehog.stop()
-			var lost := mini(BOSS_LEVEL_LOSS, player.level - 1)
-			player.level -= lost
-			player.xp = 0
-			death_cause = "The Boss Hedgehog flattened you... lost %d levels." % lost
+			player.treats = mini(player.treats, 20)  # spec 06: the hedgehog keeps treats above 20
+			death_cause = "The Boss Hedgehog flattened you... it kept your treats over 20."
 		death_why.text = death_cause + "\nLost half your treats."
 		death_cause = "You blacked out."
 		fade.color.a = 0.0  # in case the dog starved mid-ride
@@ -434,9 +432,9 @@ func on_boss_left(b: Node2D) -> void:
 func on_boss_beaten(b: Node2D) -> void:
 	on_boss_left(b)
 	player.treats += b.cfg.treats
-	player.add_xp(b.cfg.xp)
+	var got := XP.award(self, b.cfg.xp, b)
 	show_banner("%s DEFEATED" % str(b.cfg.name).to_upper())
-	show_msg("+%d treats   +%d XP" % [b.cfg.treats, b.cfg.xp])
+	show_msg("+%d treats   +%d XP" % [b.cfg.treats, got])
 	poof(b.position, b.cfg.tint)
 	sfx("levelup")
 
@@ -459,7 +457,7 @@ func on_prey_caught(prey: Node2D) -> void:
 		return
 	var cfg: Dictionary = prey.cfg
 	player.treats += cfg.treats
-	player.add_xp(cfg.xp)
+	XP.award(self, cfg.xp, prey)
 	player.eat(cfg.food, 0.0)
 	float_text(prey.position, "+%d treats" % cfg.treats, Color(1, 0.85, 0.5))
 	poof(prey.position, Color(0.85, 0.85, 0.9))
@@ -476,7 +474,7 @@ func on_prey_escaped(prey: Node2D) -> void:
 func on_raccoon_beaten(rac: Node2D) -> void:
 	var loot := 3 + randi() % 4
 	player.treats += loot
-	player.add_xp(20 + player.level)
+	XP.award(self, 20 + player.level, rac)
 	float_text(rac.position, "Raccoon beaten! +%d treats" % loot, Color(1, 0.85, 0.5))
 	poof(rac.position, Color(0.6, 0.6, 0.65))
 	sfx("catch")
@@ -612,7 +610,7 @@ func update_prompts(delta: float) -> void:
 	else:
 		if at.distance_to(burrow) < 50.0:
 			set_act("enter_boss", "HEDGEHOG BURROW   final boss, 3 waves",
-				"[F]  Challenge the Boss Hedgehog  (lose %d levels if you fall)" % BOSS_LEVEL_LOSS)
+				"[F]  Challenge the Boss Hedgehog  (it keeps treats over 20 if you fall)")
 		for d in bodega_doors:
 			if at.distance_to(d) < 70.0:
 				set_act("enter_shop", "BODEGA", "[F]  Go inside")
