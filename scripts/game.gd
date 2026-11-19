@@ -20,6 +20,8 @@ const CarScript := preload("res://scripts/car.gd")
 const HedgehogScript := preload("res://scripts/hedgehog.gd")
 const Save := preload("res://scripts/systems/save.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
+const Subway := preload("res://scripts/world/subway.gd")
+const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
 const Items := preload("res://scripts/data/items.gd")
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
@@ -113,6 +115,8 @@ var ground: Node2D
 var night: CanvasModulate
 var hud: Control  # HUD root Control (built by ui)
 var ui: Node  # scripts/ui/hud.gd
+var subway: Node  # scripts/world/subway.gd
+var city: Node  # scripts/world/city_builder.gd
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var pois: Array[Dictionary] = []  # {pos, text, color} — shops, stations, water
@@ -147,6 +151,11 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
+	for m: Array in [["city", CityBuilder], ["subway", Subway]]:
+		var n: Node = m[1].new()
+		n.g = self
+		add_child(n)
+		set(m[0], n)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
@@ -289,217 +298,7 @@ func sun() -> float:
 
 # ---------- world building ----------
 
-func block_origin(b: Vector2i) -> Vector2:
-	return Vector2(ROAD + b.x * (BLOCK.x + ROAD), ROAD + b.y * (BLOCK.y + ROAD))
-
-func draw_ground() -> void:
-	ground.draw_texture_rect(tex.sidewalk, Rect2(Vector2.ZERO, WORLD), true)
-	var step := BLOCK + Vector2(ROAD, ROAD)
-	var yellow := Color(0.82, 0.7, 0.24)
-	for i in NX + 1:
-		ground.draw_texture_rect(tex.road, Rect2(i * step.x, 0, ROAD, WORLD.y), true)
-	for j in NY + 1:
-		ground.draw_texture_rect(tex.road, Rect2(0, j * step.y, WORLD.x, ROAD), true)
-	for i in NX + 1:  # lane dashes, skipping intersections
-		for j in NY:
-			for k in int(BLOCK.y / 32):
-				ground.draw_rect(Rect2(i * step.x + 62, ROAD + j * step.y + k * 32 + 6, 4, 20), yellow)
-	for j in NY + 1:
-		for i in NX:
-			for k in int(BLOCK.x / 32):
-				ground.draw_rect(Rect2(ROAD + i * step.x + k * 32 + 6, j * step.y + 62, 20, 4), yellow)
-	for p in parks:
-		ground.draw_texture_rect(tex.grass, p.grow(-8), true)
-	# interiors, on black so a wide window never shows past the walls
-	ground.draw_rect(SHOP_ROOM.grow(1200), Color.BLACK)
-	ground.draw_rect(SUB_ROOM.grow(1200), Color.BLACK)
-	ground.draw_texture_rect(tex.shop_floor, SHOP_ROOM, true)
-	ground.draw_texture_rect(tex.shop_wall, Rect2(SHOP_O, Vector2(SHOP_ROOM.size.x, WALL_H)), true)
-	ground.draw_rect(Rect2(SHOP_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.55, 0.15, 0.15))  # door mat
-	ground.draw_texture_rect(tex.platform, SUB_ROOM, true)
-	ground.draw_texture_rect(tex.station_wall, Rect2(SUB_O, Vector2(SUB_ROOM.size.x, WALL_H)), true)
-	ground.draw_rect(Rect2(SUB_O + Vector2(0, 88), Vector2(SUB_ROOM.size.x, 8)), Color(0.15, 0.4, 0.25))
-	ground.draw_rect(Rect2(SUB_O + Vector2(0, 308), Vector2(SUB_ROOM.size.x, 12)), yellow)  # platform edge
-	ground.draw_texture_rect(tex.track, Rect2(SUB_O + Vector2(0, 320), Vector2(SUB_ROOM.size.x, 128)), true)
-	# boss den under the park, and the burrow that leads down to it
-	ground.draw_rect(BOSS_ROOM.grow(1200), Color.BLACK)
-	ground.draw_texture_rect(tex.grass, BOSS_ROOM, true, Color(1.0, 0.8, 0.55))
-	ground.draw_texture_rect(tex.station_wall, Rect2(BOSS_O, Vector2(BOSS_ROOM.size.x, WALL_H)), true, Color(0.5, 0.35, 0.25))
-	ground.draw_rect(Rect2(BOSS_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.1, 0.07, 0.05))
-	ground.draw_circle(burrow, 30.0, Color(0.35, 0.25, 0.15))
-	ground.draw_circle(burrow, 22.0, Color(0.05, 0.04, 0.03))
-
-func build_bounds() -> void:
-	for wall in [[Vector2(WORLD.x / 2, -16), Vector2(WORLD.x, 32)], [Vector2(WORLD.x / 2, WORLD.y + 16), Vector2(WORLD.x, 32)],
-			[Vector2(-16, WORLD.y / 2), Vector2(32, WORLD.y)], [Vector2(WORLD.x + 16, WORLD.y / 2), Vector2(32, WORLD.y)]]:
-		add_static_box(wall[0], wall[1])
-
-func add_static_box(pos: Vector2, size: Vector2) -> void:
-	var body := StaticBody2D.new()
-	body.position = pos
-	var shape := CollisionShape2D.new()
-	var rect := RectangleShape2D.new()
-	rect.size = size
-	shape.shape = rect
-	body.add_child(shape)
-	add_child(body)
-
-## Sprite anchored at its base so y-sort lets the dog walk behind it.
-func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> Sprite2D:
-	var s := Sprite2D.new()
-	s.texture = t
-	s.scale = Vector2(scl, scl)
-	s.offset = Vector2(0, -t.get_height() / 2.0)
-	s.position = base
-	s.modulate = tint
-	add_child(s)
-	return s
-
-## foot = fraction of sprite height that is solid footprint (rest is walk-behind).
-func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := Color.WHITE) -> void:
-	add_prop(t, base, scl, tint)
-	var size := t.get_size() * scl
-	var foot_size := Vector2(size.x, size.y * foot)
-	add_static_box(base - Vector2(0, foot_size.y / 2.0), foot_size)
-	building_rects.append(Rect2(base - Vector2(size.x / 2.0, foot_size.y), foot_size))
-
-func add_tree(pos: Vector2) -> void:
-	add_prop(tex.tree, pos, 2.5)
-	add_static_box(pos - Vector2(0, 5), Vector2(14, 10))
-	trees.append(pos)
-
-func add_can(pos: Vector2) -> void:
-	add_prop(tex.trashcan, pos, 2.0)
-	add_static_box(pos - Vector2(0, 6), Vector2(20, 12))
-	cans.append(pos)
-	var rac: Node2D = RaccoonScript.new()
-	add_child(rac)
-	rac.setup(pos + Vector2(0, 2), tex.raccoon, self)
-
-func build_block(b: Vector2i) -> void:
-	var o := block_origin(b)
-	var c := o + BLOCK / 2.0
-	if b in PARKS:
-		parks.append(Rect2(o, BLOCK))
-		add_prop(tex.fountain, c, 2.5)
-		add_static_box(c - Vector2(0, 20), Vector2(90, 36))
-		water_spots.append(c + Vector2(0, 6))
-		for i in 8:
-			var p := o + Vector2(randf_range(40, 472), randf_range(70, 364))
-			if p.distance_to(c) > 110.0:
-				add_tree(p)
-	elif LANDMARKS.has(b):
-		var base := o + Vector2(256, 372)
-		add_building(tex[LANDMARKS[b][0]], base, 2.5, 0.45)
-		landmarks.append({"pos": base, "name": LANDMARKS[b][1], "seen": false})
-		add_tree(o + Vector2(60, 360))
-		add_tree(o + Vector2(452, 360))
-	elif b in BODEGAS:
-		var base := o + Vector2(256, 240)
-		add_building(tex.bodega, base, 2.0, 0.6)
-		bodega_doors.append(base + Vector2(54, 24))
-		add_prop(tex.water_bowl, base + Vector2(-70, 34), 2.5)
-		water_spots.append(base + Vector2(-70, 30))
-		add_can(o + Vector2(450, 250))
-		add_tree(o + Vector2(60, 340))
-	else:
-		for i in 3:
-			if randf() < 0.85:
-				var kind: String = ["building_a", "building_b", "building_c"].pick_random()
-				add_building(tex[kind], o + Vector2(96 + i * 160, 236), 1.5, 0.6,
-					Color.from_hsv(randf(), 0.15, randf_range(0.8, 1.0)))
-		add_can(o + Vector2(randf_range(40, 170), randf_range(285, 360)))
-		if randf() < 0.5:
-			add_can(o + Vector2(randf_range(340, 470), randf_range(285, 360)))
-		if STATIONS.has(b):
-			var pos := o + Vector2(256, 340)
-			add_prop(tex.subway, pos, 1.5)
-			stations.append({"pos": pos, "name": STATIONS[b]})
-		elif randf() < 0.5:
-			add_prop(tex.hydrant, o + Vector2(256, 300), 2.0)
-			water_spots.append(o + Vector2(256, 300))
-		else:
-			add_tree(o + Vector2(256, 330))
-
-func place_manholes() -> void:
-	var step := BLOCK + Vector2(ROAD, ROAD)
-	for i in range(1, NX):
-		for j in NY:
-			if randf() < 0.4:
-				add_manhole(Vector2(i * step.x + 64, ROAD + j * step.y + BLOCK.y / 2))
-	for j in range(1, NY):
-		for i in NX:
-			if randf() < 0.25:
-				add_manhole(Vector2(ROAD + i * step.x + BLOCK.x / 2, j * step.y + 64))
-
-func add_manhole(pos: Vector2) -> void:
-	var s := Sprite2D.new()
-	s.texture = tex.manhole
-	s.position = pos
-	s.scale = Vector2(1.5, 1.5)
-	s.z_index = -5
-	add_child(s)
-	var p := CPUParticles2D.new()
-	p.position = pos
-	p.z_index = 5
-	p.emitting = false
-	p.amount = 40
-	p.lifetime = 0.9
-	p.direction = Vector2.UP
-	p.spread = 18.0
-	p.gravity = Vector2(0, -40)
-	p.initial_velocity_min = 90.0
-	p.initial_velocity_max = 160.0
-	p.scale_amount_min = 4.0
-	p.scale_amount_max = 9.0
-	p.color = Color(1, 1, 1, 0.55)
-	add_child(p)
-	manholes.append({"pos": pos, "steam": p, "t": randf_range(2.0, 7.0), "on": false})
-
 # ---------- helpers ----------
-
-func build_interiors() -> void:
-	hedgehog = HedgehogScript.new()
-	add_child(hedgehog)
-	hedgehog.setup(self, BOSS_ROOM)
-	for r: Rect2 in [SHOP_ROOM, SUB_ROOM, BOSS_ROOM]:  # back wall + three bounds
-		add_static_box(r.position + Vector2(r.size.x / 2, WALL_H / 2), Vector2(r.size.x, WALL_H))
-		add_static_box(r.position + Vector2(-16, r.size.y / 2), Vector2(32, r.size.y))
-		add_static_box(r.position + Vector2(r.size.x + 16, r.size.y / 2), Vector2(32, r.size.y))
-		add_static_box(r.position + Vector2(r.size.x / 2, r.size.y + 16), Vector2(r.size.x, 32))
-
-	# bodega: shelves on the back wall and the floor, counter with the cat in charge
-	for p in [Vector2(80, 130), Vector2(190, 130), Vector2(300, 130), Vector2(410, 130),
-			Vector2(150, 320), Vector2(330, 320)]:
-		add_prop(tex.shelf, SHOP_O + p, 2.0)
-		add_static_box(SHOP_O + p - Vector2(0, 12), Vector2(96, 24))
-	var counter := SHOP_COUNTER - Vector2(0, 30)
-	add_prop(tex.counter, counter, 2.0)
-	add_static_box(counter - Vector2(0, 20), Vector2(128, 40))
-	add_prop(tex.cat, counter + Vector2(-30, 1), 2.5).offset.y -= 22.0  # sits on the countertop
-
-	# subway: exit stairs and map board set into the wall, pillars, tracks, train
-	add_prop(tex.stairs, SUB_EXIT - Vector2(0, 12), 2.0)
-	add_prop(tex.map_board, SUB_O + Vector2(576, 84), 2.0)
-	for x in [200, 456, 712, 968]:
-		add_prop(tex.pillar, SUB_O + Vector2(x, 296), 2.5)
-		add_static_box(SUB_O + Vector2(x, 291), Vector2(20, 10))
-	station_sign = Label.new()
-	station_sign.position = SUB_O + Vector2(476, 6)
-	station_sign.size = Vector2(200, 26)
-	station_sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var sign_bg := StyleBoxFlat.new()
-	sign_bg.bg_color = Color(0.08, 0.08, 0.1)
-	station_sign.add_theme_stylebox_override("normal", sign_bg)
-	add_child(station_sign)
-	train = Sprite2D.new()
-	train.texture = tex.train
-	train.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	train.region_enabled = true
-	train.region_rect = Rect2(0, 0, tex.train.get_width() * 4, tex.train.get_height())  # 4 cars
-	train.scale = Vector2(2.5, 2.5)
-	train.position = SUB_O + Vector2(-600, 372)
-	add_child(train)
 
 ## Switch between the street ("") and an interior; clamps the camera to that area.
 func set_inside(room: String, at := player.position) -> void:
@@ -542,31 +341,6 @@ func set_act(a: String, head: String, row: String) -> void:
 	act = a
 	ctx = "door"
 	show_menu(head, [[row, true]])
-
-## Train pulls in, screen fades, the station room becomes station n, train leaves.
-func travel(n: int) -> void:
-	player.frozen = true
-	sfx("subway")
-	if train_tw:
-		train_tw.kill()
-	train_t = TRAIN_EVERY
-	train.position.x = SUB_O.x - 600
-	var tw := create_tween()
-	tw.tween_property(train, "position:x", SUB_O.x + 576, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(fade, "color:a", 1.0, 0.3)
-	tw.tween_callback(func():
-		if inside == "subway":  # dog may have blacked out mid-ride
-			station_i = n
-			station_sign.text = stations[n].name
-			bump("rides")
-			player.position = SUB_BOARD + Vector2(0, 40)
-			cam.reset_smoothing())
-	tw.tween_property(fade, "color:a", 0.0, 0.3)
-	tw.tween_property(train, "position:x", SUB_O.x + 2400, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.tween_callback(func():
-		player.frozen = false
-		if inside == "subway":
-			show_msg("Arrived at %s. Stairs lead up to the street." % stations[n].name))
 
 func blocked(p: Vector2) -> bool:
 	for r in building_rects:
@@ -626,39 +400,6 @@ func poof(pos: Vector2, color: Color) -> void:
 	get_tree().create_timer(1.0).timeout.connect(p.queue_free)
 
 # ---------- systems ----------
-
-## A train runs through the station every TRAIN_EVERY seconds; a dog on the tracks gets flung.
-func update_train(delta: float) -> void:
-	if inside != "subway":
-		return
-	if train_tw and train_tw.is_running() and not player.dead and player.position.y > SUB_O.y + 322 \
-			and absf(player.position.x - train.position.x) < TRAIN_HALF + 10.0:
-		train_hit()
-	if player.frozen:
-		return  # riding / dead: the schedule waits
-	var before := train_t
-	train_t -= delta
-	if before > 3.0 and train_t <= 3.0:
-		show_msg("Train approaching - stay off the tracks!")
-	if train_t <= 0.0:
-		train_t = TRAIN_EVERY
-		sfx("subway")
-		train.position.x = SUB_O.x - 600
-		train_tw = create_tween()
-		train_tw.tween_property(train, "position:x", SUB_O.x + 2400, 1.5)
-
-func train_hit() -> void:
-	player.dead = true  # no other damage while airborne; die() fires on landing
-	player.frozen = true
-	death_cause = "Flung by the train."
-	shake_amt = 14.0
-	sfx("hurt")
-	var land := player.position + Vector2(420, -150)
-	land.x = minf(land.x, SUB_ROOM.end.x - 30)
-	var tw := create_tween()
-	tw.tween_property(player, "position", land, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(player.sprite, "rotation", TAU * 3, 0.6)
-	tw.tween_callback(player.die)
 
 func respawn() -> void:
 	death_panel.hide()
@@ -1001,3 +742,31 @@ func update_prompts(delta: float) -> void:
 			best = d
 			marker = poi
 	overlay.queue_redraw()
+
+# ---------- scripts/world/city_builder.gd ----------
+
+func block_origin(b: Vector2i) -> Vector2:
+	return city.block_origin(b)
+
+func draw_ground() -> void:
+	city.draw_ground()
+
+func build_bounds() -> void:
+	city.build_bounds()
+
+func build_block(b: Vector2i) -> void:
+	city.build_block(b)
+
+func place_manholes() -> void:
+	city.place_manholes()
+
+func build_interiors() -> void:
+	city.build_interiors()
+
+# ---------- scripts/world/subway.gd ----------
+
+func travel(n: int) -> void:
+	subway.travel(n)
+
+func update_train(delta: float) -> void:
+	subway.update_train(delta)
