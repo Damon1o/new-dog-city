@@ -241,6 +241,16 @@ func build_hud() -> void:
 		g.menu_rows.append(hud_label(rows, 16))
 	g.menu.hide()
 	dock(g.menu, true, 60)
+	# bottom centre: ability bar (spec 11 HUD); locked ones hidden. Cooldown var = "<name>_cd".
+	var abar := HBoxContainer.new()
+	abar.add_theme_constant_override("separation", 10)
+	for a in [["dash", "C", g.player.DASH_CD], ["bark", "R", g.player.BARK_CD], ["pounce", "Spc", g.player.POUNCE_CD]]:
+		var c := Control.new()
+		c.custom_minimum_size = Vector2(44, 52)
+		c.draw.connect(draw_ability.bind(a[0]))
+		abar.add_child(c)
+		g.abilities[a[0]] = {"ctl": c, "key": a[1], "max": a[2], "v": 0.0}
+	dock(abar, true, 4)
 
 	# centre: collar name entry, pause g.menu
 	var center := CenterContainer.new()
@@ -257,7 +267,7 @@ func build_hud() -> void:
 	pv.add_theme_constant_override("separation", 8)
 	g.pause_panel.add_child(pv)
 	hud_label(pv, 24).text = "PAUSED"
-	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace / left click   attack (click aims at the cursor)\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
+	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace / left click   attack (click aims at the cursor)\nC   dash   R   bark   hold Space   pounce (Lv 30)\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
 	for bus in ["Master", "Music", "SFX", "Ambience"]:
 		hud_label(pv, 14).text = "Volume" if bus == "Master" else bus
 		var sl := HSlider.new()
@@ -414,6 +424,26 @@ func update_hud(delta: float) -> void:
 		set_bar("boss", g.boss.hp / g.boss.max_hp, delta, "%d / %d" % [ceili(g.boss.hp), int(g.boss.max_hp)])
 	g.quest_label.text = g.quest_text()
 	g.quest_label.modulate = Color(1, 0.9, 0.4) if g.tutorial_on() else Color.WHITE
+	for n in g.abilities:
+		var ab: Dictionary = g.abilities[n]
+		ab.v = float(g.player.get(n + "_cd")) / ab.max
+		ab.ctl.visible = n != "pounce" or g.player.level >= g.player.POUNCE_LEVEL
+		ab.ctl.queue_redraw()
+
+## Ability slot: round button with its key, name under it, dark sweep for the cooldown left.
+func draw_ability(n: String) -> void:
+	var ab: Dictionary = g.abilities[n]
+	var c: Control = ab.ctl
+	var mid := Vector2(c.size.x / 2.0, 20)
+	var font := ThemeDB.fallback_font
+	c.draw_circle(mid, 19, Color(0.2, 0.45, 0.8) if ab.v <= 0.0 else Color(0.25, 0.25, 0.3))
+	if ab.v > 0.0:  # clockwise from 12 o'clock; a thick arc avoids polygon triangulation at tiny slices
+		c.draw_arc(mid, 9.5, -PI / 2.0, -PI / 2.0 + TAU * ab.v, 32, Color(0, 0, 0, 0.65), 19.0)
+	c.draw_arc(mid, 19, 0, TAU, 32, Color(1, 1, 1, 0.7), 1.5)
+	c.draw_string_outline(font, Vector2(0, 25), ab.key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13, 3, Color.BLACK)
+	c.draw_string(font, Vector2(0, 25), ab.key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13)
+	c.draw_string_outline(font, Vector2(0, 51), n, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10, 3, Color.BLACK)
+	c.draw_string(font, Vector2(0, 51), n, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10)
 
 func draw_overlay() -> void:
 	var xf = g.get_canvas_transform()  # world -> screen

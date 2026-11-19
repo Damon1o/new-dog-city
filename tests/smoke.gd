@@ -139,7 +139,14 @@ func _initialize() -> void:
 	await frames(25)
 	assert(is_equal_approx(1000.0 - target.hp, player.attack_damage() * 2.0), "pounce lands 2x bite, got %f" % (1000.0 - target.hp))
 	assert(target.state == target.State.STUN, "pounce stuns")
+	# ability bar (M1-7): exists, cooldown sweep follows <name>_cd, pounce hidden below level 30
+	await frames(1)
+	assert(game.abilities.has("dash") and game.abilities.has("bark"), "ability bar built")
+	assert(game.abilities.bark.v > 0.9 and game.abilities.bark.v < 1.0, "bark cooldown on the bar")
+	assert(game.abilities.pounce.ctl.visible, "pounce shown at level 30")
 	player.level = 1
+	await frames(1)
+	assert(not game.abilities.pounce.ctl.visible, "pounce locked below level 30")
 	for i in racs.size():
 		racs[i].level = rac_lv[i]
 		racs[i].go_home(0.0)

@@ -131,6 +131,7 @@ var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
+var abilities := {}  # ability bar: name -> {ctl, key, v (cooldown left, 0..1)}
 var pois: Array[Dictionary] = []  # {pos, text, color} — shops, stations, water
 var marker := {}                  # nearest poi, drawn as a floating tag
 var drinking := false
