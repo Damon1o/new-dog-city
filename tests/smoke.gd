@@ -23,6 +23,17 @@ func _initialize() -> void:
 	assert(player.points == 0 and not paused and not game.stat_panel.visible)
 	assert(player.max_hp == hp_cap + 12.0, "+10 from the point, +2 from the level")
 
+	# weather: snow sets sprint to 0.9; changes blend over 10 s; today's weather is saved
+	var weather: Node = game.weather
+	weather.set_weather("snow", false)
+	assert(weather.current == "snow" and is_equal_approx(weather.sprint_mult(), 0.9), "snow sets sprint multiplier to 0.9")
+	assert(is_equal_approx(weather.thirst_mult(), 0.8) and game.save_extra["world/weather"]["nyc"] == "snow")
+	weather.set_weather("rain")
+	await frames(60)
+	assert(weather.scent_range() < 1400.0 and weather.scent_range() > 700.0, "rain blends in over 10 s")
+	assert(weather.roll("nyc") in ["clear", "snow", "rain"])
+	weather.set_weather("clear", false)
+
 	# cars: one per lane, and they hurt
 	var cars := get_nodes_in_group("car")
 	assert(cars.size() == 2 * (game.NX + 1) + 2 * (game.NY + 1))
