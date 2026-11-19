@@ -1,1 +1,5 @@
 .godot/
+
+# Web export output
+/index.*
+/Archive.zip
