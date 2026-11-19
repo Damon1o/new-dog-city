@@ -2,12 +2,12 @@ extends Node2D
 ## New Dog City — procedural Manhattan grid, animals, HUD, bodega, subway,
 ## steam, day/night, minimap / god's-eye view, autosave.
 
-const BLOCK := Vector2(512, 384)
+const NYC: Dictionary = preload("res://scripts/data/cities.gd").CITIES.nyc  # only city so far
+const BLOCK: Vector2 = NYC.block
 const ROAD := 128.0
-const NX := 9
-const NY := 7
-const WORLD := Vector2(5888, 3712)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128; the old 6 x 5 is the top-left
-const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
+const NX: int = NYC.grid.x
+const NY: int = NYC.grid.y
+const WORLD := Vector2(NX * BLOCK.x + (NX + 1) * ROAD, NY * BLOCK.y + (NY + 1) * ROAD)  # 5888 x 3712; the old 6 x 5 is the top-left
 const DAY_LENGTH := 240.0
 const CAR_DMG := 30.0
 const MAX_PREY := 36
@@ -62,12 +62,10 @@ const BOSS_O := Vector2(20000, 4000)
 const BOSS_ROOM := Rect2(BOSS_O, Vector2(960, 640))
 const BOSS_EXIT := BOSS_O + Vector2(480, 624)
 
-const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4), Vector2i(7, 5)]
-const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3), Vector2i(7, 1), Vector2i(2, 6)]
-const LANDMARKS := {Vector2i(3, 1): ["empire_state", "Empire State Building"],
-	Vector2i(1, 1): ["chrysler", "Chrysler Building"]}
-const STATIONS := {Vector2i(4, 0): "Uptown", Vector2i(2, 1): "Midtown",
-	Vector2i(1, 4): "Downtown", Vector2i(5, 2): "East Side"}
+const PARKS: Array = NYC.parks
+const BODEGAS: Array = NYC.bodegas
+const LANDMARKS: Dictionary = NYC.landmarks
+const STATIONS: Dictionary = NYC.stations
 
 var tex := {}
 var building_rects: Array[Rect2] = []
@@ -179,11 +177,8 @@ func _ready() -> void:
 	add_child(night)
 
 	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
-	seed(CITY_SEED)
-	build_bounds()
-	city.build_blocks()
-	place_manholes()
-	build_interiors()
+	build_interiors()  # before the city: interiors stay on game, the city node gets freed on travel
+	city.build("nyc")
 	randomize()
 	for b in BOSSES:
 		var boss_node: Node2D = BossScript.new()
