@@ -57,21 +57,17 @@ func _initialize() -> void:
 		boss.hurt(boss.pos, 46.0, 9999.0)
 	check(not boss.active and game.stat("boss") == 1, "boss beaten after 3 waves")
 
-	# losing to the boss costs 10 levels and throws the dog back onto the street
+	# losing to the boss keeps level (M1-5) and throws the dog back onto the street
 	game.act = "enter_boss"
 	game.interact()
 	var before: int = player.level
+	player.treats = 100
 	player.take_damage(99999.0)
-	check(player.level == before - 10, "boss death costs 10 levels")
+	check(player.level == before, "boss death keeps level")
+	check(player.treats == 20, "boss keeps treats over 20")
 	check(game.death_panel.visible and not boss.active, "death screen up, fight reset")
 	game.respawn()
 	check(game.inside == "", "respawn lands on the street")
-	player.level = 4
-	game.act = "enter_boss"
-	game.interact()
-	player.take_damage(99999.0)
-	check(player.level == 1, "never below level 1")
-	game.respawn()
 	player.level = 30
 	player.take_damage(99999.0)
 	check(player.level == 30, "street deaths cost no levels")

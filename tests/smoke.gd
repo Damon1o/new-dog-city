@@ -97,6 +97,29 @@ func _initialize() -> void:
 	assert(not paused and not player.dead and not player.frozen and not game.death_panel.visible)
 	assert(game.inside == "" and player.position == player.spawn_point and player.hp == player.max_hp)
 
+	# M1-5 XP rules: new curve, bonus point every 10 levels, low-enemy half XP, catch-up
+	var XP: GDScript = load("res://scripts/systems/xp.gd")
+	var total := 0
+	for lv in range(1, 100):
+		total += XP.needed(lv)
+	assert(total == 31185, "sum of xp_needed 1..99")
+	assert(player.xp_needed() == XP.needed(player.level))
+	assert(XP.points_for(9) == 1 and XP.points_for(10) == 2)
+	var low := Node2D.new()  # no `level` property yet (M1-1): treated as level 1
+	assert(XP.scaled(100, 6, 0, low) == 50 and XP.scaled(100, 5, 0, low) == 100, "low enemy gives 50%")
+	low.free()
+	assert(XP.scaled(100, 9, 20) == 125 and XP.scaled(100, 10, 20) == 100, "catch-up +25% below HQ-10")
+
+	# Boss Hedgehog loss keeps level and XP, keeps at most 20 treats
+	var lv_before: int = player.level
+	var xp_before: int = player.xp
+	game.set_inside("boss")
+	player.treats = 100
+	player.take_damage(1e9)
+	assert(player.level == lv_before and player.xp == xp_before, "hedgehog loss keeps level")
+	assert(player.treats == 20)
+	game.respawn()
+
 	# ordinary death also raises the screen
 	player.take_damage(1e9)
 	assert(paused and game.death_panel.visible)
