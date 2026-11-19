@@ -3,6 +3,7 @@ extends Node
 
 var g: Node2D
 
+const CITIES := preload("res://scripts/data/cities.gd").CITIES
 const OLD := Vector2i(6, 5)  # the pre-M2-1 map, kept block for block as the top-left corner
 const PERF_EVERY := 300  # frames per frame-time log line
 
@@ -10,6 +11,45 @@ var perf_n := 0
 var perf_sum := 0.0
 var perf_max := 0.0
 var perf_last := 0
+var id := ""     # current city, a key of CITIES
+var root: Node2D  # the current city's nodes; freed and rebuilt on travel
+
+## Free the current city and build `city_id` from data/cities.gd (seeded, so the same layout every time).
+func build(city_id: String) -> void:
+	var seen: Array = g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name)
+	if root:
+		root.free()
+	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.doors, g.stations, g.landmarks, g.manholes]:
+		list.clear()
+	id = city_id
+	root = Node2D.new()
+	root.name = "City"
+	root.y_sort_enabled = true
+	g.add_child(root)
+	seed(CITIES[id].seed)
+	build_bounds()
+	build_blocks()
+	place_manholes()
+	for l in g.landmarks:
+		l.seen = l.name in seen
+	g.ground.queue_redraw()
+
+## Swap cities behind a fade (spec 02: only the current city is in the tree).
+func travel(city_id: String) -> void:
+	g.player.frozen = true
+	var tw := g.create_tween()
+	tw.tween_property(g.fade, "color:a", 1.0, 0.3)
+	tw.tween_callback(func():
+		build(city_id)
+		randomize()
+		g.player.position = fix_pos(g.player.position)
+		g.cam.reset_smoothing())
+	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
+	tw.tween_callback(func(): g.player.frozen = false)
+
+## Street nodes go under the city root; interiors (built before the first city) stay on game.
+func holder() -> Node:
+	return root if root else g
 
 ## Seeded fill: the old 6 x 5 blocks first, in their old order, so they consume the same
 ## random numbers as before and come out identical. New blocks come after.
@@ -108,7 +148,7 @@ func add_static_box(pos: Vector2, size: Vector2) -> void:
 	rect.size = size
 	shape.shape = rect
 	body.add_child(shape)
-	g.add_child(body)
+	holder().add_child(body)
 
 ## Sprite anchored at its base so y-sort lets the dog walk behind it.
 func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> Sprite2D:
@@ -118,7 +158,7 @@ func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> S
 	s.offset = Vector2(0, -t.get_height() / 2.0)
 	s.position = base
 	s.modulate = tint
-	g.add_child(s)
+	holder().add_child(s)
 	return s
 
 ## foot = fraction of sprite height that is solid footprint (rest is walk-behind).
@@ -139,7 +179,7 @@ func add_can(pos: Vector2) -> void:
 	add_static_box(pos - Vector2(0, 6), Vector2(20, 12))
 	g.cans.append(pos)
 	var rac: Node2D = g.RaccoonScript.new()
-	g.add_child(rac)
+	holder().add_child(rac)
 	rac.setup(pos + Vector2(0, 2), g.tex.raccoon, g)
 
 ## Street door (spec 03). id "<city>:<bx>,<by>:<slot>" is stable, so per-room state can be saved.
@@ -216,7 +256,7 @@ func add_manhole(pos: Vector2) -> void:
 	s.position = pos
 	s.scale = Vector2(1.5, 1.5)
 	s.z_index = -5
-	g.add_child(s)
+	holder().add_child(s)
 	var p := CPUParticles2D.new()
 	p.position = pos
 	p.z_index = 5
@@ -231,5 +271,5 @@ func add_manhole(pos: Vector2) -> void:
 	p.scale_amount_min = 4.0
 	p.scale_amount_max = 9.0
 	p.color = Color(1, 1, 1, 0.55)
-	g.add_child(p)
+	holder().add_child(p)
 	g.manholes.append({"pos": pos, "steam": p, "t": randf_range(2.0, 7.0), "on": false})

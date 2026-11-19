@@ -99,6 +99,23 @@ func _initialize() -> void:
 	await frames(20)
 	assert(player.hp < player.max_hp, "pounce bites")
 
+	# enemy tag (M1-2): shows after a hit, hides 3 s later; Lv colors; crit numbers
+	rac.set_process(false)  # hold it still, away from the dog
+	player.position = rac.position + Vector2(600, 0)
+	await frames(1)
+	assert(not rac.tag.visible, "tag hidden: far and unhurt")
+	var rac_hp: float = rac.hp
+	rac.hurt(1.0, player.position, true)
+	assert(rac.tag.visible and rac.hp == rac_hp - 1.0, "tag shows after a hit")
+	assert(game.get_child(-1).text == "1!", "crit number gets a !")
+	await frames(170)
+	assert(rac.tag.visible, "tag still up before 3 s")
+	await frames(15)
+	assert(not rac.tag.visible, "tag hides 3 s after the hit")
+	rac.set_process(true)
+	var Tag: GDScript = load("res://scripts/ui/enemy_tag.gd")
+	assert(Tag.level_color(-5) != Color.WHITE and Tag.level_color(4) == Color.WHITE and Tag.level_color(9) != Tag.level_color(10))
+
 	# enemy levels: stats come from the enemy's level, not the dog's
 	var Levels: GDScript = load("res://scripts/systems/levels.gd")
 	var l20: Dictionary = Levels.scale_for_level(rac.BASE, 20)
@@ -359,6 +376,19 @@ func _initialize() -> void:
 	v1b.save(SAVE)
 	game.load_game()
 	assert(eco.bones == 0, "v1 save: bones default 0")
+
+	# city data (M2-2): rebuilding frees the old city, same layout, no leak
+	var rects: int = game.building_rects.size()
+	game.landmarks[0].seen = true
+	game.city.build("nyc")
+	var nodes := Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	game.city.build("nyc")
+	assert(Performance.get_monitor(Performance.OBJECT_NODE_COUNT) == nodes, "build twice, same node count")
+	assert(game.building_rects.size() == rects and game.landmarks[0].seen, "same city, sights kept")
+	paused = false  # the shop checks above leave the tree paused
+	game.city.travel("nyc")
+	await frames(45)
+	assert(game.fade.color.a == 0.0 and not player.frozen and is_instance_valid(game.city.root), "travel fades back in")
 
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)

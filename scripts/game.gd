@@ -2,12 +2,12 @@ extends Node2D
 ## New Dog City — procedural Manhattan grid, animals, HUD, bodega, subway,
 ## steam, day/night, minimap / god's-eye view, autosave.
 
-const BLOCK := Vector2(512, 384)
+const NYC: Dictionary = preload("res://scripts/data/cities.gd").CITIES.nyc  # only city so far
+const BLOCK: Vector2 = NYC.block
 const ROAD := 128.0
-const NX := 9
-const NY := 7
-const WORLD := Vector2(5888, 3712)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128; the old 6 x 5 is the top-left
-const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
+const NX: int = NYC.grid.x
+const NY: int = NYC.grid.y
+const WORLD := Vector2(NX * BLOCK.x + (NX + 1) * ROAD, NY * BLOCK.y + (NY + 1) * ROAD)  # 5888 x 3712; the old 6 x 5 is the top-left
 const DAY_LENGTH := 240.0
 const CAR_DMG := 30.0
 const MAX_PREY := 36
@@ -54,12 +54,10 @@ const LOW_KEYS := ["hp", "hunger", "thirst"]
 const WALL_H := 96.0
 const BOSS_EXIT := Interior.O + Vector2(480, 624)  # burrow exit spot; tools/smoke_test.gd parks the dog by it
 
-const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4), Vector2i(7, 5)]
-const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3), Vector2i(7, 1), Vector2i(2, 6)]
-const LANDMARKS := {Vector2i(3, 1): ["empire_state", "Empire State Building"],
-	Vector2i(1, 1): ["chrysler", "Chrysler Building"]}
-const STATIONS := {Vector2i(4, 0): "Uptown", Vector2i(2, 1): "Midtown",
-	Vector2i(1, 4): "Downtown", Vector2i(5, 2): "East Side"}
+const PARKS: Array = NYC.parks
+const BODEGAS: Array = NYC.bodegas
+const LANDMARKS: Dictionary = NYC.landmarks
+const STATIONS: Dictionary = NYC.stations
 
 var tex := {}
 var building_rects: Array[Rect2] = []
@@ -172,10 +170,7 @@ func _ready() -> void:
 	add_child(night)
 
 	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
-	seed(CITY_SEED)
-	build_bounds()
-	city.build_blocks()
-	place_manholes()
+	city.build("nyc")
 	hedgehog = HedgehogScript.new()
 	add_child(hedgehog)
 	hedgehog.setup(self, Rect2(Interior.O, Rooms.ROOMS.burrow.size))
@@ -631,8 +626,15 @@ func update_train(delta: float) -> void:
 
 # ---------- scripts/world/fx.gd ----------
 
-func float_text(pos: Vector2, text: String, color := Color.WHITE) -> void:
-	fx.float_text(pos, text, color)
+## crit: yellow, bigger, with "!" (spec 06). x jitter keeps stacked numbers apart.
+func float_text(pos: Vector2, text: String, color := Color.WHITE, crit := false) -> void:
+	pos.x += randf_range(-10.0, 10.0)
+	if not crit:
+		fx.float_text(pos, text, color)
+		return
+	fx.float_text(pos, text + "!", Color(1, 0.9, 0.2))
+	var l: Label = get_child(-1)  # the label fx just added
+	l.add_theme_font_size_override("font_size", 24)
 
 func poof(pos: Vector2, color: Color) -> void:
 	fx.poof(pos, color)

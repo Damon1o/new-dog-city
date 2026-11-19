@@ -10,6 +10,7 @@ const CHASE_TIME := 4.0
 const BITE_DIST := 24.0
 const BASE := {"hp": 28.0, "dmg": 8.0, "xp": 21, "treats": 3}  # level 1
 const Levels := preload("res://scripts/systems/levels.gd")
+const EnemyTag := preload("res://scripts/ui/enemy_tag.gd")
 
 var state := State.HIDDEN
 var home := Vector2.ZERO
@@ -27,6 +28,7 @@ var knock := Vector2.ZERO
 var game: Node2D
 var player: CharacterBody2D
 var sprite: Sprite2D
+var tag: Node2D
 
 func setup(p_home: Vector2, tex: Texture2D, p_game: Node2D) -> void:
 	home = p_home
@@ -39,6 +41,9 @@ func setup(p_home: Vector2, tex: Texture2D, p_game: Node2D) -> void:
 	sprite.texture = tex
 	sprite.scale = Vector2(2.5, 2.5)
 	add_child(sprite)
+	tag = EnemyTag.new()
+	add_child(tag)
+	tag.setup("Raccoon", player)
 	add_to_group("raccoon")
 	visible = false
 
@@ -53,7 +58,7 @@ func _process(delta: float) -> void:
 			if hide_cooldown <= 0.0 and player.position.distance_to(home) < POP_DIST:
 				max_hp = stats.hp
 				hp = max_hp
-				queue_redraw()
+				tag.queue_redraw()
 				visible = true
 				state = State.CHASE
 				chase_left = CHASE_TIME
@@ -96,25 +101,21 @@ func _process(delta: float) -> void:
 			else:
 				position += to_home.normalized() * CHASE_SPEED * 0.7 * delta
 
-func _draw() -> void:  # health bar over the head; node is only visible out of the can
-	draw_rect(Rect2(-19, -31, 38, 6), Color(0, 0, 0, 0.75))
-	draw_rect(Rect2(-18, -30, 36.0 * clampf(hp / max_hp, 0.0, 1.0), 4), Color(0.9, 0.2, 0.2))
-
 func go_home(cooldown: float) -> void:
 	position = home
 	visible = false
 	state = State.HIDDEN
 	hide_cooldown = cooldown
 
-func hurt(dmg: float, from: Vector2) -> void:
+func hurt(dmg: float, from: Vector2, crit := false) -> void:
 	if state == State.HIDDEN:
 		return
 	hp -= dmg
-	queue_redraw()
+	tag.hit()
 	knock = from.direction_to(position) * 260.0
 	sprite.modulate = Color(1, 0.4, 0.4)
 	create_tween().tween_property(sprite, "modulate", Color.WHITE, 0.2)
-	game.float_text(position, str(int(dmg)), Color.WHITE)
+	game.float_text(position, str(int(dmg)), Color.WHITE, crit)
 	if hp <= 0.0:
 		game.on_raccoon_beaten(self)
 		go_home(25.0)
