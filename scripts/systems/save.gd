@@ -78,8 +78,4 @@ static func read(g: Node) -> void:
 
 ## world/pos: the street spot, or indoors the door the dog went in through.
 static func street_pos(g: Node) -> Vector2:
-	match g.inside:
-		"shop": return g.return_pos
-		"subway": return g.stations[g.station_i].pos
-		"boss": return g.burrow
-	return g.player.position
+	return g.return_pos if g.inside != "" else g.player.position

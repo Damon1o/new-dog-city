@@ -138,23 +138,49 @@ func _initialize() -> void:
 	# subway: stand on the tracks, wait for the train
 	player.hp = player.max_hp
 	player.treats = 10
-	game.act = "enter_subway"
-	game.act_i = 0
-	game.interact()
+	game.interior.enter(game.stations[0].door)
 	assert(game.inside == "subway")
-	player.position = game.SUB_O + Vector2(600, 380)
+	player.position = game.interior.O + Vector2(600, 380)
 	await frames(2)
-	assert(player.position.y > game.SUB_O.y + 370, "tracks are walkable")
+	assert(player.position.y > game.interior.O.y + 370, "tracks are walkable")
 	assert(game.train_t > 19.0 and game.train_t <= 20.0, "train on a 20 s schedule")
 	game.train_t = 0.1
 	await frames(180)
 	assert(player.dead and paused and game.death_panel.visible, "train kills, death screen shows")
 	assert(player.treats == 5)
-	assert(player.position.y < game.SUB_O.y + 322, "dog was flung off the tracks")
+	assert(player.position.y < game.interior.O.y + 322, "dog was flung off the tracks")
 
 	game.respawn()
 	assert(not paused and not player.dead and not player.frozen and not game.death_panel.visible)
 	assert(game.inside == "" and player.position == player.spawn_point and player.hp == player.max_hp)
+	assert(get_nodes_in_group("interior").is_empty(), "dying indoors frees the room")
+
+	# interiors (M2-3): every building has a door; 20 random doors in and out land back on the
+	# right street door, with at most one interior node alive
+	var ROOMS: Dictionary = load("res://scripts/data/rooms.gd").ROOMS
+	var ids := {}
+	for d: Dictionary in game.doors:
+		assert(ROOMS.has(d.template) and not game.city.blocked(d.pos), "door %s on open ground" % d.id)
+		ids[d.id] = true
+	assert(ids.size() == game.doors.size(), "door ids unique")
+	for t in ["bodega", "subway", "burrow", "apartment", "office", "shop_small"]:
+		assert(game.doors.any(func(d): return d.template == t), "some door uses " + t)
+	for i in 20:
+		var d: Dictionary = game.doors.pick_random()
+		player.hp = player.max_hp
+		player.position = d.pos
+		await frames(1)
+		assert(game.act == "enter" and game.door == d, "F prompt reads the door under the dog")
+		game.interact()
+		assert(game.inside == ROOMS[d.template].kind and get_nodes_in_group("interior").size() == 1, "one interior")
+		assert(game.Save.street_pos(game) == d.pos, "saving indoors keeps the street door")
+		player.position = game.interior.spots.exit
+		await frames(1)
+		assert(game.act == "exit")
+		game.interact()
+		assert(game.inside == "" and player.position == d.pos, "back at door %s" % d.id)
+		assert(get_nodes_in_group("interior").is_empty() and not game.hedgehog.active)
+	await frames(1)
 
 	# M1-5 XP rules: new curve, bonus point every 10 levels, low-enemy half XP, catch-up
 	var XP: GDScript = load("res://scripts/systems/xp.gd")
@@ -225,7 +251,7 @@ func _initialize() -> void:
 	assert(game.save_version == 1 and player.level == 5 and game.save_extra["world/city"] == "nyc")
 	# bigger map: 9 x 7, old saves inside a collider or off the map land on a road
 	assert(game.NX == 9 and game.NY == 7 and game.WORLD == Vector2(9 * 512 + 10 * 128, 7 * 384 + 8 * 128))
-	assert(game.SHOP_ROOM.grow(1200).position.x > game.WORLD.x, "interiors clear of the streets")
+	assert(game.interior.O.x - 1200 > game.WORLD.x, "interiors clear of the streets")
 	var old_spots: Array[Vector2] = [game.building_rects[0].get_center(), Vector2(6100, 200), Vector2(-50, 9000)]
 	for spot: Vector2 in old_spots:
 		v1.set_value("world", "pos", spot)
