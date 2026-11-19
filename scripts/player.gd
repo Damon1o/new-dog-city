@@ -20,10 +20,16 @@ const DASH_PX := 220.0
 const DASH_TIME := 0.15
 const DASH_CD := 1.2
 const DASH_COST := 25.0
-# spec 05: bark (R) = 180 px ring, 15 stamina, 6 s
+# spec 05: bark (R) = 180 px ring, 15 stamina, 6 s; pounce = hold Space 0.6 s, level 30, 160 px leap, 2x bite + 0.8 s stun
 const BARK_RADIUS := 180.0
 const BARK_CD := 6.0
 const BARK_COST := 15.0
+const POUNCE_LEVEL := 30
+const POUNCE_HOLD := 0.6
+const POUNCE_PX := 160.0
+const POUNCE_TIME := 0.3
+const POUNCE_CD := 4.0
+const POUNCE_COST := 30.0
 
 const STATS := [["stat_hp", "+10 Max HP"], ["stat_atk", "+2 Bite"], ["stat_spd", "+1 mph Speed"]]
 
@@ -54,6 +60,9 @@ var attack_cd := 0.0
 var dash_t := 0.0   # dash time left; > 0 means mid-dash and invulnerable
 var dash_cd := 0.0  # read by the ability bar (M1-7)
 var bark_cd := 0.0
+var pounce_cd := 0.0
+var pounce_t := 0.0  # leap time left
+var space_t := 0.0   # how long Space has been held
 var facing := Vector2.RIGHT
 var anim_t := 0.0
 var name_tag: Label
@@ -93,6 +102,21 @@ func _physics_process(delta: float) -> void:
 	attack_cd = maxf(attack_cd - delta, 0.0)
 	dash_cd = maxf(dash_cd - delta, 0.0)
 	bark_cd = maxf(bark_cd - delta, 0.0)
+	pounce_cd = maxf(pounce_cd - delta, 0.0)
+	if Input.is_key_pressed(KEY_SPACE) and not frozen:
+		space_t += delta
+		if space_t >= POUNCE_HOLD and space_t - delta < POUNCE_HOLD:
+			pounce()
+	else:
+		space_t = 0.0
+	if pounce_t > 0.0:
+		var leap: float = minf(delta, pounce_t)
+		pounce_t -= leap
+		velocity = facing * (POUNCE_PX / POUNCE_TIME) * (leap / delta)
+		move_and_slide()
+		if pounce_t <= 0.0:
+			land()
+		return
 	if dash_t > 0.0:
 		# last step is clamped so the burst covers exactly DASH_PX; walls still stop it
 		var step: float = minf(delta, dash_t)
@@ -168,6 +192,22 @@ func bark() -> bool:
 		if r.position.distance_to(position) < BARK_RADIUS:
 			r.scare(level)
 	return true
+
+## Hold Space (level 30). The leap itself lands the hit, see land().
+func pounce() -> bool:
+	if frozen or level < POUNCE_LEVEL or pounce_cd > 0.0 or pounce_t > 0.0 or dash_t > 0.0 or stamina < POUNCE_COST:
+		return false
+	stamina -= POUNCE_COST
+	pounce_cd = POUNCE_CD
+	pounce_t = POUNCE_TIME
+	return true
+
+func land() -> void:
+	var center := position + facing * 26.0
+	get_parent().on_bite(center, 46.0, attack_damage() * 2.0)
+	for r in get_tree().get_nodes_in_group("raccoon"):
+		if r.position.distance_to(center) < 56.0:  # same reach as on_bite
+			r.stun(0.8)
 
 func take_damage(amount: float) -> void:
 	if dead or dash_t > 0.0:

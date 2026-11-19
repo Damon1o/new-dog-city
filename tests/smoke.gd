@@ -127,6 +127,18 @@ func _initialize() -> void:
 	assert(racs[0].state == racs[0].State.FLEE, "raccoon 9 levels below flees")
 	assert(racs[1].state == racs[1].State.CHASE, "raccoon 10 levels above ignores the bark")
 	assert(racs[2].state == racs[2].State.STUN, "raccoon within 4 levels is stunned")
+	# pounce (M1-8): 160 px leap, landing hit = 2x bite damage
+	assert(not player.pounce(), "pounce needs level 30")
+	player.level = 30
+	player.facing = Vector2.RIGHT
+	var target: Node2D = racs[0]
+	target.position = player.position + Vector2(player.POUNCE_PX + 26.0, 0)
+	target.stun(10.0)
+	target.hp = 1000.0
+	assert(player.pounce(), "pounce fires at level 30")
+	await frames(25)
+	assert(is_equal_approx(1000.0 - target.hp, player.attack_damage() * 2.0), "pounce lands 2x bite, got %f" % (1000.0 - target.hp))
+	assert(target.state == target.State.STUN, "pounce stuns")
 	player.level = 1
 	for i in racs.size():
 		racs[i].level = rac_lv[i]
