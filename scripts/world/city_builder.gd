@@ -3,6 +3,74 @@ extends Node
 
 var g: Node2D
 
+const OLD := Vector2i(6, 5)  # the pre-M2-1 map, kept block for block as the top-left corner
+const PERF_EVERY := 300  # frames per frame-time log line
+
+var perf_n := 0
+var perf_sum := 0.0
+var perf_max := 0.0
+var perf_last := 0
+
+## Seeded fill: the old 6 x 5 blocks first, in their old order, so they consume the same
+## random numbers as before and come out identical. New blocks come after.
+func build_blocks() -> void:
+	for by in OLD.y:
+		for bx in OLD.x:
+			g.build_block(Vector2i(bx, by))
+	for by in g.NY:
+		for bx in g.NX:
+			if bx >= OLD.x or by >= OLD.y:
+				g.build_block(Vector2i(bx, by))
+
+func on_road(p: Vector2) -> bool:
+	var step: Vector2 = g.BLOCK + Vector2(g.ROAD, g.ROAD)
+	return Rect2(Vector2.ZERO, g.WORLD).has_point(p) and (fmod(p.x, step.x) < g.ROAD or fmod(p.y, step.y) < g.ROAD)
+
+## Closest point on a road centre line (the dog fits there, buildings never do).
+func nearest_road(p: Vector2) -> Vector2:
+	var step: Vector2 = g.BLOCK + Vector2(g.ROAD, g.ROAD)
+	var q := p.clamp(Vector2(g.ROAD / 2, g.ROAD / 2), g.WORLD - Vector2(g.ROAD / 2, g.ROAD / 2))
+	var vx: float = round((q.x - g.ROAD / 2) / step.x) * step.x + g.ROAD / 2  # nearest vertical road
+	var hy: float = round((q.y - g.ROAD / 2) / step.y) * step.y + g.ROAD / 2  # nearest horizontal road
+	return Vector2(vx, q.y) if absf(vx - q.x) <= absf(hy - q.y) else Vector2(q.x, hy)
+
+## Off the map or inside something solid: an old save from a changed layout.
+func blocked(p: Vector2) -> bool:
+	if not Rect2(Vector2.ZERO, g.WORLD).grow(-24).has_point(p):
+		return true
+	for r: Rect2 in g.building_rects:
+		if r.grow(16).has_point(p):
+			return true
+	for list: Array in [g.trees, g.cans, g.water_spots]:
+		for t: Vector2 in list:
+			if t.distance_to(p) < 24.0:
+				return true
+	for park: Rect2 in g.parks:  # fountain
+		if (park.position + g.BLOCK / 2.0).distance_to(p) < 60.0:
+			return true
+	return false
+
+## Saved street position -> where the dog may stand now.
+func fix_pos(p: Vector2) -> Vector2:
+	return nearest_road(p) if blocked(p) else p
+
+## Frame-time log for the bigger map (spec 02: cull far blocks if web passes 8 ms).
+func _process(_delta: float) -> void:
+	var now := Time.get_ticks_usec()
+	if perf_last > 0:
+		var ms := (now - perf_last) / 1000.0
+		perf_sum += ms
+		perf_max = maxf(perf_max, ms)
+		perf_n += 1
+		if perf_n >= PERF_EVERY:
+			print("[perf] frame %.2f ms avg, %.2f ms max, process %.2f ms, %d nodes (%d x %d blocks)" % [
+				perf_sum / perf_n, perf_max, Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0,
+				Performance.get_monitor(Performance.OBJECT_NODE_COUNT), g.NX, g.NY])
+			perf_n = 0
+			perf_sum = 0.0
+			perf_max = 0.0
+	perf_last = now
+
 func block_origin(b: Vector2i) -> Vector2:
 	return Vector2(g.ROAD + b.x * (g.BLOCK.x + g.ROAD), g.ROAD + b.y * (g.BLOCK.y + g.ROAD))
 

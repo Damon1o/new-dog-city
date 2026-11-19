@@ -4,9 +4,9 @@ extends Node2D
 
 const BLOCK := Vector2(512, 384)
 const ROAD := 128.0
-const NX := 6
-const NY := 5
-const WORLD := Vector2(3968, 2688)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128
+const NX := 9
+const NY := 7
+const WORLD := Vector2(5888, 3712)  # NX*512 + (NX+1)*128, NY*384 + (NY+1)*128; the old 6 x 5 is the top-left
 const CITY_SEED := 20261115  # fixed layout so saves and subway stops stay valid
 const DAY_LENGTH := 240.0
 const CAR_DMG := 30.0
@@ -46,21 +46,21 @@ const LOW_KEYS := ["hp", "hunger", "thirst"]
 
 # Interiors live far off the street map; F at a door / stairwell moves the dog there.
 const WALL_H := 96.0
-const SHOP_O := Vector2(6000, 0)
+const SHOP_O := Vector2(20000, 0)
 const SHOP_ROOM := Rect2(SHOP_O, Vector2(768, 448))
 const SHOP_EXIT := SHOP_O + Vector2(384, 432)
 const SHOP_COUNTER := SHOP_O + Vector2(620, 280)
-const SUB_O := Vector2(6000, 2000)
+const SUB_O := Vector2(20000, 2000)
 const SUB_ROOM := Rect2(SUB_O, Vector2(1152, 448))
 const SUB_EXIT := SUB_O + Vector2(320, 112)
 const SUB_BOARD := SUB_O + Vector2(576, 112)
-const BOSS_O := Vector2(6000, 4000)
+const BOSS_O := Vector2(20000, 4000)
 const BOSS_ROOM := Rect2(BOSS_O, Vector2(960, 640))
 const BOSS_EXIT := BOSS_O + Vector2(480, 624)
 const BOSS_LEVEL_LOSS := 10  # levels lost when the Boss Hedgehog beats the dog
 
-const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4)]
-const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3)]
+const PARKS := [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4), Vector2i(7, 5)]
+const BODEGAS := [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3), Vector2i(7, 1), Vector2i(2, 6)]
 const LANDMARKS := {Vector2i(3, 1): ["empire_state", "Empire State Building"],
 	Vector2i(1, 1): ["chrysler", "Chrysler Building"]}
 const STATIONS := {Vector2i(4, 0): "Uptown", Vector2i(2, 1): "Midtown",
@@ -174,9 +174,7 @@ func _ready() -> void:
 	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
 	seed(CITY_SEED)
 	build_bounds()
-	for by in NY:
-		for bx in NX:
-			build_block(Vector2i(bx, by))
+	city.build_blocks()
 	place_manholes()
 	build_interiors()
 	randomize()

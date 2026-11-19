@@ -105,6 +105,25 @@ func _initialize() -> void:
 	v1.save(SAVE)
 	game.load_game()
 	assert(game.save_version == 1 and player.level == 5 and game.save_extra["world/city"] == "nyc")
+	# bigger map: 9 x 7, old saves inside a collider or off the map land on a road
+	assert(game.NX == 9 and game.NY == 7 and game.WORLD == Vector2(9 * 512 + 10 * 128, 7 * 384 + 8 * 128))
+	assert(game.SHOP_ROOM.grow(1200).position.x > game.WORLD.x, "interiors clear of the streets")
+	var old_spots: Array[Vector2] = [game.building_rects[0].get_center(), Vector2(6100, 200), Vector2(-50, 9000)]
+	for spot: Vector2 in old_spots:
+		v1.set_value("world", "pos", spot)
+		v1.save(SAVE)
+		game.load_game()
+		assert(game.city.on_road(player.position) and not game.city.blocked(player.position), "old save pos %s lands on a road" % spot)
+	var walkable: Vector2 = game.block_origin(Vector2i(1, 0)) + Vector2(256, 300)  # sidewalk in front of a building
+	if not game.city.blocked(walkable):
+		v1.set_value("world", "pos", walkable)
+		v1.save(SAVE)
+		game.load_game()
+		assert(player.position == walkable, "a free spot is kept")
+	game.save_game()
+	var saved := ConfigFile.new()
+	saved.load(SAVE)
+	assert(saved.get_value("world", "pos") == player.position, "street position saved")
 	for k: String in Save.V2:
 		game.save_extra[k] = {"synthetic": k}
 	game.vols.Music.value = 0.25
