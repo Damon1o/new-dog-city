@@ -28,6 +28,7 @@ static func has_save(path: String) -> bool:
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	Sound.music("home_theme")
 	for n in ["road", "sidewalk", "building_a", "building_b", "building_c", "bodega", "tree", "hydrant"]:
 		tex[n] = load("res://assets/%s.png" % n)
 	bg = Control.new()
