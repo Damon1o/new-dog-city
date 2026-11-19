@@ -9,7 +9,7 @@ const VERSION := 2
 ## game.save_extra; "story/*" keys belong to the Story autoload (Story.to_save / from_save).
 const V2 := {
 	"meta/rebirths": 0, "meta/true_ending": false,
-	"dog/bones": 0, "dog/buffs": {},
+	"dog/buffs": {},
 	"world/city": "nyc", "world/tod": 0.33, "world/day": 1, "world/weather": {},
 	"story/flags": [], "story/items": [], "story/keycards": [], "story/floors": {},
 	"cats/points": {}, "cats/today": {},
@@ -25,6 +25,7 @@ static func write(g: Node) -> void:
 	for key in KEYS:
 		cfg.set_value("dog", key, g.player.get(key))
 	cfg.set_value("world", "pos", street_pos(g))
+	cfg.set_value("dog", "bones", g.economy.bones)
 	cfg.set_value("world", "seen", g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
 	cfg.set_value("ui", "volume", g.volume.value)
 	cfg.set_value("meta", "version", VERSION)
@@ -48,6 +49,7 @@ static func read(g: Node) -> void:
 		player.set(key, cfg.get_value("dog", key, player.get(key)))
 	if not cfg.has_section_key("dog", "points"):
 		player.points = player.level - 1  # save from before stat points: pay them out now
+	g.economy.bones = maxi(int(cfg.get_value("dog", "bones", 0)), 0)
 	player.skin = clampi(player.skin, 0, player.BREEDS.size() - 1)
 	player.level = clampi(player.level, 1, 100)
 	g.volume.value = cfg.get_value("ui", "volume", 1.0)
