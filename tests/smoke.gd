@@ -9,6 +9,31 @@ func frames(n: int) -> void:
 func _initialize() -> void:
 	const SAVE := "user://smoke.cfg"  # throwaway save, the real one is never touched
 	DirAccess.remove_absolute(SAVE)
+
+	# home screen: Continue hidden with no save (or a ui-only file); shown once a dog is saved;
+	# New Story over a save asks first; settings never turn "no save" into a save
+	assert(ProjectSettings.get_setting("application/run/main_scene") == "res://scenes/Home.tscn", "launch on the home screen")
+	var home: Control = load("res://scenes/Home.tscn").instantiate()
+	home.save_path = SAVE
+	root.add_child(home)
+	await frames(1)
+	assert(not home.continue_btn.visible, "no save: Continue hidden")
+	home.open_settings()
+	home.vols.Music.value = 0.5
+	home.save_settings()
+	assert(not home.continue_btn.visible and home.menu.visible, "ui-only file is no save")
+	var dog := ConfigFile.new()
+	dog.load(SAVE)
+	dog.set_value("dog", "level", 3)
+	dog.save(SAVE)
+	home.show_menu()
+	assert(home.continue_btn.visible, "save: Continue shown")
+	home.new_story()
+	assert(home.confirm_panel.visible and not home.menu.visible, "New Story over a save confirms")
+	home.show_menu()
+	home.free()
+	DirAccess.remove_absolute(SAVE)
+
 	var game: Node2D = load("res://scenes/Main.tscn").instantiate()
 	game.save_path = SAVE
 	root.add_child(game)
