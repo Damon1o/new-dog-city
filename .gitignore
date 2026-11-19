@@ -3,3 +3,4 @@
 # Web export output
 /index.*
 /Archive.zip
+.claude/
