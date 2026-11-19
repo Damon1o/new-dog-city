@@ -192,6 +192,7 @@ func _ready() -> void:
 
 	player.position = block_origin(PARKS[0]) + BLOCK / 2.0 + Vector2(0, 90)
 	player.spawn_point = player.position
+	Sound.music("", Sound.BOSS)  # a restart mid-fight leaves no boss theme behind
 	set_inside("")
 	player.leveled.connect(func():
 		show_banner("LEVEL %d" % player.level)
@@ -225,6 +226,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
+	Sound.night = sun() < 0.2
 	night.color = {"shop": Color(1, 0.96, 0.88), "subway": Color(0.8, 0.86, 0.82), "boss": Color(0.85, 0.78, 0.7)}.get(
 		inside, Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun()))
 	spawn_timer -= delta
@@ -309,6 +311,7 @@ func sun() -> float:
 ## Switch between the street ("") and an interior; clamps the camera to that area.
 func set_inside(room: String, at := player.position) -> void:
 	inside = room
+	Sound.room(room)
 	var r: Rect2 = {"shop": SHOP_ROOM, "subway": SUB_ROOM, "boss": BOSS_ROOM}.get(room, Rect2(Vector2.ZERO, WORLD))
 	cam.limit_left = int(r.position.x)
 	cam.limit_top = int(r.position.y)
@@ -423,6 +426,7 @@ func quit_game() -> void:
 
 func on_boss_woke(b: Node2D) -> void:
 	boss = b
+	Sound.music("boss_fatcat", Sound.BOSS)  # placeholder until each boss has a theme
 	boss_name.text = b.cfg.name
 	show_banner(str(b.cfg.name).to_upper())
 	sfx("bark")
@@ -430,6 +434,7 @@ func on_boss_woke(b: Node2D) -> void:
 func on_boss_left(b: Node2D) -> void:
 	if boss == b:
 		boss = null
+		Sound.music("", Sound.BOSS)
 
 func on_boss_beaten(b: Node2D) -> void:
 	on_boss_left(b)

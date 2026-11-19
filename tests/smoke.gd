@@ -98,12 +98,14 @@ func _initialize() -> void:
 		await frames(3)
 		assert(game.boss == b, "boss wakes when the dog is near")
 		assert(game.boss_box.visible)
+		assert(root.get_node("Sound").current == "boss_fatcat", "boss fight takes over the music")
 		assert(b.cfg.specials.size() == 2)
 		for i in 2:  # both specials fire without errors
 			b.special(Vector2.RIGHT)
 		var treats: int = player.treats
 		b.hurt(1e9, player.position)
 		assert(game.boss == null and not b.visible, "boss beaten")
+		assert(root.get_node("Sound").current == "nyc_jazz", "city music back after the boss")
 		assert(player.treats >= treats + b.cfg.treats)  # quests may pay extra on the level-up
 		while player.points > 0:  # boss XP levels the dog; spend so the game unpauses
 			game.pick_stat(1)
@@ -164,6 +166,29 @@ func _initialize() -> void:
 	var before := sound.get_child_count()
 	sound.sfx("bark")
 	assert(sound.get_child_count() == before + 1 and sound.get_child(-1).bus == "SFX")
+
+	# music: room enter swaps the track with a crossfade; the same track again is a no-op
+	assert(sound.current == "nyc_jazz", "street plays the city theme")
+	var swaps: int = sound.swaps
+	game.set_inside("shop")
+	assert(sound.current == "interior_shop" and sound.swaps == swaps + 1, "shop swaps track")
+	var p: AudioStreamPlayer = sound.players[sound.active]
+	assert(p.playing and p.bus == "Music" and p.stream.loop_mode == AudioStreamWAV.LOOP_FORWARD)
+	game.set_inside("shop")
+	sound.music("interior_shop")
+	assert(sound.swaps == swaps + 1 and sound.players[sound.active] == p, "same track is a no-op")
+	sound.music("piano_nyc", sound.CUTSCENE)
+	sound.music("boss_fatcat", sound.BOSS)
+	assert(sound.current == "piano_nyc", "cutscene outranks boss")
+	sound.music("", sound.CUTSCENE)
+	assert(sound.current == "boss_fatcat", "boss outranks city")
+	sound.music("", sound.BOSS)
+	game.set_inside("")
+	sound.night = true
+	assert(sound.current == "nyc_jazz_night", "night variant")
+	sound.night = false
+	for t: String in sound.TRACKS:  # every placeholder loop builds
+		assert(sound.stream(t).data.size() > 0, t)
 
 	# save v2: a v1-shaped file loads with defaults; a fully filled v2 save round-trips
 	var Save: GDScript = load("res://scripts/systems/save.gd")
