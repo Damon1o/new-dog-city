@@ -88,6 +88,15 @@ func _initialize() -> void:
 	player.take_damage(1e9)
 	assert(paused and game.death_panel.visible)
 
+	# Sound autoload: buses exist and route to Master; sfx plays on the SFX bus
+	for bus in ["Music", "SFX", "Ambience"]:
+		var bi := AudioServer.get_bus_index(bus)
+		assert(bi > 0 and AudioServer.get_bus_send(bi) == "Master", "bus " + bus)
+	var sound: Node = root.get_node("Sound")
+	var before := sound.get_child_count()
+	sound.sfx("bark")
+	assert(sound.get_child_count() == before + 1 and sound.get_child(-1).bus == "SFX")
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game

@@ -31,7 +31,6 @@ const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "bu
 	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant", "purina",
 	"cat", "shop_floor", "shop_wall", "shelf", "counter", "station_wall", "platform", "track",
 	"pillar", "stairs", "map_board", "train"]
-const SFX_NAMES := ["bark", "catch", "hurt", "buy", "levelup", "steam", "subway", "pickup"]
 
 const BOSS_COLOR := Color(0.85, 0.3, 1)
 const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway
@@ -62,7 +61,6 @@ const STATIONS := {Vector2i(4, 0): "Uptown", Vector2i(2, 1): "Midtown",
 	Vector2i(1, 4): "Downtown", Vector2i(5, 2): "East Side"}
 
 var tex := {}
-var sounds := {}
 var building_rects: Array[Rect2] = []
 var parks: Array[Rect2] = []
 var trees: Array[Vector2] = []
@@ -135,7 +133,8 @@ var overlay: Control
 var clock: Control
 var card_art: Control
 var mini: Control
-var volume: HSlider
+var volume: HSlider  # Master; same slider as vols.Master
+var vols := {}  # bus name -> HSlider
 var name_edit: LineEdit
 
 @onready var player: CharacterBody2D = $Player
@@ -144,8 +143,6 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for n in SFX_NAMES:
-		sounds[n] = load("res://assets/sfx/%s.wav" % n)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
@@ -589,12 +586,7 @@ func random_spot(min_dist: float) -> Vector2:
 	return Vector2(-1, -1)
 
 func sfx(sound: String) -> void:
-	var p := AudioStreamPlayer.new()
-	p.stream = sounds[sound]
-	p.pitch_scale = randf_range(0.92, 1.08)
-	add_child(p)
-	p.play()
-	p.finished.connect(p.queue_free)
+	Sound.sfx(sound)
 
 func float_text(pos: Vector2, text: String, color := Color.WHITE) -> void:
 	var l := Label.new()
@@ -1180,14 +1172,16 @@ func build_hud() -> void:
 	pause_panel.add_child(pv)
 	hud_label(pv, 24).text = "PAUSED"
 	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace / left click   attack (click aims at the cursor)\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
-	hud_label(pv, 14).text = "Volume"
-	volume = HSlider.new()
-	volume.max_value = 1.0
-	volume.step = 0.05
-	volume.value = 1.0
-	volume.value_changed.connect(func(v: float):
-		AudioServer.set_bus_volume_db(0, linear_to_db(maxf(v, 0.0001))))
-	pv.add_child(volume)
+	for bus in ["Master", "Music", "SFX", "Ambience"]:
+		hud_label(pv, 14).text = "Volume" if bus == "Master" else bus
+		var sl := HSlider.new()
+		sl.max_value = 1.0
+		sl.step = 0.05
+		sl.value = 1.0
+		sl.value_changed.connect(func(v: float): Sound.set_volume(bus, v))
+		pv.add_child(sl)
+		vols[bus] = sl
+	volume = vols.Master
 	var resume := Button.new()
 	resume.text = "Resume  [Esc]"
 	resume.pressed.connect(set_paused.bind(false))
