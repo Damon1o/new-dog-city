@@ -334,6 +334,19 @@ func _initialize() -> void:
 	game.load_game()
 	assert(eco.bones == 0, "v1 save: bones default 0")
 
+	# city data (M2-2): rebuilding frees the old city, same layout, no leak
+	var rects: int = game.building_rects.size()
+	game.landmarks[0].seen = true
+	game.city.build("nyc")
+	var nodes := Performance.get_monitor(Performance.OBJECT_NODE_COUNT)
+	game.city.build("nyc")
+	assert(Performance.get_monitor(Performance.OBJECT_NODE_COUNT) == nodes, "build twice, same node count")
+	assert(game.building_rects.size() == rects and game.landmarks[0].seen, "same city, sights kept")
+	paused = false  # the shop checks above leave the tree paused
+	game.city.travel("nyc")
+	await frames(45)
+	assert(game.fade.color.a == 0.0 and not player.frozen and is_instance_valid(game.city.root), "travel fades back in")
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game
