@@ -286,6 +286,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			player.bite()
 		KEY_C:
 			player.dash()
+		KEY_R:
+			player.bark()
 		KEY_Q:
 			if player.use_purina():
 				sfx("pickup")

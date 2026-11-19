@@ -20,6 +20,10 @@ const DASH_PX := 220.0
 const DASH_TIME := 0.15
 const DASH_CD := 1.2
 const DASH_COST := 25.0
+# spec 05: bark (R) = 180 px ring, 15 stamina, 6 s
+const BARK_RADIUS := 180.0
+const BARK_CD := 6.0
+const BARK_COST := 15.0
 
 const STATS := [["stat_hp", "+10 Max HP"], ["stat_atk", "+2 Bite"], ["stat_spd", "+1 mph Speed"]]
 
@@ -49,6 +53,7 @@ var sprinting := false  # read by the HUD
 var attack_cd := 0.0
 var dash_t := 0.0   # dash time left; > 0 means mid-dash and invulnerable
 var dash_cd := 0.0  # read by the ability bar (M1-7)
+var bark_cd := 0.0
 var facing := Vector2.RIGHT
 var anim_t := 0.0
 var name_tag: Label
@@ -87,6 +92,7 @@ func spend(i: int) -> void:
 func _physics_process(delta: float) -> void:
 	attack_cd = maxf(attack_cd - delta, 0.0)
 	dash_cd = maxf(dash_cd - delta, 0.0)
+	bark_cd = maxf(bark_cd - delta, 0.0)
 	if dash_t > 0.0:
 		# last step is clamped so the burst covers exactly DASH_PX; walls still stop it
 		var step: float = minf(delta, dash_t)
@@ -149,6 +155,18 @@ func dash() -> bool:
 	stamina -= DASH_COST
 	dash_cd = DASH_CD
 	dash_t = DASH_TIME
+	return true
+
+## R key. Raccoons 5+ levels below flee, within 4 levels get stunned, higher ones ignore it.
+func bark() -> bool:
+	if frozen or bark_cd > 0.0 or stamina < BARK_COST:
+		return false
+	stamina -= BARK_COST
+	bark_cd = BARK_CD
+	Sound.sfx("bark_scare")
+	for r in get_tree().get_nodes_in_group("raccoon"):
+		if r.position.distance_to(position) < BARK_RADIUS:
+			r.scare(level)
 	return true
 
 func take_damage(amount: float) -> void:
