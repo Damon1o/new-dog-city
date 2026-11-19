@@ -8,14 +8,17 @@ extends Node2D
 const WAVES := 3
 const RADIUS := 34.0
 # tuning knobs
-const WAVE_HP := 100.0       # per wave, plus HP_PER_LEVEL * dog level
-const HP_PER_LEVEL := 8.0
+const Levels := preload("res://scripts/systems/levels.gd")
+const LEVEL := 15
+const BASE := {"hp": 100.0, "dmg": 8.0}  # level 1; hp is per wave
 const WALK_SPEED := 70.0
 const ROLL_SPEED := 430.0
 const ROLL_TIME := 1.6
 const REST_TIME := 2.2       # wave 3 spiral time between rolls
 const WINDUP := 0.5          # tail end of the rest: shakes and shows the roll line
 
+var level := LEVEL
+var stats: Dictionary = Levels.scale_for_level(BASE, LEVEL)
 var game: Node2D
 var player: CharacterBody2D
 var room: Rect2
@@ -43,7 +46,7 @@ func setup(p_game: Node2D, p_room: Rect2) -> void:
 
 func start() -> void:
 	wave = 0
-	max_hp = WAVE_HP + player.level * HP_PER_LEVEL
+	max_hp = stats.hp
 	hp = max_hp
 	pos = room.get_center() - Vector2(0, 80)
 	begin_wave()
@@ -73,7 +76,7 @@ func _process(delta: float) -> void:
 	queue_redraw()
 	flash = maxf(flash - delta, 0.0)
 	touch_cd = maxf(touch_cd - delta, 0.0)
-	var dmg: float = 8.0 + player.level * 0.3
+	var dmg: float = stats.dmg
 	for i in range(quills.size() - 1, -1, -1):
 		var q: Dictionary = quills[i]
 		q.p += q.v * delta

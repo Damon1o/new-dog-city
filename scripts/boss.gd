@@ -12,7 +12,10 @@ const RESPAWN := 180.0
 const SLAM_R := 120.0
 const SLAM_TIME := 0.9
 
-var cfg: Dictionary
+const Levels := preload("res://scripts/systems/levels.gd")
+
+var cfg: Dictionary  # data/bosses.gd entry scaled to its level
+var level := 1
 var state := State.IDLE
 var home := Vector2.ZERO
 var hp := 1.0
@@ -29,7 +32,8 @@ var player: CharacterBody2D
 var sprite: Sprite2D
 
 func setup(p_cfg: Dictionary, p_home: Vector2, tex: Texture2D, p_game: Node2D) -> void:
-	cfg = p_cfg
+	level = p_cfg.level
+	cfg = Levels.scale_for_level(p_cfg, level)
 	home = p_home
 	position = home
 	game = p_game
@@ -109,7 +113,7 @@ func _process(delta: float) -> void:
 
 func wake() -> void:
 	if state == State.IDLE:
-		max_hp = float(cfg.hp) * (1.0 + player.level * 0.08)
+		max_hp = cfg.hp
 		hp = max_hp
 	state = State.CHASE
 	special_cd = 2.0
