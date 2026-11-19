@@ -474,9 +474,9 @@ func on_prey_escaped(prey: Node2D) -> void:
 	prey.queue_free()
 
 func on_raccoon_beaten(rac: Node2D) -> void:
-	var loot := 3 + randi() % 4
+	var loot: int = rac.stats.treats + randi() % 4
 	player.treats += loot
-	player.add_xp(20 + player.level)
+	player.add_xp(rac.stats.xp)
 	float_text(rac.position, "Raccoon beaten! +%d treats" % loot, Color(1, 0.85, 0.5))
 	poof(rac.position, Color(0.6, 0.6, 0.65))
 	sfx("catch")

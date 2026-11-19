@@ -42,6 +42,19 @@ func _initialize() -> void:
 	await frames(20)
 	assert(player.hp < player.max_hp, "pounce bites")
 
+	# enemy levels: stats come from the enemy's level, not the dog's
+	var Levels: GDScript = load("res://scripts/systems/levels.gd")
+	var l20: Dictionary = Levels.scale_for_level(rac.BASE, 20)
+	assert(is_equal_approx(l20.hp, rac.BASE.hp * (1.0 + 0.15 * 19)), "level 20 raccoon hp = base x (1 + 0.15 x 19)")
+	assert(is_equal_approx(l20.dmg, rac.BASE.dmg * (1.0 + 0.08 * 19)) and l20.level == 20)
+	assert(rac.max_hp == rac.stats.hp and rac.stats.level == rac.level, "popped raccoon uses its level's hp")
+	for r in get_nodes_in_group("raccoon") + get_nodes_in_group("prey"):
+		assert(r.level >= 1 and r.level <= 22, "NYC band 1-20, +-2")
+	var boss_lv := {"King of Raccoons": 6, "The Pideon Queen": 8, "The Rat Meister": 10}
+	for b in get_nodes_in_group("boss"):
+		assert(b.level == boss_lv[b.cfg.name] and b.cfg.level == b.level, "park boss level")
+	assert(game.hedgehog.level == 15)
+
 	var bosses := get_nodes_in_group("boss")
 	assert(bosses.size() == 3)
 	var names := bosses.map(func(b): return b.cfg.name)
