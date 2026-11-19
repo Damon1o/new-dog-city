@@ -105,7 +105,8 @@ func _physics_process(delta: float) -> void:
 	var weak := hunger < 20.0 or thirst < 20.0
 	sprinting = dir != Vector2.ZERO and Input.is_key_pressed(KEY_SHIFT) and not winded
 	var top: float = (float(breed().mph) + stat_spd) * PX_PER_MPH * (0.75 if weak else 1.0)
-	velocity = dir * (top if sprinting else top * 0.6)
+	var w: Node = get_parent().get("weather")  # scripts/systems/weather.gd modifiers
+	velocity = dir * (top * (w.sprint_mult() if w else 1.0) if sprinting else top * 0.6)
 	if dir != Vector2.ZERO:
 		facing = dir
 		anim_t += delta * (14.0 if sprinting else 8.0)
@@ -123,7 +124,7 @@ func _physics_process(delta: float) -> void:
 		stamina = minf(stamina + delta * (6.0 if weak else 16.0), 100.0)
 		winded = winded and stamina < 25.0
 	hunger = maxf(hunger - delta * 0.5, 0.0)
-	thirst = maxf(thirst - delta * (1.4 if sprinting else 0.7), 0.0)
+	thirst = maxf(thirst - delta * (1.4 if sprinting else 0.7) * (w.thirst_mult() if w else 1.0), 0.0)
 	if hunger <= 0.0 or thirst <= 0.0:
 		take_damage(delta * 4.0)
 	elif hunger > 50.0 and thirst > 50.0 and hp < max_hp:

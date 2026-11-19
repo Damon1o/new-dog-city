@@ -27,6 +27,7 @@ const Subway := preload("res://scripts/world/subway.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Quests := preload("res://scripts/systems/quests.gd")
 const XP := preload("res://scripts/systems/xp.gd")
+const Weather := preload("res://scripts/systems/weather.gd")
 const Items := preload("res://scripts/data/items.gd")
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
@@ -123,6 +124,7 @@ var spawner: Node  # scripts/world/spawner.gd
 var fx: Node  # scripts/world/fx.gd
 var subway: Node  # scripts/world/subway.gd
 var city: Node  # scripts/world/city_builder.gd
+var weather: Node  # scripts/systems/weather.gd
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var pois: Array[Dictionary] = []  # {pos, text, color} — shops, stations, water
@@ -157,7 +159,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street]]:
+	for m: Array in [["city", CityBuilder], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
