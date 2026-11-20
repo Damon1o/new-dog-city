@@ -130,6 +130,21 @@ func _initialize() -> void:
 		assert(Spawns.pick("nyc", 0.1) != "pigeon", "night spawns have no pigeons")
 	assert(Spawns.phase(0.7) == "day" and Spawns.phase(0.4) == "dusk" and Spawns.phase(0.1) == "night")
 	assert(Spawns.cap(36, Vector2i(9, 7)) == 75, "cap 36 x 63 / 30 blocks")
+	# pigeon flocks (M3-4): 5-12 birds; catch one and the rest flee; regroup at a new center
+	var flock: Dictionary = game.spawner.spawn_flock(player.position + Vector2(300, 0))
+	assert(flock.members.size() >= 5 and flock.members.size() <= 12, "flock of 5-12")
+	await frames(1)
+	assert(flock.members.all(func(p): return not p.fleeing), "calm flock 300 px away")
+	var caught: Node2D = flock.members[0]
+	game.on_prey_caught(caught)
+	await frames(2)
+	assert(flock.members.size() >= 4 and not caught in flock.members and flock.members.all(func(p): return p.fleeing), "catch one, all flock members flee")
+	var old_center: Vector2 = flock.center
+	flock.scatter = 0.01
+	await frames(2)
+	assert(flock.scatter <= 0.0 and flock.center != old_center, "flock regroups at a new center")
+	for p in flock.members:
+		p.queue_free()
 	# elevators (M2-4): lobby to floor 3 and back; landmarks have 6 floors and a roof
 	var tall: Dictionary = game.doors.filter(func(d): return d.template in ["apartment", "office"] and d.floors >= 3)[0]
 	assert(game.doors.filter(func(d): return d.floors == 6).size() == 2, "both landmarks have 6 floors")
@@ -554,6 +569,26 @@ func _initialize() -> void:
 	game.city.travel("nyc")
 	await frames(45)
 	assert(game.fade.color.a == 0.0 and not player.frozen and is_instance_valid(game.city.root), "travel fades back in")
+
+	# territory (M3-6): 3 markers claim a block (+2 each, +10 claim), markers fade after 3 days
+	var terr: Node2D = game.territory
+	var bld: Rect2 = game.building_rects.filter(func(r): return r.size.x > 100 and r.size.x < game.BLOCK.x and r.size.y > 100 		and terr.block_of(r.position) == terr.block_of(r.end))[0]
+	var blk: Vector2i = terr.block_of(bld.get_center())
+	var rep0: int = terr.rep().get("nyc", 0)
+	var marks0: int = terr.markers().size()
+	game.inside = "shop"
+	player.thirst = 100.0
+	assert(not terr.pee(bld.position) and terr.markers().size() == marks0, "indoors: Not here!, no marker")
+	game.inside = ""
+	player.thirst = 10.0
+	assert(not terr.pee(bld.position), "too thirsty to pee")
+	player.thirst = 100.0
+	for c: Vector2 in [bld.position, Vector2(bld.end.x, bld.position.y), bld.end]:
+		assert(terr.pee(c), "pee at a building corner")
+	assert(terr.claimed(blk) and terr.rep().nyc == rep0 + 16 and player.thirst == 70.0, "3 markers = claimed")
+	for i in 3:
+		terr.new_day()
+	assert(not terr.claimed(blk) and terr.markers().size() == marks0 and terr.rep().nyc == rep0 + 10, "markers fade after 3 days")
 
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)

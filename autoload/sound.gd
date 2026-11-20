@@ -66,6 +66,7 @@ func _ready() -> void:
 	for n in SFX_NAMES:
 		sounds[n] = load("res://assets/sfx/%s.wav" % n)
 	sounds["ding"] = sounds["pickup"]  # ponytail: elevator ding = pickup pitched up; own synth later
+	sounds["pigeons_scatter"] = sounds["pickup"]  # ponytail: wing flaps = pickup blip until spec 12 gives it a wav
 	sounds["bark_scare"] = sounds["bark"]  # ponytail: pitched-down bark (lower, longer); swap for its own synth/wav later
 	for i in 2:
 		var p := AudioStreamPlayer.new()
