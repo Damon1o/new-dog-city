@@ -586,9 +586,14 @@ func _initialize() -> void:
 	for c: Vector2 in [bld.position, Vector2(bld.end.x, bld.position.y), bld.end]:
 		assert(terr.pee(c), "pee at a building corner")
 	assert(terr.claimed(blk) and terr.rep().nyc == rep0 + 16 and player.thirst == 70.0, "3 markers = claimed")
+	terr.rival_night()
+	assert(terr.rival.level == 20 and is_equal_approx(terr.rival.stats.hp, 120.0 * (1.0 + 0.15 * 19)), "rival dog at the city band max")
+	terr.rival_dawn()
+	assert(terr.rival == null and terr.markers().size() == marks0 + 2, "unbeaten rival overwrites a marker")
+	assert(terr.pee(terr.rival_mark.pos), "re-claim the block")
 	for i in 3:
 		terr.new_day()
-	assert(not terr.claimed(blk) and terr.markers().size() == marks0 and terr.rep().nyc == rep0 + 10, "markers fade after 3 days")
+	assert(not terr.claimed(blk) and terr.markers().size() == marks0 and terr.rep().nyc == rep0 + 22, "markers fade after 3 days")
 
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
