@@ -14,9 +14,9 @@ var target := Vector2.ZERO
 var retarget_in := 0.0
 var tired := 0.0
 
-func setup(p_kind: String, p_cfg: Dictionary, tex: Texture2D, p_game: Node2D) -> void:
+func setup(p_kind: String, p_cfg: Dictionary, tex: Texture2D, p_game: Node2D, bonus := 0) -> void:
 	kind = p_kind
-	level = Levels.level_at(position, p_game.WORLD)
+	level = Levels.level_at(position, p_game.WORLD) + bonus  # bonus: night +2 (spec 06)
 	cfg = Levels.scale_for_level(p_cfg, level)  # treats and xp
 	game = p_game
 	player = p_game.get_node("Player")

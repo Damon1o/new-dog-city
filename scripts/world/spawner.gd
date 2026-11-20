@@ -1,6 +1,8 @@
 extends Node
 ## Prey and treat spawning and treat pickup (moved from game.gd).
 
+const Spawns := preload("res://scripts/data/spawns.gd")
+
 var g: Node2D
 
 func spawn_treat() -> void:
@@ -15,24 +17,22 @@ func spawn_treat() -> void:
 	g.treat_sprites.append(s)
 
 func spawn_prey() -> void:
-	var kind := "pigeon"
+	var kind := Spawns.pick(g.city.id, g.sun())
 	var pos = g.random_spot(350.0)
-	var roll := randf()
-	if roll < 0.3:  # squirrels live in g.parks
-		kind = "squirrel"
+	if kind == "squirrel":  # squirrels live in g.parks
 		var r: Rect2 = g.parks.pick_random()
 		pos = r.position + Vector2(randf(), randf()) * r.size
-	elif roll < (0.75 if g.sun() < 0.3 else 0.55):  # rats by the trash, more at g.night
-		kind = "rat"
+	elif kind == "rat":  # rats by the trash
 		var can: Vector2 = g.cans.pick_random()
 		pos = can + Vector2(randf_range(-60, 60), randf_range(10, 50))
+	var bonus := Spawns.NIGHT_LEVELS if Spawns.phase(g.sun()) == "night" else 0
 	if pos.x < 0 or pos.distance_to(g.player.position) < 350.0:
 		return
 	for i in (3 if kind == "pigeon" else 1):  # pigeons flock
 		var prey: Node2D = g.PreyScript.new()
 		prey.position = pos + Vector2(randf_range(-30, 30), randf_range(-30, 30)) * float(i > 0)
 		g.add_child(prey)
-		prey.setup(kind, g.PREY[kind], g.tex[kind], g)
+		prey.setup(kind, g.PREY[kind], g.tex[kind], g, bonus)
 
 func check_pickups() -> void:
 	for s in g.treat_sprites:

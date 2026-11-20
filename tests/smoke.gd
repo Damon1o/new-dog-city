@@ -123,7 +123,13 @@ func _initialize() -> void:
 	assert(is_equal_approx(l20.dmg, rac.BASE.dmg * (1.0 + 0.08 * 19)) and l20.level == 20)
 	assert(rac.max_hp == rac.stats.hp and rac.stats.level == rac.level, "popped raccoon uses its level's hp")
 	for r in get_nodes_in_group("raccoon") + get_nodes_in_group("prey"):
-		assert(r.level >= 1 and r.level <= 22, "NYC band 1-20, +-2")
+		assert(r.level >= 1 and r.level <= 24, "NYC band 1-20, +-2, night +2")
+	# spawns (M3-1): night table has no pigeons, phases split on sun(), prey cap scales with area
+	var Spawns = load("res://scripts/data/spawns.gd")
+	for i in 200:
+		assert(Spawns.pick("nyc", 0.1) != "pigeon", "night spawns have no pigeons")
+	assert(Spawns.phase(0.7) == "day" and Spawns.phase(0.4) == "dusk" and Spawns.phase(0.1) == "night")
+	assert(Spawns.cap(36, Vector2i(9, 7)) == 75, "cap 36 x 63 / 30 blocks")
 	var boss_lv := {"King of Raccoons": 6, "The Pideon Queen": 8, "The Rat Meister": 10}
 	for b in get_nodes_in_group("boss"):
 		assert(b.level == boss_lv[b.cfg.name] and b.cfg.level == b.level, "park boss level")

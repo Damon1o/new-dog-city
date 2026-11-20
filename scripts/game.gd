@@ -10,7 +10,8 @@ const NY: int = NYC.grid.y
 const WORLD := Vector2(NX * BLOCK.x + (NX + 1) * ROAD, NY * BLOCK.y + (NY + 1) * ROAD)  # 5888 x 3712; the old 6 x 5 is the top-left
 const DAY_LENGTH := 240.0
 const CAR_DMG := 30.0
-const MAX_PREY := 36
+const MAX_PREY := 36  # tuned for the old 6 x 5 map; Spawns.cap() scales it by area
+const Spawns := preload("res://scripts/data/spawns.gd")
 const MAX_TREATS := 25
 
 const PreyScript := preload("res://scripts/prey.gd")
@@ -227,7 +228,7 @@ func _process(delta: float) -> void:
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
 		spawn_timer = 1.5
-		if get_tree().get_nodes_in_group("prey").size() < MAX_PREY:
+		if get_tree().get_nodes_in_group("prey").size() < Spawns.cap(MAX_PREY, Vector2i(NX, NY)):
 			spawn_prey()
 		if treat_sprites.size() < MAX_TREATS:
 			spawn_treat()
