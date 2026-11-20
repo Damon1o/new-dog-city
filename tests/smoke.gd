@@ -7,7 +7,7 @@ func frames(n: int) -> void:
 		await process_frame
 
 func _initialize() -> void:
-	const SAVE := "user://smoke.cfg"  # throwaway save, the real one is never touched
+	var SAVE := "user://smoke_%d.cfg" % OS.get_process_id()  # throwaway save per run: parallel worktrees share user://
 	DirAccess.remove_absolute(SAVE)
 
 	# home screen: Continue hidden with no save (or a ui-only file); shown once a dog is saved;
@@ -44,6 +44,37 @@ func _initialize() -> void:
 	root.add_child(game)
 	await frames(2)
 	var player: CharacterBody2D = game.player
+
+	# cutscenes (M5-2): a new dog gets the intro; typewriter completes on a key, the next key
+	# advances, Esc skips the rest and still sets the cutscene's flags
+	var dlg: Node = game.dialog
+	var esc := InputEventKey.new()
+	esc.keycode = KEY_ESCAPE
+	esc.pressed = true
+	var key := InputEventKey.new()
+	key.keycode = KEY_SPACE
+	key.pressed = true
+	assert(dlg.id == "cs_intro" and player.frozen and not game.hud.visible, "intro plays, dog frozen, HUD hidden")
+	assert(root.get_node("Sound").layers[root.get_node("Sound").CUTSCENE] == "piano_nyc", "cutscene music layer")
+	assert(dlg.typing() and dlg.text.visible_characters < dlg.text.text.length(), "typewriter types")
+	var first: String = dlg.text.text
+	root.push_input(key)
+	assert(not dlg.typing() and dlg.text.text == first, "key completes the line")
+	root.push_input(key)
+	assert(dlg.text.text != first and dlg.typing(), "next key advances")
+	await frames(30)  # 30 chars/s
+	assert(dlg.text.visible_characters >= 13 and dlg.text.visible_characters <= 17, "about 30 chars/s")
+	root.push_input(esc)
+	assert(dlg.id == "" and root.get_node("Story").has("cs_intro"), "Esc skip still sets the flag")
+	assert(not player.frozen and game.hud.visible and not paused, "skip hands control back")
+	assert(root.get_node("Sound").layers[root.get_node("Sound").CUTSCENE] == "", "cutscene music cleared")
+	game.save_extra["ui/reduce_motion"] = true
+	dlg.play("cs_ch1_clue")
+	assert(dlg.bars[0].scale.y == 1.0, "reduce motion: letterbox instant")
+	root.push_input(esc)
+	assert(root.get_node("Story").has("ch1_clue") and dlg.bars[1].scale.y < 0.01, "skip: bars gone")
+	game.save_extra.erase("ui/reduce_motion")
+	root.get_node("Story").reset()
 
 	# level-up: one stat point, game waits for the pick
 	var hp_cap: float = player.max_hp

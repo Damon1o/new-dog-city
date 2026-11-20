@@ -43,6 +43,8 @@ var wanted: Node  # scripts/systems/wanted.gd: heat, stars, animal control (add_
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
 var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
+const DialogUi := preload("res://scripts/ui/dialog.gd")
+var dialog: Node  # scripts/ui/dialog.gd (dialog box + cutscenes)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
 const SHOP := Items.SHOP
@@ -238,6 +240,8 @@ func _ready() -> void:
 		spawn_prey()
 		spawn_treat()
 	show_msg("Press Esc for controls")
+	if not Story.has("cs_intro"):  # ponytail: old saves see it once too; gate on a fresh dog if that annoys
+		dialog.play("cs_intro")
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
@@ -596,6 +600,10 @@ func build_hud() -> void:
 	keybinds.g = self
 	add_child(keybinds)
 	keybinds.build()
+	dialog = DialogUi.new()
+	dialog.g = self
+	add_child(dialog)
+	dialog.build()
 
 func update_hud(delta: float) -> void:
 	ui.update_hud(delta)
