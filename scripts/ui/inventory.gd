@@ -10,6 +10,7 @@ const Items := preload("res://scripts/data/items.gd")
 const Gates := preload("res://scripts/data/gates.gd")
 const Look := preload("res://scripts/ui/theme.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
+const Album := preload("res://scripts/ui/album.gd")
 const CARRY := ["purina", "water"]  # bindable consumables so far
 const ALBUM := 17
 const CELL := 54.0
@@ -21,6 +22,7 @@ var ground: GridContainer
 var gear: VBoxContainer
 var bag: GridContainer
 var wallet: Label
+var album: HBoxContainer  # ALBUM panel content, swapped in for the other three by its button
 var hud_slots: Array[Dictionary] = []  # HUD hotbar: {icon, count, key}
 
 func build() -> void:
@@ -36,6 +38,15 @@ func build() -> void:
 	bag.columns = 5
 	var right := section("INVENTORY", bag)
 	wallet = g.ui.hud_label(right, 13, Look.DIM)
+	var open_album := Button.new()
+	open_album.text = "Album"
+	open_album.pressed.connect(show_album.bind(true))
+	right.add_child(open_album)
+	album = HBoxContainer.new()
+	var back := Button.new()
+	back.text = "Back"
+	back.pressed.connect(show_album.bind(false))
+	section("ALBUM", album).add_child(back)
 	var c := CenterContainer.new()
 	g.ui.full(c)
 	c.add_child(root)
@@ -68,6 +79,7 @@ func toggle() -> void:
 		g.player.frozen = false
 	elif not g.player.frozen and not g.player.dead:
 		refresh()
+		show_album(false)
 		root.show()
 		g.player.frozen = true
 
@@ -163,9 +175,10 @@ func labeled(parent: Node, title: String) -> VBoxContainer:
 # ---------- panels ----------
 
 func refresh() -> void:
-	for box: Node in [ground, gear, bag]:
+	for box: Node in [ground, gear, bag, album]:
 		for ch in box.get_children():
 			ch.free()
+	album.add_child(Album.grid(Story.flags, replay))
 	refresh_ground()
 	refresh_gear()
 	refresh_bag()
@@ -276,6 +289,15 @@ func refresh_bag() -> void:
 		cell(bag, null)
 	var shots: int = Story.flags.filter(func(f): return f.begins_with("fb_")).size()
 	wallet.text = "%d treats   %d bones   Polaroids %d / %d" % [g.player.treats, g.economy.bones, shots, ALBUM]
+
+## Album tab (spec 11): the polaroid grid in place of the other three panels.
+func show_album(on: bool) -> void:
+	for p: Control in root.get_children():
+		p.visible = (p == album.get_parent().get_parent()) == on
+
+func replay(fb: String) -> void:
+	toggle()
+	g.flashback.play(fb)
 
 func drag(item: String) -> Variant:
 	var t := TextureRect.new()

@@ -107,6 +107,7 @@ var death_cause := "You blacked out."
 var save_version := 2  # version of the file last loaded (1 = before meta/version)
 var save_extra := {}  # v2 keys no system owns yet, see Save.V2
 var save_path := "user://save.cfg"  # var so the smoke test can point it elsewhere
+var rng_seed := 0  # 0 = random cars / prey / rolls; the smoke test pins one (city.build reseeds the global RNG)
 var stat_panel: PanelContainer
 var stat_head: Label
 var stat_buttons: Array[Button] = []
@@ -134,6 +135,7 @@ var subway: Node  # scripts/world/subway.gd
 var territory: Node2D  # scripts/systems/territory.gd (G: pee markers)
 var city: Node  # scripts/world/city_builder.gd
 var interior: Node  # scripts/world/interior.gd
+var flashback: Node  # scripts/world/flashback.gd
 var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
@@ -173,7 +175,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -192,7 +194,10 @@ func _ready() -> void:
 	hedgehog = HedgehogScript.new()
 	add_child(hedgehog)
 	hedgehog.setup(self, Rect2(Interior.O, Rooms.ROOMS.burrow.size))
-	randomize()
+	if rng_seed:
+		seed(rng_seed)
+	else:
+		randomize()
 	for b in BOSSES:
 		var boss_node: Node2D = BossScript.new()
 		add_child(boss_node)
@@ -252,6 +257,9 @@ func _ready() -> void:
 		dialog.play("cs_intro")
 	elif get_tree().root.get_meta("open", "") == "wardrobe":  # home screen's Wardrobe button
 		wardrobe.toggle()
+	elif get_tree().root.get_meta("open", "") == "album":  # and its Album button
+		inventory.toggle()
+		inventory.show_album(true)
 	get_tree().root.remove_meta("open")
 
 func _process(delta: float) -> void:

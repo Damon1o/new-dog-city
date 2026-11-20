@@ -3,6 +3,40 @@ extends RefCounted
 ##   {say: who, text}  dialog card      {pan: Vector2 (offset from the dog), t}  camera move
 ##   {wait: t}  pause                   {sfx: name}  {music: name} (cutscene layer)  {flag: name}
 ## Esc skips the rest, but every {flag} step still gets set.
+## FLASHBACKS (spec 04 "Flashback playback") run in the flashback_room template via
+## scripts/world/flashback.gd; POLAROIDS is the album, in order, all 17.
+
+## Album order and titles: fb_<floor> for every HQ floor that plays a flashback (spec 04 "Floors").
+const POLAROIDS := {
+	"fb_nyc_1": "Sam buying Byte's first collar", "fb_nyc_2": "Byte's first snowfall with Sam",
+	"fb_nyc_3": "Sam adopting Byte from the pound", "fb_sf_1": "Hackathon demo day, Byte under the table",
+	"fb_sf_2": "Sam's late bus, Byte waiting at the door", "fb_sf_3": "Sam coding late, Byte asleep on their feet",
+	"fb_tokyo_1": "Rainy walk, shared umbrella", "fb_tokyo_2": "Sam teaching Byte \"sit\" with a treat",
+	"fb_tokyo_3": "Sam teaching Byte the spin trick", "fb_shenzhen_1": "Sam soldering, Byte watching sparks",
+	"fb_shenzhen_2": "The lost-pet finder prototype", "fb_shenzhen_3": "Sam's goodbye on the day they left",
+	"fb_tower_1": "The AI's first successful pet match", "fb_tower_2": "The AI starts ignoring Sam",
+	"fb_tower_3": "Sam locked out of their own lab", "fb_tower_4": "Sam sending the message to Byte",
+	"fb_tower_5": "Sam's note: \"Byte will find me\"",
+}
+
+## Playable flashbacks: Sam's spot, the city's piano theme, props [texture, room pos, scale, who, card].
+## A flashback ends once every prop has shown its card. ponytail: only NYC so far; the rest
+## sit in the album as blanks until their cities exist.
+const FLASHBACKS := {
+	"fb_nyc_1": {"music": "piano_nyc", "sam": Vector2(400, 260), "props": [
+		["counter", Vector2(440, 200), 2.0, "Sam", "The red one? ...Yeah. The red one, buddy. Matches your ears."],
+		["shelf", Vector2(150, 140), 2.0, "Byte", "Squeaky toys, floor to ceiling. Sam said pick one. I picked three."],
+	]},
+	"fb_nyc_2": {"music": "piano_nyc", "sam": Vector2(330, 240), "props": [
+		["tree", Vector2(160, 220), 2.0, "Byte", "Cold white stuff falling out of the sky! I bit it. It vanished."],
+		["hydrant", Vector2(480, 230), 2.0, "Sam", "Your first snow! Hold still, I want a picture of this."],
+	]},
+	"fb_nyc_3": {"music": "piano_nyc", "sam": Vector2(470, 260), "props": [
+		["shelf", Vector2(150, 140), 2.0, "Byte", "Rows of cages. Everybody barking. Nobody ever looked at me."],
+		["water_bowl", Vector2(200, 290), 2.5, "Byte", "My bowl, empty like always. Then footsteps stopped right here."],
+		["counter", Vector2(470, 200), 2.0, "Sam", "That one. The scruffy one in the back. He's coming home with me."],
+	]},
+}
 
 const CUTSCENES := {
 	"cs_intro": [

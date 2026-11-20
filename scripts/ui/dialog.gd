@@ -68,11 +68,12 @@ func build() -> void:
 func playing() -> bool:
 	return id != ""
 
-func play(cs: String) -> void:
+## `list` runs those steps under id `cs` instead of a data/story.gd script (flashback cards).
+func play(cs: String, list := []) -> void:
 	if playing():
 		return
 	id = cs
-	steps = CUTSCENES[cs].duplicate()
+	steps = (list if list else CUTSCENES[cs]).duplicate()
 	g.player.frozen = true
 	g.hud.hide()
 	letterbox(1.0)
@@ -133,6 +134,8 @@ func show_card(who: String, line: String) -> void:
 ## Byte's own sprite (first frame of the sheet); others get the cat art.
 ## ponytail: one stand-in face for every non-Byte speaker; real portraits once assets has them.
 func face(who: String) -> Texture2D:
+	if who == "Sam":
+		return null  # Sam is drawn in code (scripts/world/flashback.gd), no texture to show
 	if who != "Byte":
 		return g.tex.cat
 	var sheet: Texture2D = g.player.sprite.texture

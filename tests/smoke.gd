@@ -44,9 +44,18 @@ func _initialize() -> void:
 
 	var game: Node2D = load("res://scenes/Main.tscn").instantiate()
 	game.save_path = SAVE
+	game.rng_seed = 7  # game.gd reseeds after city.build; without this seed(7) above is thrown away
 	root.add_child(game)
 	await frames(2)
 	var player: CharacterBody2D = game.player
+	# quiet street: ambient prey / treats / traffic wander into the checks below (a stray catch
+	# levels the dog and pauses the tree, a pickup shifts treat counts, a car knocks hp off)
+	game.spawn_timer = INF
+	for n: Node in get_nodes_in_group("prey") + game.treat_sprites:
+		n.queue_free()
+	game.treat_sprites.clear()
+	for c: Node in get_nodes_in_group("car"):
+		c.set_process(false)
 
 	# cutscenes (M5-2): a new dog gets the intro; typewriter completes on a key, the next key
 	# advances, Esc skips the rest and still sets the cutscene's flags
@@ -78,6 +87,44 @@ func _initialize() -> void:
 	assert(root.get_node("Story").has("ch1_clue") and dlg.bars[1].scale.y < 0.01, "skip: bars gone")
 	game.save_extra.erase("ui/reduce_motion")
 	root.get_node("Story").reset()
+
+	# flashbacks (M5-5): clearing nyc_1 plays fb_nyc_1 in the sepia room; F on each prop shows its
+	# card; after the last one the dog is back where it was, fb_nyc_1 set = one polaroid; replay adds none
+	var fb: Node = game.flashback
+	var fb_story: Node = root.get_node("Story")
+	var shots := func(): return fb_story.flags.filter(func(f): return f.begins_with("fb_")).size()
+	var fb_at: Vector2 = player.position
+	game.save_extra["ui/reduce_motion"] = true
+	fb.clear_floor("nyc_1", 30.0)
+	await frames(1)
+	assert(game.inside == "flashback" and fb.playing() and game.night.color == game.interior.tint, "sepia flashback room")
+	assert(is_instance_valid(fb.sam) and not fb_story.has("fb_nyc_1"), "Sam is there, no polaroid yet")
+	for k in fb.props.size():
+		player.position = game.interior.O + fb.props[k][1]
+		await frames(1)
+		assert(game.menu.visible and fb.near() == k, "prop prompt")
+		var f_key := InputEventKey.new()
+		f_key.keycode = KEY_F
+		f_key.pressed = true
+		root.push_input(f_key)
+		assert(dlg.playing() and dlg.text.text == fb.props[k][4], "F shows the prop card")
+		root.push_input(esc)
+	await frames(2)
+	assert(game.inside == "" and player.position == fb_at and not fb.playing() and not player.frozen, "back on the street")
+	assert(fb_story.has("fb_nyc_1") and shots.call() == 1, "clearing nyc_1 sets fb_nyc_1, one polaroid")
+	assert(fb_story.floors.has("nyc_1"))
+	game.inventory.toggle()
+	var album_grid: GridContainer = game.inventory.album.get_child(0)
+	assert(album_grid.get_child_count() == 17 and not album_grid.get_child(0).disabled and album_grid.get_child(1).disabled, "album: 17, found one replayable")
+	album_grid.get_child(0).pressed.emit()
+	assert(not game.inventory.is_open() and game.inside == "flashback", "album replay")
+	for k in fb.props.size():
+		fb.inspect(k)
+		root.push_input(esc)
+	await frames(2)
+	assert(game.inside == "" and shots.call() == 1, "replay adds no polaroid")
+	game.save_extra.erase("ui/reduce_motion")
+	fb_story.reset()
 
 	# level-up: one stat point, game waits for the pick
 	var hp_cap: float = player.max_hp
@@ -144,8 +191,11 @@ func _initialize() -> void:
 	var cars := get_nodes_in_group("car")
 	assert(cars.size() == 2 * (game.NX + 1) + 2 * (game.NY + 1))
 	cars[0].position = Vector2(32, 1000)  # cars start at random spots; pin one mid-block, clear of steam and cross traffic
+	cars[0].set_process(true)
+	player.hp = player.max_hp
 	player.position = cars[0].position
 	await frames(2)
+	cars[0].set_process(false)
 	assert(absf(player.max_hp - game.CAR_DMG - player.hp) < 1.0, "car hits once (regen may tick)")
 
 	# raccoon special: winds up, then pounces
@@ -265,8 +315,8 @@ func _initialize() -> void:
 	assert(game.hud.theme != null, "HUD theme set")
 	game.inventory.toggle()
 	assert(game.inventory.is_open() and player.frozen, "I opens the inventory")
-	assert(game.inventory.root.get_child_count() == 3 and game.inventory.ground.get_child_count() == 16
-		and game.inventory.bag.get_child_count() == 25, "ground / equipment / inventory panels")
+	assert(game.inventory.root.get_child_count() == 4 and game.inventory.ground.get_child_count() == 16
+		and game.inventory.bag.get_child_count() == 25, "ground / equipment / inventory panels (+ hidden album)")
 	game.inventory.bind("water", 3)
 	game.inventory.toggle()
 	assert(not game.inventory.is_open() and not player.frozen, "I closes it")
