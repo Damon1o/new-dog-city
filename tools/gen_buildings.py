@@ -456,11 +456,37 @@ def airport():
     rect(px, 0, h - 2, w, 2, CURB)
     return px
 
+def nyse():
+    w, h = 96, 100
+    px = blank(w, h)
+    stone, dark = (215, 210, 195, 255), (150, 145, 130, 255)
+    rect(px, 46, 0, 1, 14, IRON)  # flag
+    rect(px, 47, 1, 12, 7, (200, 45, 40, 255))
+    for k in range(0, 7, 2):
+        rect(px, 47, 1 + k, 12, 1, (240, 240, 240, 255))
+    rect(px, 47, 1, 5, 4, (40, 60, 130, 255))
+    for k in range(10):  # pediment
+        rect(px, w // 2 - 4 * k - 4, 14 + k, 8 * k + 8, 1, stone)
+    rect(px, 2, 24, w - 4, 4, dark)
+    rect(px, 4, 28, w - 8, 9, stone)
+    text(px, "NYSE", w // 2, 30, (60, 55, 50, 255))
+    rect(px, 2, 37, w - 4, 3, dark)
+    rect(px, 6, 40, w - 12, 52, (70, 80, 100, 255))  # dark hall behind the columns
+    for x in range(8, w - 10, 14):
+        rect(px, x, 40, 7, 52, stone)
+        rect(px, x + 5, 40, 2, 52, dark)
+        rect(px, x - 1, 40, 9, 2, dark)
+    door(px, w // 2, 92, 12, 18, (110, 80, 40, 255), glass=True)
+    rect(px, 0, 92, w, 6, dark)  # steps
+    rect(px, 0, 94, w, 1, stone)
+    rect(px, 0, h - 2, w, 2, CURB)
+    return px
+
 if __name__ == "__main__":
     for n in range(VARIANTS):
         write_png(f"apartment_{n}.png", apartment(n))
         write_png(f"office_{n}.png", office(n))
         write_png(f"shop_{n}.png", shop(n))
-    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport)]:
+    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse)]:
         write_png(f"{name}.png", fn())
-    print(f"wrote {VARIANTS * 3 + 4} buildings to {os.path.normpath(OUT)}")
+    print(f"wrote {VARIANTS * 3 + 5} buildings to {os.path.normpath(OUT)}")

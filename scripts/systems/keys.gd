@@ -9,6 +9,7 @@ const DEFAULTS := {  # action -> [label, default keycodes]
 	"dash": ["Dash", [KEY_C]], "bark": ["Bark", [KEY_R]], "interact": ["Interact", [KEY_F]],
 	"inventory": ["Inventory", [KEY_I]], "map": ["Map", [KEY_M]], "breed": ["Change breed", [KEY_TAB]],
 	"wardrobe": ["Wardrobe", [KEY_B]],
+	"stocks": ["Stock app", [KEY_P]],
 	"purina": ["Eat Purina", [KEY_Q]], "water": ["Drink water", [KEY_E]], "pee": ["Pee  (hold)", [KEY_G]],
 	"hot_1": ["Hotbar 1 / choice 1", [KEY_1]], "hot_2": ["Hotbar 2 / choice 2", [KEY_2]],
 	"hot_3": ["Hotbar 3 / choice 3", [KEY_3]], "hot_4": ["Hotbar 4 / choice 4", [KEY_4]],
