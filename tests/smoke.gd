@@ -1024,6 +1024,59 @@ func _initialize() -> void:
 	assert(game.inside == "" and ["fb_nyc_1", "fb_nyc_2", "fb_nyc_3"].all(pz_story.has), "three NYC floors, three polaroids")
 	game.save_extra.erase("ui/reduce_motion")
 
+	# Fat Cat (M5-7): NYSE bell podium plays cs_fatcat_pre, then the fight; phases at 60% and 30%;
+	# every special fires; the kill drops the NYC keycard, 5 bones, PURR -40% and ch1_boss, once
+	var fc_story: Node = root.get_node("Story")
+	fc_story.reset()
+	fc_story.set_flag("ch1_fatcat_ready")
+	var fc_door: Dictionary = game.doors.filter(func(d): return d.template == "nyse")[0]
+	game.interior.enter(fc_door)
+	var fc_boss: Node2D = get_nodes_in_group("boss").filter(func(b): return b.cfg.name == "Fat Cat")[0]
+	assert(fc_boss.state == fc_boss.State.IDLE and fc_boss.level == 20, "Fat Cat waits for the bell")
+	player.hp = player.max_hp
+	player.position = game.interior.spots.podium
+	await frames(2)
+	assert(game.dialog.id == "cs_fatcat_pre" and fc_boss.state == fc_boss.State.IDLE, "podium plays the intro first")
+	game.dialog.skip()
+	await frames(2)
+	assert(fc_boss.state == fc_boss.State.CHASE and game.boss == fc_boss and fc_boss.phase == 0, "then the fight starts")
+	for i in 2:  # coin_fan, briefcase_charge
+		fc_boss.special(Vector2.RIGHT)
+	assert(fc_boss.briefcase and fc_boss.state == fc_boss.State.WINDUP, "briefcase charge winds up")
+	fc_boss.state = fc_boss.State.CHASE
+	fc_boss.hurt(fc_boss.max_hp * 0.39, player.position)
+	assert(fc_boss.phase == 0, "61%: still phase 1")
+	fc_boss.hurt(fc_boss.max_hp * 0.02, player.position)
+	assert(fc_boss.phase == 1 and "margin_call" in fc_boss.specials(), "phase 2 below 60%")
+	for i in 3:  # margin_call, ticker_wave, coin_fan
+		fc_boss.special(Vector2.RIGHT)
+	assert(fc_boss.minions.size() == 3 and fc_boss.minions[0].level == 18 and fc_boss.wave_x != INF, "security cats + ticker wave")
+	fc_boss.hurt(fc_boss.max_hp * 0.3, player.position)
+	assert(fc_boss.phase == 2 and "golden_parachute" in fc_boss.specials(), "phase 3 below 30%")
+	player.hp = player.max_hp
+	fc_boss.special(Vector2.RIGHT)
+	assert(fc_boss.state == fc_boss.State.PARACHUTE, "golden parachute jumps")
+	player.position += Vector2(400, 0)  # out of the landing ring
+	await frames(int(fc_boss.AIR_TIME * 60.0) + 5)
+	assert(fc_boss.state != fc_boss.State.PARACHUTE and fc_boss.sprite.position.y == 0.0, "and lands")
+	var fc_bones: int = game.economy.bones
+	var fc_purr: float = game.stocks.price("PURR")
+	player.hp = player.max_hp
+	fc_boss.hurt(1e9, player.position)
+	assert(fc_story.has_keycard("nyc") and game.economy.bones == fc_bones + 5 and fc_story.has("ch1_boss"), "keycard + 5 bones dropped")
+	assert(is_equal_approx(game.stocks.price("PURR"), clampf(fc_purr * 0.6, game.stocks.LO, game.stocks.HI)), "PURR -40%")
+	assert(game.boss == null and game.dialog.id == "cs_fatcat_post", "post-fight cutscene")
+	game.dialog.skip()
+	while player.points > 0:
+		game.pick_stat(1)
+	await frames(2)
+	assert(not is_instance_valid(fc_boss), "story boss never respawns")
+	game.interior.leave()
+	game.interior.enter(fc_door)
+	assert(get_nodes_in_group("boss").size() == 3, "beaten: no Fat Cat on the floor")
+	game.interior.leave()
+	fc_story.reset()
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game

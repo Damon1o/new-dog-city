@@ -111,7 +111,8 @@ const ROOMS := {
 		"props": [["counter", Vector2(300, 260), 2.0, Vector2(128, 40)], ["counter", Vector2(852, 260), 2.0, Vector2(128, 40)],
 			["counter", Vector2(300, 440), 2.0, Vector2(128, 40)], ["counter", Vector2(852, 440), 2.0, Vector2(128, 40)],
 			["pillar", Vector2(120, 600), 2.5, Vector2(20, 10)], ["pillar", Vector2(1032, 600), 2.5, Vector2(20, 10)]],
-		"spots": {"exit": Vector2(576, 624), "start": Vector2(576, 572), "terminal": Vector2(576, 170)},
+		"spots": {"exit": Vector2(576, 624), "start": Vector2(576, 572), "terminal": Vector2(576, 170),
+			"podium": Vector2(576, 480), "boss": Vector2(576, 330)},  # M5-7 bell podium + Fat Cat (scripts/world/nyse_arena.gd)
 		"door": ["NYSE   stock exchange", "[F]  Go inside"], "exit": ["NYSE TRADING FLOOR", "[F]  Back to the street"],
 	},
 	# M4-6 pound (spec 08): no street door, wanted.caught() sends the dog here. No exit spot:

@@ -84,6 +84,10 @@ func enter(d: Dictionary) -> void:
 		"burrow":
 			g.hedgehog.start()
 			g.bump("burrow", true)
+		"nyse":  # M5-7 bell podium + Fat Cat
+			var arena: Node2D = preload("res://scripts/world/nyse_arena.gd").new()
+			arena.g = g
+			room.add_child(arena)
 
 func leave() -> void:
 	g.hedgehog.stop()  # fleeing the den resets the fight
