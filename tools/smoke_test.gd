@@ -2,7 +2,7 @@ extends SceneTree
 ## Smoke test for quests + Boss Hedgehog. Uses its own save file, never the real one.
 ##   godot --headless --path . -s tools/smoke_test.gd
 
-const SAVE := "user://smoke_test.cfg"
+var SAVE := "user://smoke_test_%d.cfg" % OS.get_process_id()  # per run: parallel worktrees share user://
 var failed := false
 
 func check(ok: bool, what: String) -> void:

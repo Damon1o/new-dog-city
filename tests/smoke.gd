@@ -7,7 +7,8 @@ func frames(n: int) -> void:
 		await process_frame
 
 func _initialize() -> void:
-	const SAVE := "user://smoke.cfg"  # throwaway save, the real one is never touched
+	seed(7)  # same spawns and rolls every run: a failure reproduces instead of flaking
+	var SAVE := "user://smoke_%d.cfg" % OS.get_process_id()  # throwaway save per run: parallel worktrees share user://
 	DirAccess.remove_absolute(SAVE)
 
 	# home screen: Continue hidden with no save (or a ui-only file); shown once a dog is saved;
