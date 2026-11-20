@@ -581,6 +581,44 @@ func _initialize() -> void:
 	await frames(45)
 	assert(game.fade.color.a == 0.0 and not player.frozen and is_instance_valid(game.city.root), "travel fades back in")
 
+	# wanted (M4-4): stars = heat / 25, flash on gain (none with reduce motion), decay after 10 s
+	# unseen, officers + a van at 3 stars, a 1.2 s grab = caught (fine, heat cleared)
+	var wanted: Node = game.wanted
+	assert(wanted.stars() == 0 and wanted.stars_ui != null, "stars HUD built")
+	wanted.add_heat(24)
+	assert(wanted.stars() == 0 and wanted.flash_t == 0.0)
+	wanted.add_heat(26)
+	assert(wanted.stars() == 2 and wanted.flash_t > 0.0, "stars = heat / 25, flash on gain")
+	game.save_extra["ui/reduce_motion"] = true
+	wanted.flash_t = 0.0
+	wanted.add_heat(25)
+	assert(wanted.stars() == 3 and wanted.flash_t == 0.0, "reduce motion: no flash")
+	game.save_extra["ui/reduce_motion"] = false
+	wanted.add_heat(1000)
+	assert(wanted.heat == 125.0 and wanted.stars() == 5, "heat caps at 125")
+	wanted.clear()
+	game.set_inside("", Vector2(700, 64))
+	wanted.staff_t = 1e9  # no officers: nobody sees the dog
+	wanted.add_heat(50)
+	await frames(570)
+	assert(wanted.heat == 50.0, "no decay before 10 s unseen")
+	await frames(60)
+	assert(wanted.heat < 50.0 and wanted.heat > 45.0, "decay after 10 s unseen, got %f" % wanted.heat)
+	wanted.add_heat(75.0 - wanted.heat)
+	wanted.staff_t = 0.0
+	await frames(1)
+	assert(wanted.stars() == 3 and wanted.vans().size() == 1 and wanted.officers().size() == 1, "3 stars: officer + van")
+	var cop: Node2D = wanted.officers()[0]
+	assert(cop.position.distance_to(player.position) >= 480.0, "officer spawns ~500 px away")
+	player.treats = 100
+	cop.position = player.position + Vector2(10, 0)
+	await frames(2)
+	assert(wanted.warn_t > 0.0, "whistle + edge warning when an officer closes in")
+	await frames(75)
+	assert(wanted.caught_n == 1 and wanted.stars() == 0 and player.treats == 55, "grab = caught, fine 15 x stars")
+	await frames(1)
+	assert(wanted.officers().is_empty() and wanted.vans().is_empty(), "caught clears animal control")
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game
