@@ -16,7 +16,7 @@ const V2 := {
 	"territory/markers": [], "territory/rep": {},
 	"wardrobe/owned": [], "wardrobe/equipped": {"skin": 0, "collar": "name", "hat": "", "overlay": ""},
 	"stocks/prices": {}, "stocks/history": {}, "stocks/held": {},
-	"ui/reduce_motion": false,
+	"ui/reduce_motion": false, "ui/hotbar": ["purina", "water", "", ""],
 }
 const VOLS := {"Music": "vol_music", "SFX": "vol_sfx", "Ambience": "vol_amb"}
 

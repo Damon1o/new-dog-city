@@ -179,10 +179,26 @@ func _initialize() -> void:
 	assert(game.shop.stock()[0][0] == "puppuccino", "cafe sells drinks")
 	player.treats = 100
 	assert(game.shop.buy(0) == 1 and player.buffs.drink.id == "puppuccino" and player.mod("stamina") == 1.5, "drink buff on")
+	await frames(1)
+	assert(game.ui.buff_row.get_node("drink").visible, "buff chip shows")
 	player.buffs.drink.t = 0.05
 	await frames(6)
 	assert(not player.buffs.has("drink") and player.mod("stamina") == 1.0, "buff timer runs down")
 	game.interior.leave()
+	# UI overhaul: inventory opens / freezes / closes; hotbar binds and uses a slot; long menus fit
+	assert(game.hud.theme != null, "HUD theme set")
+	game.inventory.toggle()
+	assert(game.inventory.is_open() and player.frozen, "I opens the inventory")
+	assert(game.inventory.tabs.get_tab_count() == 5, "Items / Sam / Album / Keys / Stocks")
+	game.inventory.bind("water", 3)
+	game.inventory.toggle()
+	assert(not game.inventory.is_open() and not player.frozen, "I closes it")
+	assert(game.inventory.hotbar()[3] == "water" and game.inventory.hotbar()[1] == "", "bind moves water to slot 4")
+	player.water = 1
+	player.thirst = 10.0
+	game.on_number(3)
+	assert(player.water == 0 and player.thirst > 10.0, "hotbar slot 4 drinks")
+	assert(game.menu_rows.size() >= 7, "menu fits a landmark elevator")
 	# GPS (M2-5): clicking near a bodega sets the waypoint; far away the edge arrow points at it
 	game.set_waypoint(game.bodega_doors[0] + Vector2(20, 0))
 	assert(not game.waypoint.is_empty() and game.waypoint.pos.distance_to(game.bodega_doors[0]) < 250.0, "waypoint on a bodega")

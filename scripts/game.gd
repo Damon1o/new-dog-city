@@ -34,6 +34,8 @@ const Weather := preload("res://scripts/systems/weather.gd")
 const Items := preload("res://scripts/data/items.gd")
 const Economy := preload("res://scripts/systems/economy.gd")
 const ShopUi := preload("res://scripts/ui/shop.gd")
+const InventoryUi := preload("res://scripts/ui/inventory.gd")
+var inventory: Node  # scripts/ui/inventory.gd (I)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
 const SHOP := Items.SHOP
@@ -296,6 +298,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				float_text(player.position, "+water", Color(0.5, 0.8, 1))
 		KEY_F:
 			interact()
+		KEY_I:
+			inventory.toggle()
 		KEY_M:
 			if inside == "":
 				god_view = not god_view
@@ -520,6 +524,8 @@ func on_number(n: int) -> void:
 		interior.ride(n)
 	elif ctx == "airport":
 		interior.fly(n)
+	elif ctx == "" and not player.frozen and n < 4:
+		inventory.use_slot(n)  # hotbar
 	elif ctx == "subway" and n < stations.size():
 		if n != station_i and not player.frozen:
 			travel(n)
@@ -552,6 +558,10 @@ func build_hud() -> void:
 	shop.g = self
 	add_child(shop)
 	shop.build()
+	inventory = InventoryUi.new()
+	inventory.g = self
+	add_child(inventory)
+	inventory.build()
 
 func update_hud(delta: float) -> void:
 	ui.update_hud(delta)

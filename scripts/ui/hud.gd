@@ -1,4 +1,7 @@
 extends Node
+const Look := preload("res://scripts/ui/theme.gd")
+const Items := preload("res://scripts/data/items.gd")
+var buff_row: HBoxContainer  # food / drink buff chips above the ability bar
 ## HUD: building and per-frame updates (moved from game.gd). Widget vars stay on
 ## game so save, tests and actors keep reading them there.
 
@@ -15,13 +18,9 @@ func hud_label(parent: Node, font_size: int, color := Color.WHITE) -> Label:
 	parent.add_child(l)
 	return l
 
-func panel(alpha := 0.72) -> PanelContainer:
+func panel(alpha := 0.86) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.05, 0.08, alpha)
-	sb.set_corner_radius_all(6)
-	sb.set_content_margin_all(8)
-	p.add_theme_stylebox_override("panel", sb)
+	p.add_theme_stylebox_override("panel", Look.box(Color(Look.BG, alpha)))
 	return p
 
 func full(c: Control) -> Control:
@@ -131,6 +130,7 @@ func build_hud() -> void:
 	g.fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(g.fade)
 	g.hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	g.hud.theme = Look.make()  # UI overhaul: one sleek look for every panel / button under the HUD
 
 	# red screen-edge g.vignette for low HP / hunger / thirst
 	var grad := Gradient.new()
@@ -240,7 +240,7 @@ func build_hud() -> void:
 	var rows := VBoxContainer.new()
 	g.menu.add_child(rows)
 	g.menu_head = hud_label(rows, 18, Color(1, 0.9, 0.4))
-	for i in 4:
+	for i in 9:  # landmark elevators list 7 (6 floors + roof)
 		g.menu_rows.append(hud_label(rows, 16))
 	g.menu.hide()
 	dock(g.menu, true, 60)
@@ -254,6 +254,16 @@ func build_hud() -> void:
 		abar.add_child(c)
 		g.abilities[a[0]] = {"ctl": c, "key": a[1], "max": a[2], "v": 0.0}
 	dock(abar, true, 4)
+	buff_row = HBoxContainer.new()
+	buff_row.add_theme_constant_override("separation", 8)
+	buff_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dock(buff_row, true, 62)
+	for slot in ["food", "drink"]:
+		var chip := panel(0.8)
+		chip.name = slot
+		hud_label(chip, 13, Look.ACCENT.lightened(0.4))
+		chip.hide()
+		buff_row.add_child(chip)
 
 	# centre: collar name entry, pause g.menu
 	var center := CenterContainer.new()
@@ -270,7 +280,7 @@ func build_hud() -> void:
 	pv.add_theme_constant_override("separation", 8)
 	g.pause_panel.add_child(pv)
 	hud_label(pv, 24).text = "PAUSED"
-	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace / left click   attack (click aims at the cursor)\nC   dash   R   bark   hold Space   pounce (Lv 30)\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
+	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace / left click   attack (click aims at the cursor)\nC   dash   R   bark   hold Space   pounce (Lv 30)\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map (click a place: waypoint)\nI   inventory\n1-4   hotbar on the street; menu choices in shops, subway, elevators, gates\nEsc   pause"
 	for bus in ["Master", "Music", "SFX", "Ambience"]:
 		hud_label(pv, 14).text = "Volume" if bus == "Master" else bus
 		var sl := HSlider.new()
@@ -400,6 +410,11 @@ func update_hud(delta: float) -> void:
 	var low: float = minf(g.player.hp / g.player.max_hp, minf(g.player.hunger, g.player.thirst) / 100.0)
 	g.vignette.modulate.a = 0.0 if low >= g.LOW else \
 		(0.4 + 0.6 * (1.0 - low / g.LOW)) * (0.7 + 0.3 * sin(Time.get_ticks_msec() / 180.0))
+	for chip: PanelContainer in buff_row.get_children():  # spec 11 buff timers
+		var b: Dictionary = g.player.buffs.get(chip.name, {})
+		chip.visible = not b.is_empty()
+		if chip.visible:
+			(chip.get_child(0) as Label).text = "%s  %ds" % [Items.ITEM_INFO[b.id].name, ceili(b.t)]
 
 	if g.player.treats != g.last_treats:
 		if g.last_treats >= 0:  # pop green on gain, red on spend
@@ -409,7 +424,7 @@ func update_hud(delta: float) -> void:
 			tw.tween_property(g.treat_label, "scale", Vector2.ONE, 0.25)
 			tw.tween_property(g.treat_label, "modulate", Color.WHITE, 0.4)
 		g.last_treats = g.player.treats
-		g.treat_label.text = "x%d" % g.player.treats
+		g.treat_label.text = "x%d   %d bones" % [g.player.treats, g.economy.bones]
 	for item in ["purina", "water"]:
 		var n: int = g.player.get(item)
 		var l: Label = g.slots[item]
