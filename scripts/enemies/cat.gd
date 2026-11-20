@@ -201,6 +201,8 @@ func hurt(dmg: float, from: Vector2, crit := false) -> void:
 
 func beaten() -> void:
 	remove_from_group("foe")
+	if kind == "black" and game.Spawns.phase(game.sun()) == "night":
+		game.bump("black_cats_night")  # Old Rex quest (M4-7)
 	player.treats += stats.treats
 	XP.award(game, stats.xp, self)
 	game.float_text(position, "%s beaten! +%d treats" % [cfg.name, stats.treats], Color(1, 0.85, 0.5))

@@ -36,6 +36,7 @@ var bar_ui: Control
 ## Caught with `stars`: fade in on the cell, fine = 15 x stars x city price (min 10).
 func jail(stars: int) -> void:
 	fine = maxi(10, roundi(15 * stars * g.economy.city_mult()))
+	g.bump("pound")  # Old Rex: "visit the pound"
 	stage = ""
 	# ponytail: no pound building on the street map; the street door is the dog's park spawn
 	g.interior.enter({"template": "pound", "pos": g.player.spawn_point, "id": "pound", "seed": 0, "name": "Pound", "floors": 1})

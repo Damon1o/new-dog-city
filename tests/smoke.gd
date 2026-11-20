@@ -1064,6 +1064,58 @@ func _initialize() -> void:
 			game.on_bite(foe_f.position, 20.0, foe_f.max_hp * 0.3)
 			await frames(3)
 		assert(not is_instance_valid(foe_f) and player.treats > foe_treats0, kind + " beaten")
+	var foe_tod: float = game.tod
+	game.tod = 0.0  # midnight: sun() == 0, night
+	var foe_bc0: int = game.stat("black_cats_night")
+	game.spawner.spawn_foe("black", player.position + Vector2(400, 0))[0].beaten()
+	assert(game.stat("black_cats_night") == foe_bc0 + 1, "black cat beaten at night counts for Old Rex")
+	game.tod = foe_tod
+	while player.points > 0:  # beaten() awards XP; a level-up picker pauses the tree
+		game.pick_stat(0)
+	game.show_stats()
+
+	# dog park (M4-7): no boss on it, 3 quest dogs, HP regen inside, an officer stops at the
+	# fence and leaves after 5 s, talking starts a quest line, optional bones / item columns pay
+	var dp_park: Rect2 = game.city.dog_park
+	assert(dp_park == Rect2(game.block_origin(game.PARKS[game.NYC.dog_park]), game.BLOCK), "dog park block")
+	assert(game.BOSSES.all(func(b): return b.park != game.NYC.dog_park), "no park boss in the dog park")
+	assert(get_nodes_in_group("npc").size() == 3, "3 NYC quest dogs")
+	game.set_inside("", dp_park.position + Vector2(60, 40))
+	player.hunger = 10.0  # starving: no well-fed regen, so only the park heals
+	player.hp = 50.0
+	await frames(60)
+	assert(player.hp > 54.0 and player.hp < 56.0, "HP regen 5/s in the dog park, got %f" % player.hp)
+	player.hunger = 100.0
+	wanted.staff_t = 1e9
+	var dp_caught0: int = wanted.caught_n
+	var dp_fence_cop: Node2D = wanted.spawn_officer(player.position - Vector2(160, 0), false)
+	await frames(60)
+	assert(is_instance_valid(dp_fence_cop) and not dp_park.has_point(dp_fence_cop.position) \
+			and dp_park.position.x - dp_fence_cop.position.x < 6.0 and dp_fence_cop.fence_t > 0.0, "officer stops at the fence")
+	await frames(300)
+	assert(not is_instance_valid(dp_fence_cop) and wanted.caught_n == dp_caught0, "officer leaves after 5 s, no catch")
+	var dp_biscuit: Node2D = game.city.root.get_children().filter(func(n): return n.has_method("lines_for"))[0].dogs.Biscuit
+	player.position = dp_biscuit.position
+	await frames(1)
+	assert(game.act == "talk", "F prompt by a quest dog")
+	assert(not game.quest_text().contains("BISCUIT"), "dog lines hidden until you meet the dog")
+	dp_biscuit.talk()
+	assert(game.dialog.playing() and game.quest_step.Biscuit == 1 and game.waypoint.text == "Biscuit's ball", "talk starts the line")
+	game.dialog.skip()
+	player.position = game.waypoint.pos
+	await frames(1)
+	assert(game.quest_step.Biscuit == 2, "ball found")
+	var dp_bones0: int = game.economy.bones
+	for k in ["met_old_rex", "park_boss_raccoon", "black_cats_night", "black_cats_night", "black_cats_night", "pound"]:
+		game.bump(k)
+	for i in 10:
+		game.bump("pigeons")
+	for i in 3:
+		game.bump("blocks")
+	assert(game.economy.bones == dp_bones0 + 2 and game.wardrobe.owns("bodega_cap"), "Old Rex pays 2 bones, Biscuit the cap")
+	while player.points > 0:
+		game.pick_stat(0)
+	game.show_stats()
 
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)

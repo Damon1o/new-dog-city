@@ -15,6 +15,7 @@ var perf_max := 0.0
 var perf_last := 0
 var id := ""     # current city, a key of CITIES
 var root: Node2D  # the current city's nodes; freed and rebuilt on travel
+var dog_park := Rect2()  # spec 03 safe zone (world/dog_park.gd); empty = this city has none
 
 ## Free the current city and build `city_id` from data/cities.gd (seeded, so the same layout every time).
 func build(city_id: String) -> void:
@@ -24,6 +25,7 @@ func build(city_id: String) -> void:
 	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.doors, g.stations, g.landmarks, g.manholes]:
 		list.clear()
 	id = city_id
+	dog_park = Rect2()
 	root = Node2D.new()
 	root.name = "City"
 	root.y_sort_enabled = true
@@ -35,6 +37,10 @@ func build(city_id: String) -> void:
 	for l in g.landmarks:
 		l.seen = l.name in seen
 	g.ground.queue_redraw()
+
+## Spec 03/08: animal control never enters, wanted decay x3, HP regen.
+func in_dog_park(p: Vector2) -> bool:
+	return dog_park.has_point(p)
 
 ## Swap cities behind a fade (spec 02: only the current city is in the tree).
 func travel(city_id: String) -> void:
@@ -202,6 +208,11 @@ func build_block(b: Vector2i) -> void:
 	var c = o + g.BLOCK / 2.0
 	if b in g.PARKS:
 		g.parks.append(Rect2(o, g.BLOCK))
+		if CITIES[id].parks.find(b) == CITIES[id].get("dog_park", -1):
+			dog_park = Rect2(o, g.BLOCK)
+			var dp: Node2D = preload("res://scripts/world/dog_park.gd").new()
+			holder().add_child(dp)
+			dp.setup(g, dog_park, id)
 		if Rect2(o, g.BLOCK).has_point(g.burrow):
 			add_door(g.burrow, "burrow", b, 0)
 		add_prop(g.tex.fountain, c, 2.5)

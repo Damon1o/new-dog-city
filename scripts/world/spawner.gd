@@ -32,7 +32,7 @@ func spawn_prey() -> void:
 	if pos.x < 0 or pos.distance_to(g.player.position) < 350.0:
 		return
 	if Cat.TYPES.has(kind) or kind == "rats":
-		if g.get_tree().get_nodes_in_group("foe").size() < MAX_FOES:
+		if g.get_tree().get_nodes_in_group("foe").size() < MAX_FOES and not g.city.in_dog_park(pos):  # safe zone (M4-7)
 			spawn_foe(kind, pos, bonus)
 		return
 	if kind == "pigeon":
@@ -72,6 +72,8 @@ func scatter(f: Dictionary) -> void:
 		return
 	f.scatter = randf_range(15.0, 25.0)
 	g.sfx("pigeons_scatter")
+	for p in f.members:
+		g.bump("pigeons")  # Biscuit's "scatter 10 pigeons"
 
 ## Bark (spec 05): every flock with a bird inside the ring scatters.
 func scatter_near(at: Vector2, radius: float) -> void:

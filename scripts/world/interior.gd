@@ -78,6 +78,8 @@ func enter(d: Dictionary) -> void:
 	match d.template:
 		"bodega":
 			g.bump("shop", true)
+		"cafe":
+			g.bump("cafe")
 		"subway":
 			g.station_i = maxi(g.stations.map(func(s): return s.pos).find(d.pos), 0)
 			g.station_sign.text = g.stations[g.station_i].name

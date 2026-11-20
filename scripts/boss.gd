@@ -218,4 +218,5 @@ func hurt(dmg: float, from: Vector2, crit := false) -> void:
 		visible = false
 		sprite.modulate = cfg.tint
 		clear_shots()
+		game.bump("park_boss_" + cfg.tex)  # Old Rex: "park_boss_raccoon"
 		game.on_boss_beaten(self)
