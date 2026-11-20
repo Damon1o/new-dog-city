@@ -4,10 +4,10 @@ extends Control
 
 const GAME_SCENE := "res://scenes/Main.tscn"
 const Save := preload("res://scripts/systems/save.gd")
+const Look := preload("res://scripts/ui/theme.gd")
+const Keys := preload("res://scripts/systems/keys.gd")
 const TILE := 64.0
 const STEP := Vector2(7, 5) * TILE  # one block + one road, same rhythm as the city
-## Keep in sync with the pause panel in scripts/ui/hud.gd.
-const CONTROLS := "WASD / arrows   move\nShift   sprint\nSpace / left click   attack\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map\n1-4   shop and subway choices\nEsc   pause"
 
 var save_path := "user://save.cfg"  # var so the smoke test can point it elsewhere
 var tex := {}
@@ -20,6 +20,7 @@ var settings_panel: PanelContainer
 var toasts: VBoxContainer
 var vols := {}  # bus name -> HSlider
 var reduce_motion: CheckBox
+var free_roam: Button
 
 ## A save counts once it has a dog: restart() leaves a "ui"-only file (volumes), which is no save.
 static func has_save(path: String) -> bool:
@@ -28,6 +29,7 @@ static func has_save(path: String) -> bool:
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	theme = Look.make()
 	Sound.music("home_theme")
 	for n in ["road", "sidewalk", "building_a", "building_b", "building_c", "bodega", "tree", "hydrant"]:
 		tex[n] = load("res://assets/%s.png" % n)
@@ -45,18 +47,24 @@ func _ready() -> void:
 	var center := CenterContainer.new()
 	add_child(center)
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var cfg := ConfigFile.new()
+	cfg.load(save_path)
+	Keys.apply(cfg.get_value("ui", "keys", {}))  # the controls list shows your bindings
 	menu = VBoxContainer.new()
 	menu.add_theme_constant_override("separation", 8)
-	center.add_child(menu)
+	var menu_panel := panel()
+	menu_panel.add_child(menu)
+	center.add_child(menu_panel)
+	menu.visibility_changed.connect(func(): menu_panel.visible = menu.visible)
 	label(menu, 56, Color(1, 0.85, 0.3)).text = "New Dog City"
-	label(menu, 22, Color(0.7, 0.85, 1)).text = "Lost Packet"
+	label(menu, 22, Look.ACCENT.lightened(0.35)).text = "Lost Packet"
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 16
 	menu.add_child(gap)
 	continue_btn = button("Continue", start_game)
 	button("New Story", new_story)
-	# ponytail: spec open question 4 locks Free Roam until Story flag ch1_clue; Story (M5-1) isn't in yet, so it's always open.
-	button("Free Roam", start_game)
+	# spec open question 4: Free Roam opens once the story reaches ch1_clue.
+	free_roam = button("Free Roam", start_game)
 	for b in [button("Wardrobe", soon.bind("Wardrobe")), button("Album", soon.bind("Album"))]:  # M4-11, M5-5
 		b.modulate.a = 0.55  # not built yet: dimmed, press shows a "coming soon" toast
 	button("Settings", open_settings)
@@ -77,8 +85,6 @@ func _ready() -> void:
 	sv.add_theme_constant_override("separation", 6)
 	settings_panel.add_child(sv)
 	label(sv, 24).text = "SETTINGS"
-	var cfg := ConfigFile.new()
-	cfg.load(save_path)
 	for bus in ["Master", "Music", "SFX", "Ambience"]:
 		label(sv, 14).text = "Volume" if bus == "Master" else bus
 		var sl := HSlider.new()
@@ -95,7 +101,14 @@ func _ready() -> void:
 	reduce_motion.button_pressed = cfg.get_value("ui", "reduce_motion", false)
 	sv.add_child(reduce_motion)
 	label(sv, 16, Color(1, 0.9, 0.4)).text = "Controls"
-	label(sv, 13).text = CONTROLS
+	var keys := GridContainer.new()
+	keys.columns = 2
+	keys.add_theme_constant_override("h_separation", 18)
+	for a: String in Keys.DEFAULTS:
+		label(keys, 13, Look.DIM).text = Keys.DEFAULTS[a][0]
+		label(keys, 13).text = Keys.label(a)
+	sv.add_child(keys)
+	label(sv, 12, Look.DIM).text = "Esc pauses. Rebind keys from the pause menu in game."
 	button("Back", save_settings, sv)
 	center.add_child(settings_panel)
 
@@ -144,10 +157,17 @@ func draw_street() -> void:
 
 func show_menu() -> void:
 	continue_btn.visible = has_save(save_path)
+	var cfg := ConfigFile.new()
+	cfg.load(save_path)
+	free_roam.disabled = not "ch1_clue" in cfg.get_value("story", "flags", [])
+	free_roam.tooltip_text = "Unlocks once you find Sam's first clue" if free_roam.disabled else ""
 	menu.visible = true
 	confirm_panel.visible = false
 	settings_panel.visible = false
 	(continue_btn if continue_btn.visible else menu.get_child(4)).grab_focus.call_deferred()
+	if not reduce_motion.button_pressed:
+		menu.modulate.a = 0.0
+		menu.create_tween().tween_property(menu, "modulate:a", 1.0, 0.25)
 
 func start_game() -> void:
 	get_tree().change_scene_to_file(GAME_SCENE)
@@ -215,9 +235,5 @@ func button(text: String, on_press: Callable, parent: Node = null) -> Button:
 
 func panel() -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.05, 0.08, 0.94)
-	sb.set_corner_radius_all(6)
-	sb.set_content_margin_all(14)
-	p.add_theme_stylebox_override("panel", sb)
+	p.add_theme_stylebox_override("panel", Look.box(Look.BG, 14, Look.EDGE, 24))
 	return p
