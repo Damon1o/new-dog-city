@@ -124,7 +124,7 @@ func _physics_process(delta: float) -> void:
 		buffs[slot].t -= delta
 		if buffs[slot].t <= 0.0:
 			buffs.erase(slot)
-	if Input.is_key_pressed(KEY_SPACE) and not frozen:
+	if Input.is_action_pressed("bite") and not frozen:
 		space_t += delta
 		if space_t >= POUNCE_HOLD and space_t - delta < POUNCE_HOLD:
 			pounce()
@@ -147,14 +147,9 @@ func _physics_process(delta: float) -> void:
 		return
 	var dir := Vector2.ZERO
 	if not frozen:
-		dir = Vector2(
-			float(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT))
-			- float(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT)),
-			float(Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN))
-			- float(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP))
-		).normalized()
+		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down").normalized()  # scripts/systems/keys.gd
 	var weak := hunger < 20.0 or thirst < 20.0
-	sprinting = dir != Vector2.ZERO and Input.is_key_pressed(KEY_SHIFT) and not winded
+	sprinting = dir != Vector2.ZERO and Input.is_action_pressed("sprint") and not winded
 	var top: float = (float(breed().mph) + stat_spd) * PX_PER_MPH * (0.75 if weak else 1.0) * mod("speed")
 	var w: Node = get_parent().get("weather")  # scripts/systems/weather.gd modifiers
 	velocity = dir * (top * (w.sprint_mult() if w else 1.0) if sprinting else top * 0.6)

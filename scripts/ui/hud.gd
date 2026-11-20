@@ -1,6 +1,7 @@
 extends Node
 const Look := preload("res://scripts/ui/theme.gd")
 const Items := preload("res://scripts/data/items.gd")
+const Keys := preload("res://scripts/systems/keys.gd")
 var buff_row: HBoxContainer  # food / drink buff chips above the ability bar
 ## HUD: building and per-frame updates (moved from game.gd). Widget vars stay on
 ## game so save, tests and actors keep reading them there.
@@ -280,7 +281,11 @@ func build_hud() -> void:
 	pv.add_theme_constant_override("separation", 8)
 	g.pause_panel.add_child(pv)
 	hud_label(pv, 24).text = "PAUSED"
-	hud_label(pv, 14).text = "WASD / arrows   move\nShift   sprint\nSpace / left click   attack (click aims at the cursor)\nC   dash   R   bark   hold Space   pounce (Lv 30)\nF   doors, stairs, burrow\nQ / E   eat Purina / drink water\nTab   change breed\nM   god's-eye map (click a place: waypoint)\nI   inventory\n1-4   hotbar on the street; menu choices in shops, subway, elevators, gates\nEsc   pause"
+	hud_label(pv, 14, Look.DIM).text = "Left click attacks toward the cursor.  On the M map, click a place to set a waypoint."
+	var keys_btn := Button.new()
+	keys_btn.text = "Key bindings"
+	keys_btn.pressed.connect(func(): g.keybinds.open())
+	pv.add_child(keys_btn)
 	for bus in ["Master", "Music", "SFX", "Ambience"]:
 		hud_label(pv, 14).text = "Volume" if bus == "Master" else bus
 		var sl := HSlider.new()
@@ -458,8 +463,9 @@ func draw_ability(n: String) -> void:
 	if ab.v > 0.0:  # clockwise from 12 o'clock; a thick arc avoids polygon triangulation at tiny slices
 		c.draw_arc(mid, 9.5, -PI / 2.0, -PI / 2.0 + TAU * ab.v, 32, Color(0, 0, 0, 0.65), 19.0)
 	c.draw_arc(mid, 19, 0, TAU, 32, Color(1, 1, 1, 0.7), 1.5)
-	c.draw_string_outline(font, Vector2(0, 25), ab.key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13, 3, Color.BLACK)
-	c.draw_string(font, Vector2(0, 25), ab.key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13)
+	var key: String = Keys.label("bite" if n == "pounce" else n).get_slice(" / ", 0).left(5)  # follows rebinding
+	c.draw_string_outline(font, Vector2(0, 25), key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13, 3, Color.BLACK)
+	c.draw_string(font, Vector2(0, 25), key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13)
 	c.draw_string_outline(font, Vector2(0, 51), n, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10, 3, Color.BLACK)
 	c.draw_string(font, Vector2(0, 51), n, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10)
 

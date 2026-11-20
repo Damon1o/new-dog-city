@@ -35,6 +35,9 @@ const Items := preload("res://scripts/data/items.gd")
 const Economy := preload("res://scripts/systems/economy.gd")
 const ShopUi := preload("res://scripts/ui/shop.gd")
 const InventoryUi := preload("res://scripts/ui/inventory.gd")
+const Keys := preload("res://scripts/systems/keys.gd")
+const KeybindsUi := preload("res://scripts/ui/keybinds.gd")
+var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
@@ -217,8 +220,10 @@ func _ready() -> void:
 
 	Story.waypoint_changed.connect(func(p: Vector2):  # "Find XP" (gate popup) drives the same GPS arrow
 		waypoint = {} if p == Story.NO_TARGET else {"pos": p, "text": "Find XP", "color": Color(1, 0.9, 0.2)})
+	Keys.apply({})  # defaults first so the HUD can show key names; the save overrides below
 	build_hud()
 	load_game()
+	Keys.apply(save_extra.get("ui/keys", {}))
 	check_quests()
 	show_stats()
 	for i in 12:
@@ -273,41 +278,47 @@ func _input(event: InputEvent) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	match event.keycode:
-		KEY_ESCAPE:
-			if not name_edit.visible:
-				set_paused(true)
-		KEY_TAB:
+	if event.keycode == KEY_ESCAPE:  # fixed: always reaches pause / Settings
+		if inventory.is_open():
+			inventory.toggle()
+		elif not name_edit.visible:
+			set_paused(true)
+		return
+	if event.keycode >= KEY_5 and event.keycode <= KEY_9:  # fixed: long menus (elevators)
+		on_number(event.keycode - KEY_1)
+		return
+	match Keys.action_of(event):  # scripts/systems/keys.gd, rebindable in Settings
+		"breed":
 			prev_skin = player.skin
 			player.cycle_skin()
 			card_t = 3.0
 			card_art.queue_redraw()
-		KEY_SPACE:
+		"bite":
 			player.bite()
-		KEY_C:
+		"dash":
 			player.dash()
-		KEY_R:
+		"bark":
 			player.bark()
-		KEY_Q:
+		"purina":
 			if player.use_purina():
 				sfx("pickup")
 				float_text(player.position, "+HP", Color(0.5, 1, 0.5))
-		KEY_E:
+		"water":
 			if player.use_water():
 				sfx("pickup")
 				float_text(player.position, "+water", Color(0.5, 0.8, 1))
-		KEY_F:
+		"interact":
 			interact()
-		KEY_I:
+		"inventory":
 			inventory.toggle()
-		KEY_M:
+		"map":
 			if inside == "":
 				god_view = not god_view
 				bump("map", true)
 				zoom_tw = create_tween()
 				zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
-		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9:  # shop rows use 1-4, elevators up to 7
-			on_number(event.keycode - KEY_1)
+		"hot_1", "hot_2", "hot_3", "hot_4":  # hotbar on the street; menu choice in shops, subway, elevators, gates
+			on_number(int(Keys.action_of(event).right(1)) - 1)
 
 func sun() -> float:
 	return clampf(sin((tod - 0.25) * TAU) * 1.5 + 0.6, 0.0, 1.0)
@@ -388,6 +399,7 @@ func respawn() -> void:
 func restart() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("ui", "volume", volume.value)
+	cfg.set_value("ui", "keys", Keys.to_save())  # a new dog keeps your controls
 	cfg.save(save_path)
 	get_tree().paused = false
 	get_tree().reload_current_scene()
@@ -562,6 +574,10 @@ func build_hud() -> void:
 	inventory.g = self
 	add_child(inventory)
 	inventory.build()
+	keybinds = KeybindsUi.new()
+	keybinds.g = self
+	add_child(keybinds)
+	keybinds.build()
 
 func update_hud(delta: float) -> void:
 	ui.update_hud(delta)

@@ -158,9 +158,10 @@ func _initialize() -> void:
 	var gates: Array = game.interior.gate_rows()
 	assert(not gates[0][1] and "here" in gates[0][0], "NYC gate is where you are")
 	assert(not gates[1][1] and "NYC Hack Club HQ" in gates[1][0], "locked gate shows its hint")
-	Story.set_flag("ch1_clue")
+	var st: Node = root.get_node("Story")  # -s scripts can't see autoload names at compile time
+	st.set_flag("ch1_clue")
 	assert(game.interior.gate_rows()[1][1], "ch1_clue opens the SF gate")
-	Story.flags.erase("ch1_clue")
+	st.flags.erase("ch1_clue")
 	game.interior.leave()
 	# NYC shops (M4-2): gas / pizza / cafe exist; cafe locked at night; a buff times out
 	for t in ["gas", "pizza", "cafe"]:
@@ -189,7 +190,8 @@ func _initialize() -> void:
 	assert(game.hud.theme != null, "HUD theme set")
 	game.inventory.toggle()
 	assert(game.inventory.is_open() and player.frozen, "I opens the inventory")
-	assert(game.inventory.tabs.get_tab_count() == 5, "Items / Sam / Album / Keys / Stocks")
+	assert(game.inventory.root.get_child_count() == 3 and game.inventory.ground.get_child_count() == 16
+		and game.inventory.bag.get_child_count() == 25, "ground / equipment / inventory panels")
 	game.inventory.bind("water", 3)
 	game.inventory.toggle()
 	assert(not game.inventory.is_open() and not player.frozen, "I closes it")
@@ -199,6 +201,25 @@ func _initialize() -> void:
 	game.on_number(3)
 	assert(player.water == 0 and player.thirst > 10.0, "hotbar slot 4 drinks")
 	assert(game.menu_rows.size() >= 7, "menu fits a landmark elevator")
+	await frames(1)  # HUD hotbar refreshes in _process
+	assert(game.inventory.hud_slots[3].icon.texture != null, "HUD hotbar slot 4 shows water")
+	# key bindings: rebind dash to V, V dashes, C no longer does; reset brings C back
+	var Keys = load("res://scripts/systems/keys.gd")
+	Keys.rebind("dash", KEY_V)
+	var press := func(k: Key):
+		var ev := InputEventKey.new()
+		ev.keycode = k
+		ev.pressed = true
+		game._unhandled_key_input(ev)
+	player.stamina = 100.0
+	player.dash_cd = 0.0
+	press.call(KEY_C)
+	assert(player.dash_cd == 0.0, "old key unbound")
+	press.call(KEY_V)
+	assert(player.dash_cd > 0.0, "rebound key dashes")
+	Keys.reset()
+	assert(Keys.keys_of("dash") == [KEY_C] and Keys.keys_of("move_up") == [KEY_W, KEY_UP], "reset to defaults")
+	await frames(20)  # let the dash finish
 	# GPS (M2-5): clicking near a bodega sets the waypoint; far away the edge arrow points at it
 	game.set_waypoint(game.bodega_doors[0] + Vector2(20, 0))
 	assert(not game.waypoint.is_empty() and game.waypoint.pos.distance_to(game.bodega_doors[0]) < 250.0, "waypoint on a bodega")
@@ -212,9 +233,9 @@ func _initialize() -> void:
 	player.position = wp
 	await frames(1)
 	assert(game.waypoint.is_empty(), "arriving clears the waypoint")
-	Story.set_waypoint(wp + Vector2(500, 0))
+	st.set_waypoint(wp + Vector2(500, 0))
 	assert(game.waypoint.pos == wp + Vector2(500, 0), "Find XP waypoint shows on the GPS")
-	Story.set_waypoint(Story.NO_TARGET)
+	st.set_waypoint(st.NO_TARGET)
 	assert(game.waypoint.is_empty())
 	var boss_lv := {"King of Raccoons": 6, "The Pideon Queen": 8, "The Rat Meister": 10}
 	for b in get_nodes_in_group("boss"):
