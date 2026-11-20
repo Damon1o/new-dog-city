@@ -280,6 +280,7 @@ func _initialize() -> void:
 	boss.position = boss_at
 	boss.stun_t = 0.0
 	player.facing = Vector2.RIGHT
+	player.bark_cd = player.BARK_CD  # the wave waits drained it; the ability-bar check below wants a fresh one
 	# pounce (M1-8): 160 px leap, landing hit = 2x bite damage
 	assert(not player.pounce(), "pounce needs level 30")
 	player.level = 30
