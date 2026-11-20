@@ -57,6 +57,32 @@ const ROOMS := {
 		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "elevator": Vector2(720, 140)},
 		"door": ["OFFICES   {NAME}", "[F]  Go inside"], "exit": ["OFFICE LOBBY", "[F]  Back to the street"],
 	},
+	# M4-2 shops (spec 03 / 09): shop_small's layout; scripts/ui/shop.gd picks the stock by template
+	"gas": {
+		"size": Vector2(512, 384), "kind": "shop", "tint": Color(1, 0.95, 0.85),
+		"paint": [[Rect2(0, 0, 512, 384), "sidewalk"], [Rect2(0, 0, 512, 96), "shop_wall", Color(1, 0.85, 0.6)],
+			[Rect2(216, 360, 80, 24), Color(0.5, 0.2, 0.1)]],
+		"props": [["shelf", Vector2(80, 130), 2.0, Vector2(96, 24)], ["shelf", Vector2(190, 130), 2.0, Vector2(96, 24)],
+			["counter", Vector2(400, 250), 2.0, Vector2(128, 40)]],
+		"spots": {"exit": Vector2(256, 368), "start": Vector2(256, 316), "counter": Vector2(400, 280)},
+		"door": ["GAS STATION", "[F]  Go inside"], "exit": ["GAS STATION", "[F]  Back to the street"],
+	},
+	"pizza": {
+		"size": Vector2(640, 384), "kind": "shop", "tint": Color(1, 0.9, 0.8),
+		"paint": [[Rect2(0, 0, 640, 384), "shop_floor", Color(1, 0.85, 0.8)], [Rect2(0, 0, 640, 96), "shop_wall", Color(1, 0.6, 0.5)],
+			[Rect2(280, 360, 80, 24), Color(0.6, 0.15, 0.1)]],
+		"props": [["counter", Vector2(480, 250), 2.0, Vector2(128, 40)], ["counter", Vector2(150, 200), 2.0, Vector2(128, 40)]],
+		"spots": {"exit": Vector2(320, 368), "start": Vector2(320, 316), "counter": Vector2(480, 280)},
+		"door": ["PIZZA", "[F]  Go inside"], "exit": ["PIZZA", "[F]  Back to the street"],
+	},
+	"cafe": {
+		"size": Vector2(640, 384), "kind": "shop", "tint": Color(0.95, 0.9, 0.85),
+		"paint": [[Rect2(0, 0, 640, 384), "shop_floor", Color(0.85, 0.75, 0.65)], [Rect2(0, 0, 640, 96), "shop_wall", Color(0.7, 0.55, 0.45)],
+			[Rect2(280, 360, 80, 24), Color(0.3, 0.2, 0.15)]],
+		"props": [["counter", Vector2(480, 250), 2.0, Vector2(128, 40)], ["cat", Vector2(150, 280), 2.5, Vector2.ZERO]],
+		"spots": {"exit": Vector2(320, 368), "start": Vector2(320, 316), "counter": Vector2(480, 280)},
+		"door": ["CAFE", "[F]  Go inside"], "exit": ["CAFE", "[F]  Back to the street"],
+	},
 	"airport": {
 		"size": Vector2(1152, 448), "kind": "airport", "tint": Color(0.95, 0.97, 1),
 		"paint": [[Rect2(0, 0, 1152, 448), "platform", Color(0.9, 0.92, 1)], [Rect2(0, 0, 1152, 96), "station_wall", Color(0.7, 0.8, 0.95)],

@@ -162,6 +162,27 @@ func _initialize() -> void:
 	assert(game.interior.gate_rows()[1][1], "ch1_clue opens the SF gate")
 	Story.flags.erase("ch1_clue")
 	game.interior.leave()
+	# NYC shops (M4-2): gas / pizza / cafe exist; cafe locked at night; a buff times out
+	for t in ["gas", "pizza", "cafe"]:
+		assert(game.doors.any(func(d): return d.template == t), "NYC has a " + t)
+	var cafe: Dictionary = game.doors.filter(func(d): return d.template == "cafe")[0]
+	var tod0: float = game.tod
+	game.tod = 0.0  # midnight
+	player.position = cafe.pos
+	await frames(1)
+	assert(game.act == "closed", "cafe locked at night")
+	game.tod = 0.5  # noon
+	await frames(1)
+	assert(game.act == "enter", "cafe open by day")
+	game.tod = tod0
+	game.interior.enter(cafe)
+	assert(game.shop.stock()[0][0] == "puppuccino", "cafe sells drinks")
+	player.treats = 100
+	assert(game.shop.buy(0) == 1 and player.buffs.drink.id == "puppuccino" and player.mod("stamina") == 1.5, "drink buff on")
+	player.buffs.drink.t = 0.05
+	await frames(6)
+	assert(not player.buffs.has("drink") and player.mod("stamina") == 1.0, "buff timer runs down")
+	game.interior.leave()
 	# GPS (M2-5): clicking near a bodega sets the waypoint; far away the edge arrow points at it
 	game.set_waypoint(game.bodega_doors[0] + Vector2(20, 0))
 	assert(not game.waypoint.is_empty() and game.waypoint.pos.distance_to(game.bodega_doors[0]) < 250.0, "waypoint on a bodega")

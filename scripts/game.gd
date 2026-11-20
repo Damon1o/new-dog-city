@@ -622,7 +622,10 @@ func update_prompts(delta: float) -> void:
 			if at.distance_to(d.pos) < 45.0:
 				door = d
 				var t: Array = Rooms.ROOMS[d.template].door
-				set_act("enter", t[0].format({"name": d.name, "NAME": d.name.to_upper()}).strip_edges(), t[1])
+				if d.template == "cafe" and Spawns.phase(sun()) == "night":  # spec 03: cafes close at night
+					set_act("closed", "CAFE", "Closed until morning")
+				else:
+					set_act("enter", t[0].format({"name": d.name, "NAME": d.name.to_upper()}).strip_edges(), t[1])
 
 	if not waypoint.is_empty() and inside == "" and player.position.distance_to(waypoint.pos) < 80.0:
 		waypoint = {}  # arrived

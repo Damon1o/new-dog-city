@@ -225,12 +225,14 @@ func build_block(b: Vector2i) -> void:
 		add_can(o + Vector2(450, 250))
 		add_tree(o + Vector2(60, 340))
 	else:
+		var special: String = CITIES[id].get("shops", {}).get(b, "")  # M4-2: same rolls, swapped template
 		for i in 3:
 			if randf() < 0.85:
 				var kind: String = ["building_a", "building_b", "building_c"].pick_random()
 				add_building(g.tex[kind], o + Vector2(96 + i * 160, 236), 1.5, 0.6,
 					Color.from_hsv(randf(), 0.15, randf_range(0.8, 1.0)))
-				add_door(o + Vector2(96 + i * 160, 256), g.Rooms.BY_BUILDING[kind], b, i)
+				add_door(o + Vector2(96 + i * 160, 256), special if special != "" else g.Rooms.BY_BUILDING[kind], b, i)
+				special = ""
 		add_can(o + Vector2(randf_range(40, 170), randf_range(285, 360)))
 		if randf() < 0.5:
 			add_can(o + Vector2(randf_range(340, 470), randf_range(285, 360)))

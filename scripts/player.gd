@@ -6,6 +6,7 @@ signal died
 signal hit
 
 const XP := preload("res://scripts/systems/xp.gd")
+const Items := preload("res://scripts/data/items.gd")
 const PX_PER_MPH := 16.0  # ideas.md top speed 15-20 mph -> 240-320 px/s
 const BREEDS := [
 	{"name": "Pug", "file": "pug", "scale": 2.4, "mph": 15.0, "hp": 90.0, "atk": 8.0, "scare": 0.8},
@@ -42,6 +43,7 @@ var max_hp: float:
 	get: return float(BREEDS[skin].hp) + (level - 1) * 2.0 + stat_hp * 10.0
 var hunger := 100.0
 var thirst := 100.0
+var buffs := {}  # "food" / "drink" -> {id, t (s left), mods}; not saved, they last 1-2 min
 var stamina := 100.0
 var level := 1
 var xp := 0
@@ -88,7 +90,22 @@ func display_name() -> String:
 	return ("%s the %s" % [collar, breed().name]) if collar != "" else str(breed().name)
 
 func attack_damage() -> float:
-	return float(breed().atk) + level * 0.5 + stat_atk * 2.0
+	return (float(breed().atk) + level * 0.5 + stat_atk * 2.0) * mod("damage")
+
+## Shop food / drinks (spec 09): FOOD fills hunger now; BUFFS take the food or drink slot,
+## replacing whatever was there.
+func consume(item: String) -> void:
+	hunger = minf(hunger + float(Items.FOOD.get(item, 0.0)), 100.0)
+	if Items.BUFFS.has(item):
+		var b: Array = Items.BUFFS[item]
+		buffs[b[0]] = {"id": item, "t": b[1], "mods": b[2]}
+
+## Product of active buff multipliers for `stat` (1.0 with none).
+func mod(stat: String) -> float:
+	var m := 1.0
+	for b in buffs.values():
+		m *= float(b.mods.get(stat, 1.0))
+	return m
 
 func spend(i: int) -> void:
 	if points <= 0:
@@ -103,6 +120,10 @@ func _physics_process(delta: float) -> void:
 	dash_cd = maxf(dash_cd - delta, 0.0)
 	bark_cd = maxf(bark_cd - delta, 0.0)
 	pounce_cd = maxf(pounce_cd - delta, 0.0)
+	for slot in buffs.keys():
+		buffs[slot].t -= delta
+		if buffs[slot].t <= 0.0:
+			buffs.erase(slot)
 	if Input.is_key_pressed(KEY_SPACE) and not frozen:
 		space_t += delta
 		if space_t >= POUNCE_HOLD and space_t - delta < POUNCE_HOLD:
@@ -134,7 +155,7 @@ func _physics_process(delta: float) -> void:
 		).normalized()
 	var weak := hunger < 20.0 or thirst < 20.0
 	sprinting = dir != Vector2.ZERO and Input.is_key_pressed(KEY_SHIFT) and not winded
-	var top: float = (float(breed().mph) + stat_spd) * PX_PER_MPH * (0.75 if weak else 1.0)
+	var top: float = (float(breed().mph) + stat_spd) * PX_PER_MPH * (0.75 if weak else 1.0) * mod("speed")
 	var w: Node = get_parent().get("weather")  # scripts/systems/weather.gd modifiers
 	velocity = dir * (top * (w.sprint_mult() if w else 1.0) if sprinting else top * 0.6)
 	if dir != Vector2.ZERO:
@@ -151,10 +172,10 @@ func _physics_process(delta: float) -> void:
 		stamina = maxf(stamina - delta * 28.0, 0.0)
 		winded = stamina <= 0.0
 	else:
-		stamina = minf(stamina + delta * (6.0 if weak else 16.0), 100.0)
+		stamina = minf(stamina + delta * (6.0 if weak else 16.0) * mod("stamina"), 100.0)
 		winded = winded and stamina < 25.0
 	hunger = maxf(hunger - delta * 0.5, 0.0)
-	thirst = maxf(thirst - delta * (1.4 if sprinting else 0.7) * (w.thirst_mult() if w else 1.0), 0.0)
+	thirst = maxf(thirst - delta * (1.4 if sprinting else 0.7) * (w.thirst_mult() if w else 1.0) * mod("thirst"), 0.0)
 	if hunger <= 0.0 or thirst <= 0.0:
 		take_damage(delta * 4.0)
 	elif hunger > 50.0 and thirst > 50.0 and hp < max_hp:
@@ -186,7 +207,7 @@ func bark() -> bool:
 	if frozen or bark_cd > 0.0 or stamina < BARK_COST:
 		return false
 	stamina -= BARK_COST
-	bark_cd = BARK_CD
+	bark_cd = BARK_CD * mod("bark_cd")
 	Sound.sfx("bark_scare")
 	for r in foes():
 		if r.position.distance_to(position) < BARK_RADIUS:
