@@ -194,7 +194,7 @@ func refresh_gear() -> void:
 	gear.add_child(top)
 	var left := VBoxContainer.new()
 	top.add_child(left)
-	cell(labeled(left, "Head"), null, "", "Hats arrive with the wardrobe")
+	worn(left, "Head", "hat")
 	var t: Texture2D = g.player.sprite.texture
 	var frame := AtlasTexture.new()  # sprite sheet is 2 walk frames side by side; show the first
 	frame.atlas = t
@@ -216,7 +216,7 @@ func refresh_gear() -> void:
 	var right := VBoxContainer.new()
 	top.add_child(right)
 	cell(labeled(right, "Collar"), null, g.player.collar.left(6), "Name collar: %s" % (g.player.collar if g.player.collar != "" else "none"))
-	cell(labeled(right, "Outfit"), null, "", "Outfits arrive with the wardrobe")
+	worn(right, "Outfit", "overlay")
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 4)
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -232,6 +232,17 @@ func refresh_gear() -> void:
 			func(_at, d): return d is Dictionary and d.get("item", "") in CARRY,
 			func(_at, d): bind(d.item, s))
 		on_click(p, Callable(), clear_slot.bind(s))
+
+## Head / Outfit: the worn wardrobe item; click opens the wardrobe (B).
+func worn(parent: Node, title: String, slot: String) -> void:
+	var id: String = g.wardrobe.equipped().get(slot, "")
+	var info: Dictionary = g.wardrobe.Wardrobe.ITEMS.get(id, {})
+	on_click(cell(labeled(parent, title), g.wardrobe.Wardrobe.icon(id), "",
+		"%s - click for the wardrobe" % info.get("name", "Nothing")), open_wardrobe)
+
+func open_wardrobe() -> void:
+	toggle()
+	g.wardrobe.toggle()
 
 func clear_slot(s: int) -> void:
 	var h := hotbar().duplicate()

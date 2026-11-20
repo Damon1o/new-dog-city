@@ -229,6 +229,34 @@ func _initialize() -> void:
 	assert(game.menu_rows.size() >= 7, "menu fits a landmark elevator")
 	await frames(1)  # HUD hotbar refreshes in _process
 	assert(game.inventory.hud_slots[3].icon.texture != null, "HUD hotbar slot 4 shows water")
+	# wardrobe (M4-11): B opens it, buy + equip the bodega cap, locked items stay locked, hat survives save / load
+	var wr: Node = game.wardrobe
+	wr.toggle()
+	assert(wr.is_open() and player.frozen and wr.tabs.get_child_count() == 4, "B opens the wardrobe")
+	assert(wr.tabs.get_child(0).get_child_count() == player.BREEDS.size(), "one skin per breed")
+	player.treats = 50
+	wr.pick("bodega_cap")
+	wr.press()
+	assert(player.treats == 10 and wr.equipped().hat == "bodega_cap", "buy + equip the bodega cap")
+	wr.pick("beanie")
+	wr.press()
+	assert(wr.equipped().hat == "bodega_cap" and not wr.owns("beanie") and wr.button.disabled, "beanie is locked")
+	wr.toggle()
+	assert(not wr.is_open() and not player.frozen)
+	var gear: Node2D = player.sprite.get_node("Gear")
+	var cap: Texture2D = wr.Wardrobe.icon("bodega_cap")
+	assert(gear.get_children().any(func(s): return s.texture == cap), "cap drawn on the dog")
+	player.sprite.flip_h = true
+	await physics_frame
+	await physics_frame
+	assert(gear.scale.x == -1.0, "gear flips with the dog")
+	game.save_game()
+	game.save_extra["wardrobe/equipped"] = {}
+	player.apply_skin()
+	assert(player.sprite.get_node("Gear").get_child_count() == 0)
+	game.load_game()
+	assert(wr.equipped().hat == "bodega_cap" and "bodega_cap" in wr.owned_list(), "hat saved")
+	assert(player.sprite.get_node("Gear").get_children().any(func(s): return s.texture == cap), "hat still on after reload")
 	# key bindings: rebind dash to V, V dashes, C no longer does; reset brings C back
 	var Keys = load("res://scripts/systems/keys.gd")
 	Keys.rebind("dash", KEY_V)
