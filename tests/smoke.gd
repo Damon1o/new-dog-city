@@ -841,6 +841,52 @@ func _initialize() -> void:
 		terr.new_day()
 	assert(not terr.claimed(blk) and terr.markers().size() == marks0 and terr.rep().nyc == rep0 + 22, "markers fade after 3 days")
 
+	# NYSE stocks (M4-9): seeded 10,000-tick sim stays in [1, 999]; a same-tick round trip
+	# loses treats; P only after a terminal visit; prices, history and holdings save
+	var stk: Node = game.stocks
+	var sim := RandomNumberGenerator.new()
+	sim.seed = 7
+	for id: String in stk.TICKERS:
+		var t: Array = stk.TICKERS[id]
+		var sp: float = t[1]
+		for i in 10000:
+			sp = stk.step(sp, t[3], t[2], sim)
+			assert(sp >= 1.0 and sp <= 999.0, "%s price %f out of [1, 999]" % [id, sp])
+	for sp: float in [1.0, 1.37, 20.0, 998.99]:
+		stk.book("stocks/prices").KIBL = sp
+		for n in [1, 7, 999]:
+			assert(stk.cost("KIBL", n) > stk.payout("KIBL", n), "round trip at %f x%d loses" % [sp, n])
+	stk.book("stocks/prices").KIBL = 20.0
+	player.treats = 500
+	assert(stk.buy("KIBL", 10) == 10 and stk.held("KIBL") == 10 and player.treats == 300, "buy 10 at 20")
+	assert(stk.sell("KIBL", 99) == 10 and stk.held("KIBL") == 0 and player.treats == 496, "sell all, 2% fee")
+	stk.toggle()
+	assert(not stk.is_open(), "P is locked before the first terminal visit")
+	var nyse: Dictionary = game.doors.filter(func(d): return d.template == "nyse")[0]
+	game.interior.enter(nyse)
+	player.position = game.interior.spots.terminal
+	await frames(1)
+	assert(game.inside == "nyse" and game.act == "stocks", "NYSE terminal prompt")
+	game.interact()
+	assert(stk.is_open() and player.frozen, "terminal opens the app")
+	root.push_input(esc)
+	assert(not stk.is_open() and not player.frozen, "Esc closes the app")
+	game.interior.leave()
+	var pkey := InputEventKey.new()
+	pkey.keycode = KEY_P
+	pkey.pressed = true
+	root.push_input(pkey)
+	assert(stk.is_open(), "P opens the app anywhere after the visit")
+	root.push_input(pkey)
+	assert(not stk.is_open() and not player.frozen, "P closes it")
+	for i in stk.HISTORY + 5:
+		stk.tick()
+	assert(stk.history("SQRL").size() == stk.HISTORY, "history keeps 60 points")
+	stk.buy("BONE", 2)
+	var held_save := ConfigFile.new()
+	held_save.load(SAVE)
+	assert(held_save.get_value("stocks", "held").BONE == 2 and held_save.get_value("stocks", "prices").BONE == stk.price("BONE") 		and held_save.get_value("stocks", "history").BONE.size() == stk.HISTORY, "prices, history and holdings saved")
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game
