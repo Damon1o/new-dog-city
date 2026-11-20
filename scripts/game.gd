@@ -139,6 +139,7 @@ var flashback: Node  # scripts/world/flashback.gd
 var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
+var cats: Node  # scripts/world/bodega_cats.gd (friendly bodega cats, M4-3)
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var abilities := {}  # ability bar: name -> {ctl, key, v (cooldown left, 0..1)}
@@ -180,6 +181,9 @@ func _ready() -> void:
 		n.g = self
 		add_child(n)
 		set(m[0], n)
+	cats = preload("res://scripts/world/bodega_cats.gd").new()
+	cats.g = self
+	add_child(cats)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
@@ -335,6 +339,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		"bark":
 			if player.bark():
 				spawner.scatter_near(player.position, 300.0)  # spec 05: pigeon flocks scatter at the sound
+				cats.on_bark()  # spec 07: barking in a bodega costs friendship
 		"purina":
 			if player.use_purina():
 				sfx("pickup")
@@ -385,6 +390,8 @@ func set_inside(room: String, at := player.position) -> void:
 
 func interact() -> void:
 	if player.frozen:
+		return
+	if act == "" and ctx == "bodega" and cats.interact():  # F at the counter: the bodega cat
 		return
 	match act:
 		"enter":
@@ -527,6 +534,7 @@ func on_prey_caught(prey: Node2D) -> void:
 		spawner.scatter(prey.flock)  # spec 07: catch one, the flock flees
 	if prey.kind == "squirrel":
 		bump("squirrels")
+	cats.rat = cats.rat or prey.kind == "rat"  # carried in as a bodega cat gift
 	bump("prey")
 
 func on_prey_escaped(prey: Node2D) -> void:

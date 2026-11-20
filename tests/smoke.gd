@@ -712,6 +712,70 @@ func _initialize() -> void:
 	game.load_game()
 	assert(eco.bones == 0, "v1 save: bones default 0")
 
+	# bodega cats (M4-3): talk once a day, 3 gifts a day count, hearts = 2% off, hint at 3, gift at 5, saved
+	var cats: Node = game.cats
+	var mango_door: Dictionary = game.doors.filter(func(d): return d.template == "bodega" and d.pos == game.bodega_doors[0])[0]
+	game.interior.enter(mango_door)
+	assert(cats.here() == ["nyc_mango", "Mango"], "bodega 0 has Mango")
+	game.save_extra["world/day"] = 1
+	player.purina = 0
+	player.treats = 100
+	cats.rat = false
+	game.ctx = "bodega"
+	game.act = ""
+	game.interact()  # F at the counter goes through game.gd's hook
+	assert(cats.points("nyc_mango") == 1 and game.dialog.playing(), "talk +1, the cat speaks")
+	game.dialog.skip()
+	for i in 5:
+		cats.interact()
+		game.dialog.skip()
+	assert(cats.points("nyc_mango") == 1 + 3 * 2 and player.treats == 85, "5 gifts in a day: only 3 count")
+	game.save_extra["world/day"] = 2
+	cats.rat = true
+	cats.interact()  # new day: talk counts again
+	game.dialog.skip()
+	cats.interact()
+	game.dialog.skip()
+	assert(cats.points("nyc_mango") == 12 and not cats.rat, "new day talk +1, rat gift +4")
+	cats._process(0.0)
+	assert(is_equal_approx(eco.discount(), 0.02) and "Mango likes you: -2%" in eco.discount_label(), "1 heart = 2% off")
+	cats.on_bark()
+	cats.on_pee(game.bodega_doors[0])
+	assert(cats.points("nyc_mango") == 4, "bark -3, pee at the door -5")
+	game.save_extra["cats/points"]["nyc_mango"] = 29
+	game.save_extra["world/day"] = 3
+	cats.interact()
+	assert(story.objective() in game.dialog.text.text, "3 hearts: story hint")
+	game.dialog.skip()
+	game.save_extra["cats/points"]["nyc_mango"] = 49
+	game.save_extra["world/day"] = 4
+	var bones0: int = eco.bones
+	cats.interact()
+	game.dialog.skip()
+	assert(cats.hearts("nyc_mango") == 5 and "bell" in game.save_extra["wardrobe/owned"] and story.has("cat_gift_nyc_mango"), "5 hearts: Bell collar")
+	cats._process(0.0)
+	assert(is_equal_approx(eco.discount(), 0.10), "5 hearts = 10% off (max)")
+	cats.on_bark()
+	cats.rat = true
+	cats.interact()  # back to 5 hearts: no second gift
+	game.dialog.skip()
+	assert(cats.points("nyc_mango") == 50 and eco.bones == bones0, "gift only once")
+	game.save_extra["cats/points"]["nyc_pepper"] = 49
+	cats.add(["nyc_pepper", "Pepper"], 1)
+	assert(eco.bones == bones0 + 2, "later cats give bones")
+	game.save_game()
+	game.save_extra["cats/points"] = {}
+	game.save_extra["cats/today"] = {}
+	game.load_game()
+	assert(game.save_extra["cats/points"].nyc_mango == 50 and game.save_extra["cats/today"].nyc_mango[2], "cats saved")
+	game.interior.leave()
+	cats._process(0.0)
+	assert(eco.discount() == 0.0, "cat discount only in its bodega")
+	story.flags.erase("cat_gift_nyc_mango")
+	story.flags.erase("cat_gift_nyc_pepper")
+	game.save_extra["wardrobe/owned"] = []
+	eco.bones = 0
+
 	# city data (M2-2): rebuilding frees the old city, same layout, no leak
 	var rects: int = game.building_rects.size()
 	game.landmarks[0].seen = true
