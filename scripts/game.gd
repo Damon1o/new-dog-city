@@ -213,6 +213,8 @@ func _ready() -> void:
 		get_tree().paused = true
 		save_game())
 
+	Story.waypoint_changed.connect(func(p: Vector2):  # "Find XP" (gate popup) drives the same GPS arrow
+		waypoint = {} if p == Story.NO_TARGET else {"pos": p, "text": "Find XP", "color": Color(1, 0.9, 0.2)})
 	build_hud()
 	load_game()
 	check_quests()

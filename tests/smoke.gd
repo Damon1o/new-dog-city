@@ -175,6 +175,10 @@ func _initialize() -> void:
 	player.position = wp
 	await frames(1)
 	assert(game.waypoint.is_empty(), "arriving clears the waypoint")
+	Story.set_waypoint(wp + Vector2(500, 0))
+	assert(game.waypoint.pos == wp + Vector2(500, 0), "Find XP waypoint shows on the GPS")
+	Story.set_waypoint(Story.NO_TARGET)
+	assert(game.waypoint.is_empty())
 	var boss_lv := {"King of Raccoons": 6, "The Pideon Queen": 8, "The Rat Meister": 10}
 	for b in get_nodes_in_group("boss"):
 		assert(b.level == boss_lv[b.cfg.name] and b.cfg.level == b.level, "park boss level")
