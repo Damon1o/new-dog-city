@@ -28,3 +28,11 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
     - KIBL rallies once, when 10+ NYC blocks are claimed.
     - The next news day isn't saved, so it's re-rolled each session.
     - There's no bell podium; that's for the Fat Cat arena (M5-7).
+11. **HQ puzzles (M5-4).**
+    - Byte moves one tile per key on puzzle floors, with no free movement. Hunger and thirst pause there.
+    - The door opens and closes live as the floor's solved state changes; it doesn't stay open once solved.
+    - XP and 5 treats are given on the first clear; a bone the first time a clear beats par.
+    - F on the start tile leaves a floor. On program floors this works only while the command bar is empty.
+    - On program floors Byte starts facing up, and bark opens a gate only when it's directly ahead.
+    - Backspace undoes the last program slot. The spec doesn't list this key.
+    - Reset counts aren't saved, and there's no repeat slot (nyc_3 doesn't need one).

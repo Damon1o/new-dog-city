@@ -137,6 +137,7 @@ var territory: Node2D  # scripts/systems/territory.gd (G: pee markers)
 var city: Node  # scripts/world/city_builder.gd
 var interior: Node  # scripts/world/interior.gd
 var flashback: Node  # scripts/world/flashback.gd
+var hq: Node  # scripts/world/hq_floor.gd (M5-4 puzzle floors)
 var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
@@ -186,6 +187,9 @@ func _ready() -> void:
 	cats = preload("res://scripts/world/bodega_cats.gd").new()
 	cats.g = self
 	add_child(cats)
+	hq = preload("res://scripts/world/hq_floor.gd").new()  # M5-4
+	hq.g = self
+	add_child(hq)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
