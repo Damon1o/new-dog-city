@@ -19,6 +19,7 @@ func _initialize() -> void:
 	root.add_child(home)
 	await frames(1)
 	assert(not home.continue_btn.visible, "no save: Continue hidden")
+	assert(home.wardrobe_btn.disabled, "no save: home Wardrobe disabled")
 	home.open_settings()
 	home.vols.Music.value = 0.5
 	home.save_settings()
@@ -30,6 +31,7 @@ func _initialize() -> void:
 	home.show_menu()
 	assert(home.continue_btn.visible, "save: Continue shown")
 	assert(home.free_roam.disabled, "Free Roam locked before ch1_clue")
+	assert(not home.wardrobe_btn.disabled, "save: home Wardrobe opens")
 	dog.set_value("story", "flags", ["ch1_clue"])
 	dog.save(SAVE)
 	home.show_menu()

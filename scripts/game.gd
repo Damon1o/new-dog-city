@@ -244,6 +244,9 @@ func _ready() -> void:
 	show_msg("Press Esc for controls")
 	if not Story.has("cs_intro"):  # ponytail: old saves see it once too; gate on a fresh dog if that annoys
 		dialog.play("cs_intro")
+	elif get_tree().root.get_meta("open", "") == "wardrobe":  # home screen's Wardrobe button
+		wardrobe.toggle()
+	get_tree().root.remove_meta("open")
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)

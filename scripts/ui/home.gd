@@ -22,6 +22,7 @@ var vols := {}  # bus name -> HSlider
 var reduce_motion: CheckBox
 var large_text: CheckBox
 var free_roam: Button
+var wardrobe_btn: Button
 
 ## A save counts once it has a dog: restart() leaves a "ui"-only file (volumes), which is no save.
 static func has_save(path: String) -> bool:
@@ -66,7 +67,8 @@ func _ready() -> void:
 	button("New Story", new_story)
 	# spec open question 4: Free Roam opens once the story reaches ch1_clue.
 	free_roam = button("Free Roam", start_game)
-	for b in [button("Wardrobe", soon.bind("Wardrobe")), button("Album", soon.bind("Album"))]:  # M4-11, M5-5
+	wardrobe_btn = button("Wardrobe", open_in_game.bind("wardrobe"))
+	for b in [button("Album", soon.bind("Album"))]:  # M5-5
 		b.modulate.a = 0.55  # not built yet: dimmed, press shows a "coming soon" toast
 	button("Settings", open_settings)
 	button("Quit", get_tree().quit).visible = not OS.has_feature("web")
@@ -168,6 +170,8 @@ func show_menu() -> void:
 	cfg.load(save_path)
 	free_roam.disabled = not "ch1_clue" in cfg.get_value("story", "flags", [])
 	free_roam.tooltip_text = "Unlocks once you find Sam's first clue" if free_roam.disabled else ""
+	wardrobe_btn.disabled = not continue_btn.visible  # dresses your saved dog
+	wardrobe_btn.tooltip_text = "Start a story first" if wardrobe_btn.disabled else ""
 	menu.visible = true
 	confirm_panel.visible = false
 	settings_panel.visible = false
@@ -178,6 +182,11 @@ func show_menu() -> void:
 
 func start_game() -> void:
 	get_tree().change_scene_to_file(GAME_SCENE)
+
+## Load the saved dog with a screen open (game._ready reads the "open" meta).
+func open_in_game(screen: String) -> void:
+	get_tree().root.set_meta("open", screen)
+	start_game()
 
 ## Over an existing save, New Story asks first (in-UI, not a dialog).
 func new_story() -> void:
