@@ -68,8 +68,7 @@ func _ready() -> void:
 	# spec open question 4: Free Roam opens once the story reaches ch1_clue.
 	free_roam = button("Free Roam", start_game)
 	wardrobe_btn = button("Wardrobe", open_in_game.bind("wardrobe"))
-	for b in [button("Album", soon.bind("Album"))]:  # M5-5
-		b.modulate.a = 0.55  # not built yet: dimmed, press shows a "coming soon" toast
+	button("Album", open_in_game.bind("album"))  # M5-5: the inventory's album tab, in game
 	button("Settings", open_settings)
 	button("Quit", get_tree().quit).visible = not OS.has_feature("web")
 

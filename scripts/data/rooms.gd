@@ -102,6 +102,16 @@ const ROOMS := {
 		"spots": {"exit": Vector2(256, 368), "start": Vector2(256, 316), "counter": Vector2(400, 280)},
 		"door": ["SHOP", "[F]  Go inside"], "exit": ["SHOP", "[F]  Back to the street"],
 	},
+	# M5-5 flashbacks (spec 04): the sepia is the tint (game.night is a CanvasModulate); props and
+	# Sam come per flashback from data/story.gd. ponytail: the far-off exit spot keeps the street
+	# prompt from ever showing; scripts/world/flashback.gd walks the dog back out instead.
+	"flashback_room": {
+		"size": Vector2(640, 384), "kind": "flashback", "tint": Color(1.0, 0.84, 0.6),
+		"paint": [[Rect2(0, 0, 640, 384), "shop_floor", Color(0.8, 0.72, 0.6)], [Rect2(0, 0, 640, 96), "shop_wall", Color(0.65, 0.55, 0.42)]],
+		"props": [],
+		"spots": {"exit": Vector2(-9999, -9999), "start": Vector2(320, 330)},
+		"door": ["MEMORY", ""], "exit": ["MEMORY", ""],
+	},
 }
 
 ## Generic building sprite -> its template.
