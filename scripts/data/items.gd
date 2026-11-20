@@ -18,7 +18,15 @@ const FOOD := {"hotdog": 35.0, "pizza": 30.0, "pepperoni": 30.0}
 ## Item -> [slot, seconds, {stat: multiplier}]. One food and one drink buff at a time (spec 09).
 const BUFFS := {"pizza": ["food", 60.0, {"speed": 1.15}], "pepperoni": ["food", 60.0, {"damage": 1.1}],
 	"jerky": ["food", 120.0, {"thirst": 0.5}],
-	"puppuccino": ["drink", 120.0, {"stamina": 1.5}], "barkbrew": ["drink", 120.0, {"bark_cd": 0.5}]}
+	"puppuccino": ["drink", 120.0, {"stamina": 1.5}], "barkbrew": ["drink", 120.0, {"bark_cd": 0.5}],
+	"xp_snack": ["snack", 300.0, {"xp": 1.1}]}
+## Pocket the trader's table (spec 09): id -> [name, price, "treats" | "bones", effect]. 4 per visit.
+const TRADER := {"xp_snack": ["XP snack", 30, "treats", "+10% XP for 5 min"],
+	"mustache": ["Fake mustache", 20, "treats", "-1 wanted star"],
+	"spiked": ["Spiked collar", 4, "bones", "collar, B to wear"],
+	"rare_skin": ["Rare coat", 5, "bones", "color variant of this breed"],
+	"mega_purina": ["Mega Purina", 25, "treats", "full HP, food, thirst"],
+	"map_scrap": ["Map scrap", 15, "treats", "marks the bodega cats"]}
 ## Shop rows (spec 11 Shop): display name, effect line, icon (game.tex key, "" = none).
 const ITEM_INFO := {
 	"purina": {"name": "Purina", "effect": "+50 food, +40 HP", "icon": "purina"},

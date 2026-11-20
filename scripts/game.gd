@@ -140,6 +140,7 @@ var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
 var cats: Node  # scripts/world/bodega_cats.gd (friendly bodega cats, M4-3)
+var trader: Node  # scripts/world/trader.gd (Pocket, M4-8)
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var abilities := {}  # ability bar: name -> {ctl, key, v (cooldown left, 0..1)}
@@ -184,6 +185,9 @@ func _ready() -> void:
 	cats = preload("res://scripts/world/bodega_cats.gd").new()
 	cats.g = self
 	add_child(cats)
+	trader = preload("res://scripts/world/trader.gd").new()
+	trader.g = self
+	add_child(trader)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
@@ -393,6 +397,9 @@ func interact() -> void:
 		return
 	if act == "" and ctx == "bodega" and cats.interact():  # F at the counter: the bodega cat
 		return
+	if act == "" and ctx == "trader":  # F next to Pocket: chat / hint
+		trader.talk()
+		return
 	match act:
 		"enter":
 			interior.enter(door)
@@ -580,6 +587,8 @@ func quest_text() -> String:
 func on_number(n: int) -> void:
 	if ctx == "bodega":
 		shop.buy(n, 5 if Input.is_key_pressed(KEY_SHIFT) else 1)
+	elif ctx == "trader":
+		trader.buy(n)
 	elif ctx == "elevator":
 		interior.ride(n)
 	elif ctx == "airport":
@@ -708,6 +717,9 @@ func update_prompts(delta: float) -> void:
 					set_act("closed", "CAFE", "Closed until morning")
 				else:
 					set_act("enter", t[0].format({"name": d.name, "NAME": d.name.to_upper()}).strip_edges(), t[1])
+		if act == "" and trader.near(at):  # Pocket's cart: [1-4] buy, F chat
+			ctx = "trader"
+			show_menu("POCKET'S CART", trader.rows())
 
 	if not waypoint.is_empty() and inside == "" and player.position.distance_to(waypoint.pos) < 80.0:
 		waypoint = {}  # arrived

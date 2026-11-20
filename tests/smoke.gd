@@ -776,6 +776,59 @@ func _initialize() -> void:
 	game.save_extra["wardrobe/owned"] = []
 	eco.bones = 0
 
+	# Pocket the trader (M4-8): ~50% daily spawn on a sidewalk, 4 distinct table entries, ping, buy, hint, saved
+	var tr: Node = game.trader
+	var tr_items: Dictionary = preload("res://scripts/data/items.gd").TRADER
+	var tr_spawns := 0
+	var tr_day := 0
+	for d in range(1, 201):
+		var v: Dictionary = tr.roll(d, "nyc")
+		assert(v.stock.size() == 4 and v.stock.all(func(id): return tr_items.has(id) and v.stock.count(id) == 1), "stock = 4 entries from the table")
+		if v.pos.x >= 0.0:
+			tr_spawns += 1
+			tr_day = d if tr_day == 0 else tr_day
+			assert(not game.city.blocked(v.pos) and not game.city.on_road(v.pos), "Pocket on a sidewalk")
+	assert(tr_spawns > 70 and tr_spawns < 130 and tr.roll(tr_day, "nyc") == tr.roll(tr_day, "nyc"), "50% a day, same roll per day")
+	game.save_extra["world/day"] = tr_day
+	game.save_extra["trader/visit"] = {}
+	assert(tr.visit().pos.x >= 0.0, "today's visit rolled")
+	tr.visit().stock = ["mega_purina", "spiked", "mustache", "xp_snack"]
+	tr._process(0.0)
+	assert(game.pois.any(func(p): return p.text == "Pocket"), "Pocket on the map")
+	var tr_back: Vector2 = player.position
+	player.position = tr.spot()
+	game.update_prompts(0.0)
+	assert(game.ctx == "trader" and game.menu.visible, "next to Pocket: his menu")
+	player.treats = 100
+	eco.bones = 4
+	player.hp = 1.0
+	game.on_number(0)
+	assert(player.hp == player.max_hp and player.treats == 75, "Mega Purina: full HP, 25 treats")
+	assert(tr.buy(1) and eco.bones == 0 and "spiked" in game.save_extra["wardrobe/owned"] and not tr.buy(1), "spiked collar once, 4 bones")
+	wanted.add_heat(30.0)
+	assert(tr.buy(2) and wanted.stars() == 0, "mustache: -1 star")
+	wanted.clear()
+	var tr_xp: int = player.xp
+	assert(tr.buy(3), "XP snack")
+	player.add_xp(10)
+	assert(player.xp == tr_xp + 11, "XP snack: +10% XP")
+	player.buffs.erase("snack")
+	game.act = ""
+	game.interact()
+	assert(story.objective() in game.dialog.text.text and game.save_extra["trader/hinted"] == ["nyc"], "first chat in a city: story hint")
+	game.dialog.skip()
+	tr.talk()
+	assert(not story.objective() in game.dialog.text.text, "one hint per city")
+	game.dialog.skip()
+	game.save_game()
+	game.save_extra["trader/visit"] = {}
+	game.load_game()
+	assert(tr.stock() == ["mega_purina", "spiked", "mustache", "xp_snack"], "visit saved")
+	player.position = tr_back
+	game.save_extra["wardrobe/owned"] = []
+	game.save_extra["trader/hinted"] = []
+	eco.bones = 0
+
 	# city data (M2-2): rebuilding frees the old city, same layout, no leak
 	var rects: int = game.building_rects.size()
 	game.landmarks[0].seen = true
