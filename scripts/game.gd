@@ -105,6 +105,7 @@ var death_cause := "You blacked out."
 var save_version := 2  # version of the file last loaded (1 = before meta/version)
 var save_extra := {}  # v2 keys no system owns yet, see Save.V2
 var save_path := "user://save.cfg"  # var so the smoke test can point it elsewhere
+var rng_seed := 0  # 0 = random cars / prey / rolls; the smoke test pins one (city.build reseeds the global RNG)
 var stat_panel: PanelContainer
 var stat_head: Label
 var stat_buttons: Array[Button] = []
@@ -191,7 +192,10 @@ func _ready() -> void:
 	hedgehog = HedgehogScript.new()
 	add_child(hedgehog)
 	hedgehog.setup(self, Rect2(Interior.O, Rooms.ROOMS.burrow.size))
-	randomize()
+	if rng_seed:
+		seed(rng_seed)
+	else:
+		randomize()
 	for b in BOSSES:
 		var boss_node: Node2D = BossScript.new()
 		add_child(boss_node)
