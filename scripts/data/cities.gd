@@ -13,6 +13,7 @@ const CITIES := {
 		"landmarks": {Vector2i(3, 1): ["empire_state", "Empire State Building"],
 			Vector2i(1, 1): ["chrysler", "Chrysler Building"]},
 		"shops": {Vector2i(6, 2): "cafe", Vector2i(1, 2): "pizza", Vector2i(8, 3): "gas",
+			Vector2i(6, 4): "hq",  # M5-6 Hack Club HQ
 			Vector2i(1, 5): "nyse"},  # first door of a generic block
 		"airport": Vector2i(8, 6),  # last block built, so it shifts no earlier random rolls
 		"stations": {Vector2i(4, 0): "Uptown", Vector2i(2, 1): "Midtown",

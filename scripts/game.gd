@@ -412,6 +412,8 @@ func interact() -> void:
 			interior.leave()
 		"stocks":  # NYSE terminal (scripts/systems/stocks.gd sets the prompt)
 			stocks.toggle(true)
+		"desk":  # Hack Club HQ front desk (scripts/world/hq_floor.gd sets the prompt)
+			hq.desk()
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:

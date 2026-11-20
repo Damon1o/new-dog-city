@@ -5,6 +5,7 @@ extends Node
 const O := Vector2(20000, 0)  # far off the street map
 const ROOMS := preload("res://scripts/data/rooms.gd").ROOMS
 const Gates := preload("res://scripts/data/gates.gd")
+const GatePopup := preload("res://scripts/ui/gate_popup.gd")
 
 var g: Node2D
 var room: Node2D       # the built room (group "interior"), null on the street
@@ -20,6 +21,9 @@ func data() -> Dictionary:
 ## Elevator (spec 03): 0.6 s fade, ding, rebuild the template as floor n (0 = lobby).
 ## n == door.floors on a landmark = the roof: back on the street, camera zoomed out.
 func ride(n: int) -> void:
+	if door.template == "hq":
+		ride_hq(n)
+		return
 	if n == floor_n or n < 0 or n > door.floors or (n == door.floors and not has_roof()) or g.player.frozen:
 		return
 	g.player.frozen = true
@@ -34,6 +38,38 @@ func ride(n: int) -> void:
 		floor_n = n
 		build(door.template)
 		g.set_inside(data().kind, spots.elevator))
+	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
+	tw.tween_callback(func(): g.player.frozen = false)
+
+## Hack Club HQ elevator (spec 03): floors 1-3 are puzzle floors behind gate G1, floor 4 (the clue
+## room) opens once 1-3 are cleared. Tower floors stay hidden. Keys 1-4 pick a floor.
+func hq_id(n: int) -> String:
+	return "%s_%d" % [g.save_extra.get("world/city", "nyc"), n + 1]
+
+## Why HQ floor n (0-based) is shut, "" = open.
+func hq_block(n: int) -> String:
+	if n == 3:
+		return "" if range(3).all(func(k): return Story.floors.has(hq_id(k))) else "Clear floors 1-3 first"
+	return Story.gate_block("G1", g.player.level)
+
+func ride_hq(n: int) -> void:
+	if n < 0 or n > 3 or g.player.frozen:
+		return
+	if hq_block(n) != "":
+		if n < 3:
+			GatePopup.open(g, "G1")  # level + keycard, with "Find XP"
+		else:
+			g.show_msg(hq_block(n))
+		return
+	if n == 3:  # ponytail: clue room placeholder until M5-8 adds Sam's sticker
+		g.show_msg("Floor 4: the clue room. The doors are still being fixed. Come back soon.")
+		return
+	g.player.frozen = true
+	var tw := g.create_tween()
+	tw.tween_property(g.fade, "color:a", 1.0, 0.3)
+	tw.tween_callback(func():
+		Sound.sfx("ding")
+		g.hq.enter(hq_id(n)))
 	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
 	tw.tween_callback(func(): g.player.frozen = false)
 
@@ -63,6 +99,12 @@ func has_roof() -> bool:
 ## Menu rows for the elevator panel: [text, selectable].
 func floor_rows() -> Array:
 	var rows := []
+	if door.template == "hq":
+		for k in 4:
+			var why := hq_block(k)
+			var note: String = "   cleared" if Story.floors.has(hq_id(k)) else ("   " + why if why != "" else "")
+			rows.append(["[%d]  Floor %d%s" % [k + 1, k + 1, note], why == ""])
+		return rows
 	for k in door.floors:
 		rows.append(["[%d]  %s%s" % [k + 1, "Lobby" if k == 0 else "Floor %d" % (k + 1), "   (you are here)" if k == floor_n else ""], k != floor_n])
 	if has_roof():

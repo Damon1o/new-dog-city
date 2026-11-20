@@ -36,3 +36,10 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
     - On program floors Byte starts facing up, and bark opens a gate only when it's directly ahead.
     - Backspace undoes the last program slot. The spec doesn't list this key.
     - Reset counts aren't saved, and there's no repeat slot (nyc_3 doesn't need one).
+12. **Hack Club HQ (M5-6).**
+    - The NYC HQ is the first door of block (6, 4), set through the `shops` table.
+    - Gate G1 (level 20 + NYC keycard) locks floors 1-3 in the elevator. Picking a locked floor opens the gate popup.
+    - Floor 4 opens once nyc_1-3 are cleared. Until the M5-8 clue room, it only shows a "coming soon" message.
+    - Leaving a floor (by the start tile or by clearing it) puts the dog on the street, not back in the lobby.
+    - The receptionist uses the cat sprite and gives the hint for the next floor not yet cleared.
+    - The `hq_nyc` story spot isn't registered yet, so the objective has no waypoint.
