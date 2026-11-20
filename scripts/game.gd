@@ -320,7 +320,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				poof(player.position - player.facing * 14.0 + Vector2(0, 12), Color(0.78, 0.74, 0.66, 0.7), 10, 70.0)
 		"bark":
 			if player.bark():
-				spawner.scatter_near(player.position, player.BARK_RADIUS)  # spec 05: pigeon flocks scatter
+				spawner.scatter_near(player.position, 300.0)  # spec 05: pigeon flocks scatter at the sound
 		"purina":
 			if player.use_purina():
 				sfx("pickup")

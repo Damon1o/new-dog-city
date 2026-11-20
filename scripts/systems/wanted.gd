@@ -97,7 +97,7 @@ func _process(delta: float) -> void:
 	var offs := officers()
 	if p.bark_cd > last_bark:  # bark() just fired; player.gd stays untouched
 		for o in offs:
-			if o.position.distance_to(p.position) < p.BARK_RADIUS:
+			if o.position.distance_to(p.position) < NEAR_BARK:  # the bark is heard all around, the wave only hits ahead
 				o.stun(0.5)
 		if offs.any(func(o): return o.position.distance_to(p.position) < NEAR_BARK):
 			add_heat(5, "bark")
