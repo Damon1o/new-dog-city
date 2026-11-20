@@ -121,6 +121,15 @@ const ROOMS := {
 		"spots": {"exit": Vector2(-9999, -9999), "start": Vector2(320, 330)},
 		"door": ["MEMORY", ""], "exit": ["MEMORY", ""],
 	},
+	# M5-4 HQ puzzle floors (spec 04): 15 x 10 tiles of 64 px. scripts/world/hq_floor.gd draws the
+	# grid and moves the exit spot onto the floor's start tile.
+	"hq_floor": {
+		"size": Vector2(960, 640), "kind": "hq", "tint": Color(0.95, 0.97, 1),
+		"paint": [[Rect2(0, 0, 960, 640), Color(0.12, 0.13, 0.18)]],
+		"props": [],
+		"spots": {"start": Vector2(480, 320)},
+		"door": ["HACK CLUB HQ", "[F]  Go inside"], "exit": ["HACK CLUB HQ", "[F]  Leave the floor"],
+	},
 }
 
 ## Generic building sprite -> its template.
