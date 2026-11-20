@@ -17,6 +17,7 @@ func _initialize() -> void:
 	game.save_path = SAVE
 	root.add_child(game)
 	await process_frame
+	game.dialog.skip()  # new dog: the intro cutscene freezes it
 	var player: CharacterBody2D = game.player
 	var boss: Node2D = game.hedgehog
 	var spend := func():  # level-ups pause for a stat pick; spend so the game keeps running
