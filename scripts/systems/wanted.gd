@@ -65,7 +65,10 @@ func vans() -> Array:
 	return get_tree().get_nodes_in_group("van").filter(func(o): return not o.is_queued_for_deletion())
 
 ## Net hit: the dog can't move for `t` s.
+## A dog already frozen by a menu stays untouched, so the net never unfreezes it under a menu.
 func root(t: float) -> void:
+	if g.player.frozen and root_t <= 0.0:
+		return
 	root_t = t
 	g.player.frozen = true
 
