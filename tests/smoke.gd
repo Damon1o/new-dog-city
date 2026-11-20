@@ -44,9 +44,18 @@ func _initialize() -> void:
 
 	var game: Node2D = load("res://scenes/Main.tscn").instantiate()
 	game.save_path = SAVE
+	game.rng_seed = 7  # game.gd reseeds after city.build; without this seed(7) above is thrown away
 	root.add_child(game)
 	await frames(2)
 	var player: CharacterBody2D = game.player
+	# quiet street: ambient prey / treats / traffic wander into the checks below (a stray catch
+	# levels the dog and pauses the tree, a pickup shifts treat counts, a car knocks hp off)
+	game.spawn_timer = INF
+	for n: Node in get_nodes_in_group("prey") + game.treat_sprites:
+		n.queue_free()
+	game.treat_sprites.clear()
+	for c: Node in get_nodes_in_group("car"):
+		c.set_process(false)
 
 	# cutscenes (M5-2): a new dog gets the intro; typewriter completes on a key, the next key
 	# advances, Esc skips the rest and still sets the cutscene's flags
@@ -144,8 +153,11 @@ func _initialize() -> void:
 	var cars := get_nodes_in_group("car")
 	assert(cars.size() == 2 * (game.NX + 1) + 2 * (game.NY + 1))
 	cars[0].position = Vector2(32, 1000)  # cars start at random spots; pin one mid-block, clear of steam and cross traffic
+	cars[0].set_process(true)
+	player.hp = player.max_hp
 	player.position = cars[0].position
 	await frames(2)
+	cars[0].set_process(false)
 	assert(absf(player.max_hp - game.CAR_DMG - player.hp) < 1.0, "car hits once (regen may tick)")
 
 	# raccoon special: winds up, then pounces
