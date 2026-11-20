@@ -8,4 +8,5 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
 4. **Flashback vignette.** The spec asks for a soft vignette. It was skipped; the sepia comes only from the room tint. Default: skip.
 5. **Wardrobe item bonuses and unlocks.** Items are cosmetic. The spec prices the hoodie at 6 bones, but the unlock sources aren't set. Default: cosmetic only.
 6. **Territory claim perks and the Top Dog hat.** Claiming a block has no perk yet. Default: none.
-7. **Pound on HP 0.** At 1+ stars, should dropping to 0 HP send the dog to the pound instead of the normal faint? Default: being caught (by officers) is the only way into the pound.
+7. **Pound building (M4-6).** The street map has no pound building, so after paying the fine or escaping, the dog comes out at his park spawn. Should the pound have its own place on the map? Default: park spawn. (HP 0 at 1+ stars now sends the dog to the pound, as spec 08 says.)
+8. **Pound extras.** The "Lost pets" board is only a text label, and there's no adoptable-dogs kennel. The "I've gotten out of here before" thought is left for M5-11. Default: leave them for later.
