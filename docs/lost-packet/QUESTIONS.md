@@ -65,3 +65,9 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
     - The city has a flat cap of 8 foes.
     - Sphynx isn't in any spawn table yet.
     - The alley tom's knockback can push the dog into a wall.
+16. **Footsteps and ambience (M3-5).**
+    - Snow takes priority over park grass, and rain on grass stays grass.
+    - Rain counts as puddles everywhere else, because there are no puddle sprites.
+    - Every interior is wood, including the subway, pound and flashback rooms.
+    - Ambience plays at -10 dB, ducks 12 dB indoors, and uses one city/night pair for every city.
+    - All sounds are synthesized placeholders. Swap in real CC0 sounds later and list them in `assets/sfx/CREDITS.md`.
