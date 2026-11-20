@@ -2,6 +2,8 @@ extends Node
 ## Prey and treat spawning and treat pickup (moved from game.gd).
 
 const Spawns := preload("res://scripts/data/spawns.gd")
+const Cat := preload("res://scripts/enemies/cat.gd")
+const MAX_FOES := 8  # ponytail: flat cap for the whole city; scale with Spawns.cap if streets feel empty
 
 var g: Node2D
 var flocks: Array[Dictionary] = []  # pigeon flocks, see spawn_flock
@@ -29,6 +31,10 @@ func spawn_prey() -> void:
 	var bonus := Spawns.NIGHT_LEVELS if Spawns.phase(g.sun()) == "night" else 0
 	if pos.x < 0 or pos.distance_to(g.player.position) < 350.0:
 		return
+	if Cat.TYPES.has(kind) or kind == "rats":
+		if g.get_tree().get_nodes_in_group("foe").size() < MAX_FOES:
+			spawn_foe(kind, pos, bonus)
+		return
 	if kind == "pigeon":
 		spawn_flock(pos, bonus)
 		return
@@ -36,6 +42,16 @@ func spawn_prey() -> void:
 	prey.position = pos
 	g.add_child(prey)
 	prey.setup(kind, g.PREY[kind], g.tex[kind], g, bonus)
+
+## Common foe (M3-2, enemies/cat.gd) at pos; "rats" is a swarm of 5 rats. Returns what it made.
+func spawn_foe(kind: String, pos: Vector2, bonus := 0) -> Array:
+	var out := []
+	for i in (5 if kind == "rats" else 1):
+		var f: Node2D = Cat.new()
+		g.add_child(f)
+		f.setup("rat" if kind == "rats" else kind, pos + Vector2(randf_range(-30, 30), randf_range(-30, 30)) * mini(i, 1), g, bonus)
+		out.append(f)
+	return out
 
 ## Pigeon flock (spec 07): 5-12 birds round a center, a plain Dictionary the birds share.
 func spawn_flock(center: Vector2, bonus := 0) -> Dictionary:

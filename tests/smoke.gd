@@ -51,7 +51,7 @@ func _initialize() -> void:
 	# quiet street: ambient prey / treats / traffic wander into the checks below (a stray catch
 	# levels the dog and pauses the tree, a pickup shifts treat counts, a car knocks hp off)
 	game.spawn_timer = INF
-	for n: Node in get_nodes_in_group("prey") + game.treat_sprites:
+	for n: Node in get_nodes_in_group("prey") + get_nodes_in_group("foe") + game.treat_sprites:
 		n.queue_free()
 	game.treat_sprites.clear()
 	for c: Node in get_nodes_in_group("car"):
@@ -1023,6 +1023,47 @@ func _initialize() -> void:
 	await frames(2)
 	assert(game.inside == "" and ["fb_nyc_1", "fb_nyc_2", "fb_nyc_3"].all(pz_story.has), "three NYC floors, three polaroids")
 	game.save_extra.erase("ui/reduce_motion")
+
+	# street foes (M3-2): night table has them; each kind spawns with its hiss / yowl and is beaten through on_bite
+	var foe_night_kinds := {}
+	for i in 400:
+		foe_night_kinds[Spawns.pick("nyc", 0.1)] = true
+	assert(foe_night_kinds.has("black") and foe_night_kinds.has("possum") and foe_night_kinds.has("rats"), "night: black cats, possums, rat swarms")
+	var foe_snd: Node = root.get_node("Sound")
+	for kind in ["tabby", "tom", "sphynx", "calico", "black", "possum", "rats"]:
+		var foe_made: Array = game.spawner.spawn_foe(kind, player.position + Vector2(400, 0))
+		var foe_f: Node2D = foe_made[0]
+		assert(foe_made.size() == (5 if kind == "rats" else 1) and foe_f in player.foes(), kind + " spawns as a foe")
+		assert(foe_snd.sounds.has(foe_f.cfg.hiss) and foe_snd.sounds.has(foe_f.cfg.yowl), kind + " has a hiss and a yowl")
+		await frames(1)
+		if kind == "black":
+			assert(not foe_f.visible, "black cat unseen 400 px off")
+		foe_f.position = player.position + Vector2(20, 0)
+		if kind == "tabby":  # the bark wave hits foes too: a dog 5+ levels up sends it running
+			player.level = foe_f.level + 10
+			player.facing = Vector2.RIGHT
+			player.bark_cd = 0.0
+			player.stamina = 100.0
+			assert(player.bark())
+			await frames(2)
+			assert(foe_f.state == "flee" and foe_f.hp < foe_f.max_hp, "bark wave hurts and scares a cat")
+			await frames(60)  # let the wave run out its 520 px before the next kind spawns in its path
+		if kind == "calico":
+			game.on_bite(foe_f.position, 20.0, 5.0)
+			assert(foe_f.dodged and foe_f.hp == foe_f.max_hp, "calico dodges the first bite")
+		if kind == "possum":
+			foe_f.hurt(foe_f.max_hp * 0.8, player.position)
+			foe_f.hurt(foe_f.max_hp, player.position)
+			assert(foe_f.state == "dead" and foe_f.hp > 0.0, "possum plays dead at 25%, bites pass over")
+		var foe_treats0: int = player.treats
+		for i in 300:
+			if not is_instance_valid(foe_f):
+				break
+			player.hp = player.max_hp
+			foe_f.position = player.position + Vector2(20, 0)
+			game.on_bite(foe_f.position, 20.0, foe_f.max_hp * 0.3)
+			await frames(3)
+		assert(not is_instance_valid(foe_f) and player.treats > foe_treats0, kind + " beaten")
 
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)

@@ -69,8 +69,17 @@ func _ready() -> void:
 	sounds["pigeons_scatter"] = sounds["pickup"]  # ponytail: wing flaps = pickup blip until spec 12 gives it a wav
 	sounds["bark_scare"] = sounds["bark"]  # ponytail: pitched-down bark (lower, longer); swap for its own synth/wav later
 	# M4-4 animal control: one-shot synths off the music synth. ponytail: siren is one sweep, not a loop on the van
-	for s: Array in [["whistle", {"bpm": 400, "root": 88, "wave": "sine", "lead": [0, 3, 0, 3, 0, 3]}],
-			["siren", {"bpm": 90, "root": 72, "wave": "saw", "lead": [0, 1, 3, 5, 7, 5, 3, 1]}]]:
+	var shots := [["whistle", {"bpm": 400, "root": 88, "wave": "sine", "lead": [0, 3, 0, 3, 0, 3]}],
+			["siren", {"bpm": 90, "root": 72, "wave": "saw", "lead": [0, 1, 3, 5, 7, 5, 3, 1]}],
+			["rat_squeak", {"bpm": 700, "root": 93, "wave": "sine", "lead": [0, 5, 2]}]]
+	# M3-2 foes, one root per type: yowl = saw pitch bend; hiss = dense noise hats over a short squeal.
+	# ponytail: the hiss "filter" is burst rate + squeal pitch, not a real filter; real one if they sound alike
+	for c: Array in [["cat_%s_tabby", 72], ["cat_%s_tom", 60], ["cat_%s_sphynx", 79], ["cat_%s_calico", 69],
+			["cat_%s_black", 65], ["possum_%s", 55]]:
+		shots.append([c[0] % "yowl", {"bpm": 240 + c[1], "root": c[1], "wave": "saw", "decay": 0.3, "lead": [0, 2, 5, 7, 8, 7, 5, 2, -3]}])
+		shots.append([c[0] % "hiss", {"bpm": 3000 - c[1] * 20, "root": c[1] + 30, "wave": "sq", "decay": 0.01, "hats": 6.0,
+			"lead": [0, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R]}])
+	for s: Array in shots:
 		var w := _synth(s[1].merged({"decay": 0.5, "hats": 0.0, "swing": 0.0, "bass": []}))
 		w.loop_mode = AudioStreamWAV.LOOP_DISABLED
 		sounds[s[0]] = w
