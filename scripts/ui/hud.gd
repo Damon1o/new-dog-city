@@ -291,6 +291,13 @@ func build_hud() -> void:
 	calm.toggled.connect(func(on: bool): g.save_extra["ui/reduce_motion"] = on)
 	g.pause_panel.visibility_changed.connect(func(): calm.set_pressed_no_signal(g.save_extra.get("ui/reduce_motion", false)))
 	pv.add_child(calm)
+	var big := CheckBox.new()
+	big.text = "Large text"
+	big.toggled.connect(func(on: bool):
+		g.save_extra["ui/large_text"] = on
+		Look.set_big_text(g, on))
+	g.pause_panel.visibility_changed.connect(func(): big.set_pressed_no_signal(g.save_extra.get("ui/large_text", false)))
+	pv.add_child(big)
 	for bus in ["Master", "Music", "SFX", "Ambience"]:
 		hud_label(pv, 14).text = "Volume" if bus == "Master" else bus
 		var sl := HSlider.new()

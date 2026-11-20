@@ -80,6 +80,18 @@ func _initialize() -> void:
 	await frames(1)
 	assert(game.cam.offset == Vector2.ZERO, "reduce motion: no screen shake")
 	game.save_extra["ui/reduce_motion"] = false
+	# large text (spec 11): existing and newly built labels scale 1.25x, and back
+	var lbl: Label = game.ui.hud_label(game.hud, 16)
+	game.save_extra["ui/large_text"] = true
+	game.Look.set_big_text(game, true)
+	assert(lbl.get_theme_font_size("font_size") == 20, "large text scales labels")
+	var later: Label = game.ui.hud_label(game.hud, 16)
+	assert(later.get_theme_font_size("font_size") == 20, "large text scales new labels")
+	game.save_extra["ui/large_text"] = false
+	game.Look.set_big_text(game, false)
+	assert(lbl.get_theme_font_size("font_size") == 16, "large text off restores size")
+	lbl.free()
+	later.free()
 	var kids: int = game.get_child_count()
 	game.poof(player.position, Color.WHITE, 10, 70.0)
 	assert(game.get_child_count() == kids + 1 and game.get_child(-1).amount == 10, "poof takes amount")

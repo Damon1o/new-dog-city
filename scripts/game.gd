@@ -36,6 +36,7 @@ const Economy := preload("res://scripts/systems/economy.gd")
 const ShopUi := preload("res://scripts/ui/shop.gd")
 const InventoryUi := preload("res://scripts/ui/inventory.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
+const Look := preload("res://scripts/ui/theme.gd")
 const KeybindsUi := preload("res://scripts/ui/keybinds.gd")
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
@@ -223,6 +224,10 @@ func _ready() -> void:
 	Keys.apply({})  # defaults first so the HUD can show key names; the save overrides below
 	build_hud()
 	load_game()
+	get_tree().node_added.connect(func(n: Node):  # labels built later (menus, toasts) scale too
+		if save_extra.get("ui/large_text", false) and is_ancestor_of(n):
+			Look.big_text(n, true))
+	Look.set_big_text(self, save_extra.get("ui/large_text", false))
 	Keys.apply(save_extra.get("ui/keys", {}))
 	check_quests()
 	show_stats()

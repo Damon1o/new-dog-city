@@ -20,6 +20,7 @@ var settings_panel: PanelContainer
 var toasts: VBoxContainer
 var vols := {}  # bus name -> HSlider
 var reduce_motion: CheckBox
+var large_text: CheckBox
 var free_roam: Button
 
 ## A save counts once it has a dog: restart() leaves a "ui"-only file (volumes), which is no save.
@@ -100,6 +101,11 @@ func _ready() -> void:
 	reduce_motion.text = "Reduce motion"
 	reduce_motion.button_pressed = cfg.get_value("ui", "reduce_motion", false)
 	sv.add_child(reduce_motion)
+	large_text = CheckBox.new()
+	large_text.text = "Large text"
+	large_text.button_pressed = cfg.get_value("ui", "large_text", false)
+	large_text.toggled.connect(func(on: bool): Look.set_big_text(self, on))
+	sv.add_child(large_text)
 	label(sv, 16, Color(1, 0.9, 0.4)).text = "Controls"
 	var keys := GridContainer.new()
 	keys.columns = 2
@@ -121,6 +127,7 @@ func _ready() -> void:
 	toasts.offset_top = -120
 	toasts.offset_bottom = -16
 	show_menu()
+	Look.set_big_text(self, large_text.button_pressed)
 
 func _process(delta: float) -> void:
 	if not reduce_motion.button_pressed:
@@ -202,6 +209,7 @@ func save_settings() -> void:
 	for bus in vols:
 		cfg.set_value("ui", "volume" if bus == "Master" else Save.VOLS[bus], vols[bus].value)
 	cfg.set_value("ui", "reduce_motion", reduce_motion.button_pressed)
+	cfg.set_value("ui", "large_text", large_text.button_pressed)
 	cfg.save(save_path)
 	show_menu()
 
