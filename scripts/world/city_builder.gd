@@ -6,6 +6,8 @@ var g: Node2D
 const CITIES := preload("res://scripts/data/cities.gd").CITIES
 const OLD := Vector2i(6, 5)  # the pre-M2-1 map, kept block for block as the top-left corner
 const PERF_EVERY := 300  # frames per frame-time log line
+const VARIANTS := 16  # designs per generic kind, see tools/gen_buildings.py
+const DESIGN := {"building_a": "apartment", "building_b": "office", "building_c": "shop"}
 
 var perf_n := 0
 var perf_sum := 0.0
@@ -161,6 +163,10 @@ func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> S
 	holder().add_child(s)
 	return s
 
+## Generated exterior (tools/gen_buildings.py): "<kind>_<n>" or a custom front like "pizza".
+func design(look: String) -> Texture2D:
+	return load("res://assets/bld/%s.png" % look)
+
 ## foot = fraction of sprite height that is solid footprint (rest is walk-behind).
 func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := Color.WHITE) -> void:
 	add_prop(t, base, scl, tint)
@@ -213,7 +219,7 @@ func build_block(b: Vector2i) -> void:
 		add_tree(o + Vector2(60, 360))
 		add_tree(o + Vector2(452, 360))
 	elif b == CITIES[id].get("airport", Vector2i(-1, -1)):
-		add_building(g.tex.building_b, o + Vector2(256, 260), 2.2, 0.6, Color(0.75, 0.85, 1.0))
+		add_building(design("airport"), o + Vector2(256, 260), 2.2, 0.6)
 		add_door(o + Vector2(256, 282), "airport", b, 0, 1, "JFK Airport")
 	elif b in g.BODEGAS:
 		var base := o + Vector2(256, 240)
@@ -229,8 +235,11 @@ func build_block(b: Vector2i) -> void:
 		for i in 3:
 			if randf() < 0.85:
 				var kind: String = ["building_a", "building_b", "building_c"].pick_random()
-				add_building(g.tex[kind], o + Vector2(96 + i * 160, 236), 1.5, 0.6,
-					Color.from_hsv(randf(), 0.15, randf_range(0.8, 1.0)))
+				randf(); randf()  # old tint rolls, kept so the seeded layout is unchanged
+				# variant hashed from the slot, so it costs no random rolls either; rand_from_seed
+				# mixes the bits (string hash mod 16 is just the char sum, so neighbours repeated)
+				var look: String = special if special != "" else "%s_%d" % [DESIGN[kind], rand_from_seed(hash("%s:%d,%d:%d" % [id, b.x, b.y, i]))[0] % VARIANTS]
+				add_building(design(look), o + Vector2(96 + i * 160, 236), 1.5, 0.6)
 				add_door(o + Vector2(96 + i * 160, 256), special if special != "" else g.Rooms.BY_BUILDING[kind], b, i)
 				special = ""
 		add_can(o + Vector2(randf_range(40, 170), randf_range(285, 360)))

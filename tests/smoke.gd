@@ -351,21 +351,38 @@ func _initialize() -> void:
 	player.position = Vector2(700, 64)
 	player.stamina = 100.0
 	player.level = 10
+	player.facing = Vector2.RIGHT  # ranged: the wave flies along facing
 	for i in 3:
-		racs[i].position = player.position + Vector2(60, 0).rotated(i * 2.0)
+		racs[i].position = player.position + Vector2([300, 60, 50][i], 0)
 		racs[i].state = racs[i].State.CHASE
 		racs[i].level = [1, 20, 12][i]
+		racs[i].hp = 500.0  # hidden raccoons have 0 hp until they pop; the wave also hits
 	var boss: Node2D = get_nodes_in_group("boss")[0]
 	var boss_at: Vector2 = boss.position
-	boss.position = player.position + Vector2(0, 100)
+	boss.position = player.position + Vector2(-150, 0)  # behind the dog
 	assert(player.bark(), "bark fires")
-	assert(boss.stun_t > 0.0, "boss within 4 levels is stunned by bark")
+	assert(racs[2].state == racs[2].State.STUN, "raccoon within 4 levels is stunned point-blank")
+	assert(not player.bark(), "bark on cooldown")
+	for k in 40:
+		await physics_frame
+		if racs[0].state == racs[0].State.FLEE:
+			break
+	assert(racs[0].state == racs[0].State.FLEE, "raccoon 9 levels below, 300 px out, flees the wave")
+	assert(racs[1].state == racs[1].State.CHASE, "raccoon 10 levels above ignores the bark")
+	assert(boss.stun_t == 0.0, "boss behind the dog is not hit")
+	boss.position = player.position + Vector2(0, 200)
+	player.bark_cd = 0.0
+	player.facing = Vector2.DOWN
+	assert(player.bark(), "bark fires down")
+	for k in 40:
+		await physics_frame
+		if boss.stun_t > 0.0:
+			break
+	assert(boss.stun_t > 0.0, "boss within 4 levels is stunned by the wave")
 	boss.position = boss_at
 	boss.stun_t = 0.0
-	assert(not player.bark(), "bark on cooldown")
-	assert(racs[0].state == racs[0].State.FLEE, "raccoon 9 levels below flees")
-	assert(racs[1].state == racs[1].State.CHASE, "raccoon 10 levels above ignores the bark")
-	assert(racs[2].state == racs[2].State.STUN, "raccoon within 4 levels is stunned")
+	player.facing = Vector2.RIGHT
+	player.bark_cd = player.BARK_CD  # the wave waits drained it; the ability-bar check below wants a fresh one
 	# pounce (M1-8): 160 px leap, landing hit = 2x bite damage
 	assert(not player.pounce(), "pounce needs level 30")
 	player.level = 30
