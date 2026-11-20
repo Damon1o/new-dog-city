@@ -130,6 +130,19 @@ func _initialize() -> void:
 		assert(Spawns.pick("nyc", 0.1) != "pigeon", "night spawns have no pigeons")
 	assert(Spawns.phase(0.7) == "day" and Spawns.phase(0.4) == "dusk" and Spawns.phase(0.1) == "night")
 	assert(Spawns.cap(36, Vector2i(9, 7)) == 75, "cap 36 x 63 / 30 blocks")
+	# GPS (M2-5): clicking near a bodega sets the waypoint; far away the edge arrow points at it
+	game.set_waypoint(game.bodega_doors[0] + Vector2(20, 0))
+	assert(not game.waypoint.is_empty() and game.waypoint.pos.distance_to(game.bodega_doors[0]) < 250.0, "waypoint on a bodega")
+	var wp: Vector2 = game.waypoint.pos
+	var off: Vector2 = wp.direction_to(game.WORLD / 2.0) * 2000.0
+	player.position = wp + off
+	game.cam.reset_smoothing()
+	await frames(2)
+	var arrow: Dictionary = game.ui.waypoint_arrow()
+	assert(not arrow.is_empty() and arrow.dir.dot(-off.normalized()) > 0.8, "edge arrow points at the waypoint")
+	player.position = wp
+	await frames(1)
+	assert(game.waypoint.is_empty(), "arriving clears the waypoint")
 	var boss_lv := {"King of Raccoons": 6, "The Pideon Queen": 8, "The Rat Meister": 10}
 	for b in get_nodes_in_group("boss"):
 		assert(b.level == boss_lv[b.cfg.name] and b.cfg.level == b.level, "park boss level")

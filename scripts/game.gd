@@ -127,6 +127,7 @@ var slots := {}  # item -> count Label
 var abilities := {}  # ability bar: name -> {ctl, key, v (cooldown left, 0..1)}
 var pois: Array[Dictionary] = []  # {pos, text, color} — shops, stations, water
 var marker := {}                  # nearest poi, drawn as a floating tag
+var waypoint := {}                # GPS target (M2-5): a poi / landmark dict, {} = none
 var drinking := false
 var last_treats := -1
 var card_t := 0.0
@@ -256,6 +257,9 @@ func _notification(what: int) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
 			and not player.frozen:
+		if god_view:  # clicking the full map picks a waypoint instead of biting
+			set_waypoint(get_canvas_transform().affine_inverse() * event.position)
+			return
 		var dir := player.position.direction_to(get_canvas_transform().affine_inverse() * event.position)
 		if dir != Vector2.ZERO:
 			player.facing = dir
@@ -559,6 +563,17 @@ func show_banner(text: String) -> void:
 func show_menu(head: String, rows: Array) -> void:
 	ui.show_menu(head, rows)
 
+## GPS (spec 11): nearest shop / station / landmark within 250 px of `at` becomes the
+## waypoint; clicking the current one again clears it.
+func set_waypoint(at: Vector2) -> void:
+	var best := 250.0
+	var pick := {}
+	for p in pois.filter(func(x): return x.text != "Drink") + landmarks:
+		if at.distance_to(p.pos) < best:
+			best = at.distance_to(p.pos)
+			pick = p
+	waypoint = {} if pick == waypoint else pick
+
 ## Interact prompts, drinking and the nearest-POI marker for this frame.
 func update_prompts(delta: float) -> void:
 	ctx = ""
@@ -597,6 +612,8 @@ func update_prompts(delta: float) -> void:
 				var t: Array = Rooms.ROOMS[d.template].door
 				set_act("enter", t[0].format({"name": d.name, "NAME": d.name.to_upper()}).strip_edges(), t[1])
 
+	if not waypoint.is_empty() and inside == "" and player.position.distance_to(waypoint.pos) < 80.0:
+		waypoint = {}  # arrived
 	marker = {}
 	var best := 260.0
 	for poi in pois:

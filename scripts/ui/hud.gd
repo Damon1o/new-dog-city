@@ -467,13 +467,35 @@ func draw_overlay() -> void:
 		for r in get_tree().get_nodes_in_group("raccoon"):
 			if r.visible:
 				g.overlay.draw_circle(xf * r.position, 5.0, Color(1, 0.2, 0.2))
-	elif g.ctx == "" and not g.marker.is_empty():
+	if not g.waypoint.is_empty() and g.inside == "":
+		var a := waypoint_arrow()
+		if a.is_empty():  # on screen: pulse ring over it
+			g.overlay.draw_arc(xf * g.waypoint.pos, 22.0 + sin(Time.get_ticks_msec() / 200.0) * 3.0, 0, TAU, 32, Color(1, 0.9, 0.2), 3.0)
+		else:
+			var p: Vector2 = a.pos
+			g.overlay.draw_colored_polygon(PackedVector2Array([p + Vector2(14, 0).rotated(a.angle),
+				p + Vector2(-8, 9).rotated(a.angle), p + Vector2(-8, -9).rotated(a.angle)]), Color(1, 0.9, 0.2))
+			g.overlay.draw_string_outline(font, p - a.dir * 26.0 + Vector2(-20, 5), "%d m" % a.dist, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 4, Color.BLACK)
+			g.overlay.draw_string(font, p - a.dir * 26.0 + Vector2(-20, 5), "%d m" % a.dist, HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
+	if not g.god_view and g.ctx == "" and not g.marker.is_empty():
 		var text: String = g.marker.text
 		var p: Vector2 = xf * g.marker.pos + Vector2(0, -70 + sin(Time.get_ticks_msec() / 250.0) * 4.0)
 		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
 		g.overlay.draw_rect(Rect2(p.x - w / 2 - 5, p.y - 14, w + 10, 19), Color(0, 0, 0, 0.65))
 		g.overlay.draw_colored_polygon(PackedVector2Array([p + Vector2(-5, 5), p + Vector2(5, 5), p + Vector2(0, 11)]), Color(0, 0, 0, 0.65))
 		g.overlay.draw_string(font, Vector2(p.x - w / 2, p.y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, g.marker.color)
+
+## Off-screen waypoint: edge point, angle and distance (1 m = 10 px); {} when it's on screen.
+func waypoint_arrow() -> Dictionary:
+	var sp: Vector2 = g.get_canvas_transform() * g.waypoint.pos
+	var view := Rect2(Vector2.ZERO, g.overlay.size)
+	if view.grow(-20.0).has_point(sp):
+		return {}
+	var c := view.size / 2.0
+	var dir := c.direction_to(sp)
+	var t := minf(absf((c.x - 30.0) / dir.x) if dir.x != 0.0 else INF, absf((c.y - 30.0) / dir.y) if dir.y != 0.0 else INF)
+	return {"pos": c + dir * t, "dir": dir, "angle": dir.angle(),
+		"dist": int(g.player.position.distance_to(g.waypoint.pos) / 10.0)}
 
 func draw_clock() -> void:
 	var c: Vector2 = g.clock.size / 2.0
@@ -540,6 +562,8 @@ func draw_minimap() -> void:
 			var sp: Vector2 = g.stations[i].pos * s
 			g.mini.draw_arc(sp, 6.0, 0, TAU, 16, Color.WHITE, 1.5)
 			g.mini.draw_string(font, sp + Vector2(8, 4), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
+	if not g.waypoint.is_empty():
+		g.mini.draw_arc(g.waypoint.pos * s, 6.0, 0, TAU, 16, Color(1, 0.9, 0.2), 2.0)
 	var dog: Vector2 = g.player.position  # indoors: show the door / station the dog went in through
 	if g.inside == "subway":
 		dog = g.stations[g.station_i].pos
