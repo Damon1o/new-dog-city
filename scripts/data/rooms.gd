@@ -57,6 +57,15 @@ const ROOMS := {
 		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "elevator": Vector2(720, 140)},
 		"door": ["OFFICES   {NAME}", "[F]  Go inside"], "exit": ["OFFICE LOBBY", "[F]  Back to the street"],
 	},
+	"airport": {
+		"size": Vector2(1152, 448), "kind": "airport", "tint": Color(0.95, 0.97, 1),
+		"paint": [[Rect2(0, 0, 1152, 448), "platform", Color(0.9, 0.92, 1)], [Rect2(0, 0, 1152, 96), "station_wall", Color(0.7, 0.8, 0.95)],
+			[Rect2(536, 424, 80, 24), Color(0.2, 0.25, 0.35)]],
+		"props": [["counter", Vector2(576, 200), 2.0, Vector2(128, 40)],
+			["pillar", Vector2(200, 296), 2.5, Vector2(20, 10)], ["pillar", Vector2(952, 296), 2.5, Vector2(20, 10)]],
+		"spots": {"exit": Vector2(576, 432), "start": Vector2(576, 380), "gates": Vector2(576, 240)},
+		"door": ["AIRPORT   {NAME}", "[F]  Go inside"], "exit": ["{NAME}", "[F]  Back to the street"],
+	},
 	"shop_small": {
 		"size": Vector2(512, 384), "kind": "shop", "tint": Color(1, 0.96, 0.88), "vary": true,
 		"paint": [[Rect2(0, 0, 512, 384), "shop_floor"], [Rect2(0, 0, 512, 96), "shop_wall", Color(0.8, 0.95, 0.8)],

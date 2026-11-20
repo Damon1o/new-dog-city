@@ -159,6 +159,8 @@ func build_hud() -> void:
 	for b in get_tree().get_nodes_in_group("boss"):
 		g.pois.append({"pos": b.home, "text": b.cfg.name, "color": g.BOSS_COLOR})
 	g.pois.append({"pos": g.burrow, "text": "Final Boss", "color": Color(0.85, 0.3, 0.9)})
+	for d in g.doors.filter(func(x): return x.template == "airport"):
+		g.pois.append({"pos": d.pos, "text": "Airport", "color": Color(0.7, 0.9, 1)})
 
 	# top-left: stats, inventory, g.clock
 	var stats := panel()

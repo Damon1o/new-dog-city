@@ -149,6 +149,19 @@ func _initialize() -> void:
 	await frames(45)
 	assert(game.interior.floor_n == 0, "back in the lobby")
 	game.interior.leave()
+	# airport (M2-6): NYC gate is "here", SF is locked with its hint until ch1_clue
+	var port: Dictionary = game.doors.filter(func(d): return d.template == "airport")[0]
+	game.interior.enter(port)
+	player.position = game.interior.spots.gates
+	await frames(1)
+	assert(game.ctx == "airport", "gate menu at the desk")
+	var gates: Array = game.interior.gate_rows()
+	assert(not gates[0][1] and "here" in gates[0][0], "NYC gate is where you are")
+	assert(not gates[1][1] and "NYC Hack Club HQ" in gates[1][0], "locked gate shows its hint")
+	Story.set_flag("ch1_clue")
+	assert(game.interior.gate_rows()[1][1], "ch1_clue opens the SF gate")
+	Story.flags.erase("ch1_clue")
+	game.interior.leave()
 	# GPS (M2-5): clicking near a bodega sets the waypoint; far away the edge arrow points at it
 	game.set_waypoint(game.bodega_doors[0] + Vector2(20, 0))
 	assert(not game.waypoint.is_empty() and game.waypoint.pos.distance_to(game.bodega_doors[0]) < 250.0, "waypoint on a bodega")

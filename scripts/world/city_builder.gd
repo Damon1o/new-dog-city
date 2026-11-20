@@ -212,6 +212,9 @@ func build_block(b: Vector2i) -> void:
 		add_door(base + Vector2(0, 18), "office", b, 0, 6, g.LANDMARKS[b][1])
 		add_tree(o + Vector2(60, 360))
 		add_tree(o + Vector2(452, 360))
+	elif b == CITIES[id].get("airport", Vector2i(-1, -1)):
+		add_building(g.tex.building_b, o + Vector2(256, 260), 2.2, 0.6, Color(0.75, 0.85, 1.0))
+		add_door(o + Vector2(256, 282), "airport", b, 0, 1, "JFK Airport")
 	elif b in g.BODEGAS:
 		var base := o + Vector2(256, 240)
 		add_building(g.tex.bodega, base, 2.0, 0.6)

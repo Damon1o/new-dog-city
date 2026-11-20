@@ -516,6 +516,8 @@ func on_number(n: int) -> void:
 		shop.buy(n, 5 if Input.is_key_pressed(KEY_SHIFT) else 1)
 	elif ctx == "elevator":
 		interior.ride(n)
+	elif ctx == "airport":
+		interior.fly(n)
 	elif ctx == "subway" and n < stations.size():
 		if n != station_i and not player.frozen:
 			travel(n)
@@ -604,6 +606,9 @@ func update_prompts(delta: float) -> void:
 		elif spots.has("elevator") and at.distance_to(spots.elevator) < 50.0:
 			ctx = "elevator"
 			show_menu("ELEVATOR", interior.floor_rows())
+		elif spots.has("gates") and at.distance_to(spots.gates) < 60.0:
+			ctx = "airport"
+			show_menu("GATES", interior.gate_rows())
 		elif spots.has("board") and at.distance_to(spots.board) < 50.0:
 			ctx = "subway"
 			var rows := []

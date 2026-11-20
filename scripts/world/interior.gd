@@ -4,6 +4,7 @@ extends Node
 
 const O := Vector2(20000, 0)  # far off the street map
 const ROOMS := preload("res://scripts/data/rooms.gd").ROOMS
+const Gates := preload("res://scripts/data/gates.gd")
 
 var g: Node2D
 var room: Node2D       # the built room (group "interior"), null on the street
@@ -35,6 +36,26 @@ func ride(n: int) -> void:
 		g.set_inside(data().kind, spots.elevator))
 	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
 	tw.tween_callback(func(): g.player.frozen = false)
+
+## Airport gates (spec 02): [text, selectable]. Locked ones say what opens them.
+func gate_rows() -> Array:
+	var rows := []
+	for k in Gates.AIRPORT.size():
+		var gate: Array = Gates.AIRPORT[k]
+		var here: bool = gate[0] == g.city.id
+		var locked: bool = gate[1] != "" and not Story.gate_open(gate[1], g.player.level)
+		var note: String = "   (you are here)" if here else ("   " + gate[2] if locked else "")
+		rows.append(["[%d]  %s%s" % [k + 1, Gates.CITIES[gate[0]][0], note], not here and not locked])
+	return rows
+
+## Flight stub (M2-6): only NYC exists, so an open gate just announces the flight.
+## ponytail: 3 s plane-over-map cutscene + city.travel() once a second city is in data/cities.gd.
+func fly(n: int) -> void:
+	if n < 0 or n >= Gates.AIRPORT.size() or not gate_rows()[n][1]:
+		return
+	var city_name: String = Gates.CITIES[Gates.AIRPORT[n][0]][0]
+	g.show_banner("FLIGHT TO %s" % city_name.to_upper())
+	g.show_msg("Flights to %s start soon" % city_name)
 
 func has_roof() -> bool:
 	return g.landmarks.any(func(l): return l.name == door.name)
