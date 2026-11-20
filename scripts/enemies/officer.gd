@@ -63,7 +63,7 @@ func _process(delta: float) -> void:
 		n.wanted = wanted
 		g.add_child(n)
 	var step := to.normalized() * SPEED * delta
-	if g.parks.any(func(r: Rect2): return r.has_point(position + step)):
+	if g.city.in_dog_park(position + step):
 		fence_t += delta  # officers never enter dog parks: wait at the fence, then leave
 		if fence_t >= PARK_WAIT:
 			queue_free()

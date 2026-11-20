@@ -9,6 +9,7 @@ const CITIES := {
 		"grid": Vector2i(9, 7),
 		"block": Vector2(512, 384),
 		"parks": [Vector2i(2, 2), Vector2i(5, 0), Vector2i(0, 3), Vector2i(4, 4), Vector2i(7, 5)],
+		"dog_park": 0,  # index into parks (spec 03): safe zone + quest dogs; the spawn park, no boss on it
 		"bodegas": [Vector2i(3, 2), Vector2i(0, 0), Vector2i(5, 3), Vector2i(7, 1), Vector2i(2, 6)],
 		"landmarks": {Vector2i(3, 1): ["empire_state", "Empire State Building"],
 			Vector2i(1, 1): ["chrysler", "Chrysler Building"]},

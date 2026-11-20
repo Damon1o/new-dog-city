@@ -56,6 +56,8 @@ func scatter(f: Dictionary) -> void:
 		return
 	f.scatter = randf_range(15.0, 25.0)
 	g.sfx("pigeons_scatter")
+	for p in f.members:
+		g.bump("pigeons")  # Biscuit's "scatter 10 pigeons"
 
 ## Bark (spec 05): every flock with a bird inside the ring scatters.
 func scatter_near(at: Vector2, radius: float) -> void:

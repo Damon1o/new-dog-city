@@ -118,7 +118,7 @@ func _process(delta: float) -> void:
 		var m := 1.0
 		if g.inside not in ["", "shop"]:
 			m = 2.0
-		elif g.parks.any(func(r: Rect2): return r.has_point(p.position)):
+		elif g.city.in_dog_park(p.position):
 			m = 3.0
 		add_heat(-DECAY * m * delta, "decay")
 	if drone:
@@ -142,7 +142,7 @@ func staff() -> void:
 		o.net = s >= 4
 	if feet.size() > foot:
 		feet[-1].queue_free()
-	elif feet.size() < foot and not g.parks.any(func(r: Rect2): return r.has_point(g.player.position)):
+	elif feet.size() < foot and not g.city.in_dog_park(g.player.position):
 		var at := spawn_spot()
 		if at.x >= 0.0:
 			spawn_officer(at, false)
@@ -163,12 +163,12 @@ func staff() -> void:
 		drone.queue_free()
 		drone = null
 
-## Off screen, ~500 px from the dog, on open ground outside parks; x < 0 if none.
+## Off screen, ~500 px from the dog, on open ground outside the dog park; x < 0 if none.
 func spawn_spot() -> Vector2:
 	for i in 12:
 		var at: Vector2 = g.player.position + Vector2.RIGHT.rotated(randf() * TAU) * randf_range(500.0, 600.0)
 		if Rect2(Vector2(48, 48), g.WORLD - Vector2(96, 96)).has_point(at) and not g.blocked(at) \
-				and not g.parks.any(func(r: Rect2): return r.has_point(at)):
+				and not g.city.in_dog_park(at):
 			return at
 	return Vector2(-1, -1)
 
