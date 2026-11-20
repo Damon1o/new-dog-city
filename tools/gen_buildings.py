@@ -482,11 +482,35 @@ def nyse():
     rect(px, 0, h - 2, w, 2, CURB)
     return px
 
+def hq():
+    """Hack Club HQ: tall brick tower, red sign band, glass lobby. Original art, no logo."""
+    w, h = 84, 150
+    px = blank(w, h)
+    rng = random.Random(5006)
+    brick, dark = (120, 58, 52, 255), (80, 38, 36, 255)
+    red = (236, 55, 80, 255)
+    rect(px, w // 2 - 1, 0, 2, 10, IRON)  # antenna
+    rect(px, 4, 10, w - 8, h - 10, brick)
+    bricks(px, 4, 10, w - 8, h - 30, brick, rng)
+    rect(px, 2, 10, w - 4, 3, dark)  # roof cap
+    rect(px, 4, 16, w - 8, 9, red)  # sign band
+    text(px, "HACK CLUB", w // 2, 18, (255, 255, 255, 255))
+    for j in range(32, h - 34, 14):  # 4 office floors + the tower above
+        for i in range(10, w - 14, 14):
+            window(px, i, j, 8, 8, dark, rng.random() < 0.55, rng)
+    rect(px, 4, h - 30, w - 8, 3, red)  # lobby awning line
+    rect(px, 8, h - 27, w - 16, 24, (60, 70, 90, 255))
+    for x in range(10, w - 10, 12):
+        rect(px, x, h - 25, 9, 19, GLASS)
+    door(px, w // 2, h - 3, 14, 20, (40, 45, 55, 255), glass=True)
+    rect(px, 0, h - 2, w, 2, CURB)
+    return px
+
 if __name__ == "__main__":
     for n in range(VARIANTS):
         write_png(f"apartment_{n}.png", apartment(n))
         write_png(f"office_{n}.png", office(n))
         write_png(f"shop_{n}.png", shop(n))
-    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse)]:
+    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse), ("hq", hq)]:
         write_png(f"{name}.png", fn())
-    print(f"wrote {VARIANTS * 3 + 5} buildings to {os.path.normpath(OUT)}")
+    print(f"wrote {VARIANTS * 3 + 6} buildings to {os.path.normpath(OUT)}")

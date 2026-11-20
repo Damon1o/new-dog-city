@@ -143,6 +143,18 @@ const ROOMS := {
 		"spots": {"start": Vector2(480, 320)},
 		"door": ["HACK CLUB HQ", "[F]  Go inside"], "exit": ["HACK CLUB HQ", "[F]  Leave the floor"],
 	},
+	# M5-6 Hack Club HQ lobby (spec 03): front desk (scripts/world/hq_floor.gd talks), elevator to
+	# floors 1-4 (scripts/world/interior.gd ride_hq). The puzzle floors are the hq_floor template.
+	"hq": {
+		"size": Vector2(768, 448), "kind": "hq_lobby", "tint": Color(0.97, 0.97, 1),
+		"paint": [[Rect2(0, 0, 768, 448), "platform", Color(0.85, 0.85, 0.92)], [Rect2(0, 0, 768, 96), "station_wall", Color(0.85, 0.35, 0.4)],
+			[Rect2(680, 40, 64, 56), Color(0.6, 0.62, 0.68)], [Rect2(710, 40, 4, 56), Color(0.3, 0.3, 0.35)],
+			[Rect2(344, 424, 80, 24), Color(0.6, 0.15, 0.2)]],
+		"props": [["counter", Vector2(384, 220), 2.0, Vector2(128, 40)], ["cat", Vector2(384, 181), 2.5, Vector2.ZERO],
+			["pillar", Vector2(120, 400), 2.5, Vector2(20, 10)], ["pillar", Vector2(648, 400), 2.5, Vector2(20, 10)]],
+		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "desk": Vector2(384, 250), "elevator": Vector2(712, 140)},
+		"door": ["HACK CLUB HQ", "[F]  Go inside"], "exit": ["HACK CLUB HQ LOBBY", "[F]  Back to the street"],
+	},
 }
 
 ## Generic building sprite -> its template.

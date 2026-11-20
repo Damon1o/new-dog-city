@@ -6,7 +6,7 @@ extends Node
 ## Walking through the open door clears the floor: rewards, back to the street, then
 ## flashback.clear_floor() plays the memory. F on the start tile leaves without clearing.
 ## Debug: `godot --path . -- --floor=nyc_1` drops the dog straight onto a floor.
-## ponytail: entered from the street until the HQ elevator (M5-6) calls enter().
+## The HQ lobby elevator (M5-6, interior.gd ride_hq) calls enter(); the lobby's front desk talks here.
 
 const PUZZLES: Dictionary = preload("res://scripts/data/puzzles.gd").PUZZLES
 const TYPES := {"sort": preload("res://scripts/puzzles/sort.gd"), "logic": preload("res://scripts/puzzles/logic.gd"),
@@ -185,6 +185,9 @@ func done() -> void:
 func _process(delta: float) -> void:
 	if id != "" and g.inside != "hq":
 		done()  # left by the start tile, blacked out, or caught
+	if g.inside == "hq_lobby" and g.interior.room and g.act == "" and not g.player.frozen \
+			and g.player.position.distance_to(g.interior.spots.desk) < 60.0:
+		g.set_act("desk", "FRONT DESK", "[F]  Talk to the receptionist")
 	if not active():
 		return
 	t += delta
@@ -241,3 +244,18 @@ func draw_board() -> void:
 		board.draw_rect(r.grow(-5), Color(0.72, 0.5, 0.28), false, 3.0)
 		if crates[p] != "x":
 			board.draw_string(font, r.position + Vector2(0, 36), crates[p], HORIZONTAL_ALIGNMENT_CENTER, r.size.x, 26, Color.WHITE)
+
+## Front desk (M5-6): the gate, or a nudge toward the first floor not cleared yet.
+func desk() -> void:
+	var it: Node = g.interior
+	var line := "Welcome to Hack Club HQ! The elevator is on the right."
+	var why: String = it.hq_block(0)
+	if why != "":
+		line = "Sorry, the floors are members only. " + why + "."
+	else:
+		for k in 4:
+			if not Story.floors.has(it.hq_id(k)):
+				line = "Floor 4 is the clue room. It isn't ready yet." if k == 3 \
+					else "Floor %d today. Tip: %s" % [k + 1, PUZZLES[it.hq_id(k)].params.get("hint", "")]
+				break
+	g.dialog.play("hq_desk", [{"say": "Receptionist", "text": line}])

@@ -1024,6 +1024,43 @@ func _initialize() -> void:
 	assert(game.inside == "" and ["fb_nyc_1", "fb_nyc_2", "fb_nyc_3"].all(pz_story.has), "three NYC floors, three polaroids")
 	game.save_extra.erase("ui/reduce_motion")
 
+	# Hack Club HQ (M5-6): street door, lobby front desk, elevator to floors 1-4; floor 4 locked until 1-3 cleared
+	var hqb_doors: Array = game.doors.filter(func(d): return d.template == "hq")
+	assert(hqb_doors.size() == 1, "one HQ door in NYC")
+	var hqb_floors: Dictionary = pz_story.floors.duplicate()
+	var hqb_keys: Array = pz_story.keycards.duplicate()
+	var hqb_level: int = player.level
+	var hqb_it: Node = game.interior
+	hqb_it.enter(hqb_doors[0])
+	assert(game.inside == "hq_lobby" and hqb_it.spots.has("elevator"), "HQ lobby")
+	pz_story.floors = {}
+	pz_story.keycards.clear()
+	player.level = 1
+	assert(not hqb_it.floor_rows()[0][1] and not hqb_it.floor_rows()[3][1], "G1 shut: every floor locked")
+	player.level = 20
+	pz_story.add_keycard("nyc")
+	assert(hqb_it.floor_rows()[0][1] and not hqb_it.floor_rows()[3][1], "G1 open: floors 1-3, not 4")
+	pz_story.floors = {"nyc_1": 50.0, "nyc_2": 50.0}
+	assert(not hqb_it.floor_rows()[3][1], "two floors cleared: floor 4 still locked")
+	pz_story.floors.nyc_3 = 50.0
+	assert(hqb_it.floor_rows()[3][1] and hqb_it.floor_rows()[0][0].contains("cleared"), "1-3 cleared: floor 4 open")
+	assert(hqb_it.floor_rows().size() == 4, "Tower floors hidden")
+	player.position = hqb_it.spots.desk
+	await frames(2)
+	assert(game.act == "desk", "front desk prompt")
+	game.interact()
+	assert(game.dialog.playing() and game.dialog.text.text.contains("clue room"), "receptionist talks")
+	game.dialog.skip()
+	hqb_it.ride(0)
+	await frames(50)
+	assert(game.inside == "hq" and hq.id == "nyc_1" and not player.frozen, "elevator to floor 1")
+	game.interior.leave()
+	await frames(2)
+	assert(game.inside == "" and player.is_physics_processing(), "off the floor, back on the street")
+	pz_story.floors = hqb_floors
+	pz_story.keycards.assign(hqb_keys)
+	player.level = hqb_level
+
 	# street foes (M3-2): night table has them; each kind spawns with its hiss / yowl and is beaten through on_bite
 	var foe_night_kinds := {}
 	for i in 400:
