@@ -43,3 +43,25 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
     - Leaving a floor (by the start tile or by clearing it) puts the dog on the street, not back in the lobby.
     - The receptionist uses the cat sprite and gives the hint for the next floor not yet cleared.
     - The `hq_nyc` story spot isn't registered yet, so the objective has no waypoint.
+13. **Dog park and quest dogs (M4-7).**
+    - The dog park is the spawn park (park 0), so the dog starts in the safe zone and is let out of the pound there.
+    - "Meet the dog" is an extra first step, so each quest line has 4 steps instead of the spec's 3.
+    - A quest dog's line stays hidden in the tracker until you meet that dog.
+    - Squirrels (prey) still spawn in the dog park; foes don't.
+    - Biscuit's ball uses the GPS waypoint until the scent trail (M5-3) exists.
+    - Duchess's cup step completes on any cafe visit, and in the race she doesn't actually run.
+    - Ball, escort and race progress isn't saved.
+14. **Fat Cat (M5-7).**
+    - The podium opens with `ch1_fatcat_ready` or `ch1_bodega`, because nothing sets the ready flag until M5-8.
+    - `coin_fan` is added to phase 2, and `coin_fan` + `ticker_wave` to phase 3.
+    - Stats: HP 300, speed 140, damage 12, about 300 treats at level 20.
+    - Drops go straight to the dog; nothing lands on the floor.
+    - Biting him before ringing the bell starts the fight without the intro.
+    - The security cats are tinted raccoons; they could switch to the M3-2 cat enemy now that it's merged.
+    - The roar reuses the bark sound.
+    - The old windup blink and hit flash still play under reduce motion.
+15. **Street foes (M3-2).**
+    - The hostile cats share the `raccoon` group, because `bark_wave.gd` reads it.
+    - The city has a flat cap of 8 foes.
+    - Sphynx isn't in any spawn table yet.
+    - The alley tom's knockback can push the dog into a wall.
