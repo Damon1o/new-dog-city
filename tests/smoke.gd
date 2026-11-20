@@ -767,11 +767,13 @@ func _initialize() -> void:
 	assert(pound.fine == 45 and game.ctx == "pound", "fine is 15 x 3 stars, cell door menu")
 	pound.choose(0)
 	assert(game.inside == "" and player.treats == 55, "paid the fine, back on the street")
+	while player.points > 0:  # the level-up picker pauses the tree
+		game.pick_stat(0)
+	game.show_stats()
 	game.respawn()  # still dead from "ordinary death also raises the screen"
 	wanted.add_heat(25)
 	player.take_damage(1e6)
 	await frames(1)
-	print("DBG ", game.inside, ",", player.dead, paused, game.death_panel.visible, player.treats, ",", pound.fine, ",", game.stat_panel.visible)
 	assert(game.inside == "pound" and not player.dead and not paused and not game.death_panel.visible and player.treats == 55 and pound.fine == 15, "HP 0 at 1 star = pound, treats kept")
 	pound.choose(1)
 	assert(pound.stage == "sneak", "break out")
