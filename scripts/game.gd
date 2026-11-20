@@ -46,6 +46,7 @@ var wanted: Node  # scripts/systems/wanted.gd: heat, stars, animal control (add_
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
 var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
+var stocks: Node  # scripts/systems/stocks.gd: NYSE ticks, news, trades, stock app (P)
 const DialogUi := preload("res://scripts/ui/dialog.gd")
 var dialog: Node  # scripts/ui/dialog.gd (dialog box + cutscenes)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
@@ -136,9 +137,11 @@ var territory: Node2D  # scripts/systems/territory.gd (G: pee markers)
 var city: Node  # scripts/world/city_builder.gd
 var interior: Node  # scripts/world/interior.gd
 var flashback: Node  # scripts/world/flashback.gd
+var hq: Node  # scripts/world/hq_floor.gd (M5-4 puzzle floors)
 var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
+var cats: Node  # scripts/world/bodega_cats.gd (friendly bodega cats, M4-3)
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var abilities := {}  # ability bar: name -> {ctl, key, v (cooldown left, 0..1)}
@@ -175,11 +178,18 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")],
+			["stocks", preload("res://scripts/systems/stocks.gd")]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
 		set(m[0], n)
+	cats = preload("res://scripts/world/bodega_cats.gd").new()
+	cats.g = self
+	add_child(cats)
+	hq = preload("res://scripts/world/hq_floor.gd").new()  # M5-4
+	hq.g = self
+	add_child(hq)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
@@ -315,6 +325,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			inventory.toggle()
 		elif wardrobe.is_open():
 			wardrobe.toggle()
+		elif stocks.is_open():
+			stocks.toggle()
 		elif not name_edit.visible:
 			set_paused(true)
 		return
@@ -335,6 +347,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		"bark":
 			if player.bark():
 				spawner.scatter_near(player.position, 300.0)  # spec 05: pigeon flocks scatter at the sound
+				cats.on_bark()  # spec 07: barking in a bodega costs friendship
 		"purina":
 			if player.use_purina():
 				sfx("pickup")
@@ -349,6 +362,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			inventory.toggle()
 		"wardrobe":
 			wardrobe.toggle()
+		"stocks":
+			stocks.toggle()
 		"map":
 			if inside == "":
 				god_view = not god_view
@@ -386,6 +401,8 @@ func set_inside(room: String, at := player.position) -> void:
 func interact() -> void:
 	if player.frozen:
 		return
+	if act == "" and ctx == "bodega" and cats.interact():  # F at the counter: the bodega cat
+		return
 	match act:
 		"enter":
 			interior.enter(door)
@@ -393,6 +410,8 @@ func interact() -> void:
 			interior.enter(doors.filter(func(d): return d.template == "burrow")[0])
 		"exit":
 			interior.leave()
+		"stocks":  # NYSE terminal (scripts/systems/stocks.gd sets the prompt)
+			stocks.toggle(true)
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:
@@ -527,6 +546,7 @@ func on_prey_caught(prey: Node2D) -> void:
 		spawner.scatter(prey.flock)  # spec 07: catch one, the flock flees
 	if prey.kind == "squirrel":
 		bump("squirrels")
+	cats.rat = cats.rat or prey.kind == "rat"  # carried in as a bodega cat gift
 	bump("prey")
 
 func on_prey_escaped(prey: Node2D) -> void:

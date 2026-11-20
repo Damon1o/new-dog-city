@@ -10,3 +10,29 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
 6. **Territory claim perks and the Top Dog hat.** Claiming a block has no perk yet. Default: none.
 7. **Pound building (M4-6).** The street map has no pound building, so after paying the fine or escaping, the dog comes out at his park spawn. Should the pound have its own place on the map? Default: park spawn. (HP 0 at 1+ stars now sends the dog to the pound, as spec 08 says.)
 8. **Pound extras.** The "Lost pets" board is only a text label, and there's no adoptable-dogs kennel. The "I've gotten out of here before" thought is left for M5-11. Default: leave them for later.
+9. **Bodega cats (M4-3).**
+   - NYC has 5 bodegas but the spec names 4 cats. Default: bodega 4's cat is plain art.
+   - Is the 3-gifts-per-day limit per cat or across all cats? Default: per cat.
+   - Gifts past the limit are refused and the item is kept.
+   - The gift is chosen automatically (rat, then Purina, then 5 treats); there's no gift menu.
+   - Hints are built from the current story objective, not hand-written per cat.
+   - At 5 hearts, the first cat gives the Bell collar and the others give 2 bones.
+   - The Bell collar's "+1 extra heart progress" is read as +1 point per gift.
+   - "Bite a bodega cat = +15 heat" (spec 08) isn't built yet.
+10. **NYSE (M4-9).**
+    - The NYSE is at NYC block (1, 5), downtown.
+    - Buys round up and sells round down after the 2% fee, so a same-tick round trip always loses.
+    - P opens the stock app anywhere only after a first visit to an NYSE terminal.
+    - Prices keep ticking while the app is open.
+    - Headlines are placeholder text.
+    - KIBL rallies once, when 10+ NYC blocks are claimed.
+    - The next news day isn't saved, so it's re-rolled each session.
+    - There's no bell podium; that's for the Fat Cat arena (M5-7).
+11. **HQ puzzles (M5-4).**
+    - Byte moves one tile per key on puzzle floors, with no free movement. Hunger and thirst pause there.
+    - The door opens and closes live as the floor's solved state changes; it doesn't stay open once solved.
+    - XP and 5 treats are given on the first clear; a bone the first time a clear beats par.
+    - F on the start tile leaves a floor. On program floors this works only while the command bar is empty.
+    - On program floors Byte starts facing up, and bark opens a gate only when it's directly ahead.
+    - Backspace undoes the last program slot. The spec doesn't list this key.
+    - Reset counts aren't saved, and there's no repeat slot (nyc_3 doesn't need one).

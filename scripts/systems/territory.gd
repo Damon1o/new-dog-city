@@ -111,6 +111,8 @@ func pee(at: Vector2 = g.player.position) -> bool:
 	# spec 05: peeing within 300 px of an officer adds heat
 	if g.get("wanted") and get_tree().get_nodes_in_group("officer").any(func(o): return o.position.distance_to(at) < 300.0):
 		g.wanted.add_heat(10, "pee")
+	if g.get("cats"):
+		g.cats.on_pee(at)  # spec 07: peeing at a bodega door upsets its cat
 	for m in markers():
 		if m.city == g.city.id and m.pos.distance_to(at) < NEAR:
 			m.day = day()  # re-marked: the fade clock restarts
