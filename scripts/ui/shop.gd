@@ -2,6 +2,8 @@ extends Node
 ## Shop menu (spec 11 Shop): rows with icon, name, effect, price (struck-through list price
 ## when discounted) and owned count; footer with wallet and discount source.
 ## [1-4] buy x1, Shift + [1-4] buy x5. Shown while game.ctx == "bodega".
+## Pizza (spec 08 Stealing): one more row steals a slice; the clerk turns to watch the counter
+## every 3-6 s for 1.5 s ("!" over his head). Unwatched = free slice; watched = pushed out. +25 heat.
 
 const Items := preload("res://scripts/data/items.gd")
 const MAX_ROWS := 4
@@ -12,6 +14,10 @@ var head: Label
 var rows: Array[Dictionary] = []  # {row, icon, name, price, owned}
 var wallet: Label
 var source: Label
+var steal_row: Label
+var clerk: Node2D  # pizza clerk, lives in the room (freed with it)
+var turn_t := 3.0   # s until the clerk turns to watch
+var watch_t := 0.0  # s left watching the counter
 
 func build() -> void:
 	var ui: Node = g.ui
@@ -45,12 +51,15 @@ func build() -> void:
 		rows.append({"row": row, "icon": icon, "name": item_name, "price": price, "owned": owned})
 	wallet = ui.hud_label(col, 14, Color(1, 0.85, 0.5))
 	source = ui.hud_label(col, 13, Color(0.6, 1, 0.7))
+	steal_row = ui.hud_label(col, 16, Color(1, 0.6, 0.5))
 	box.hide()
 	ui.dock(box, true, 60)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	# runs after game._process (child order), so ctx is this frame's
 	box.visible = g.ctx == "bodega"
+	if g.inside == "shop" and g.interior.room and template() == "pizza":
+		clerk_watch(delta)
 	if box.visible:
 		refresh()
 
@@ -103,9 +112,14 @@ func refresh() -> void:
 		g.player.treats, eco.bones, st.size()]
 	source.text = eco.discount_label()
 	source.visible = source.text != ""
+	steal_row.visible = template() == "pizza"
+	steal_row.text = "[%d]  Steal slice  (+25 heat)      Clerk: %s" % [st.size() + 1, "WATCHING!" if watch_t > 0.0 else "back turned"]
 
 ## Buy item n, qty times (collar: always one). Returns how many were bought.
 func buy(n: int, qty := 1) -> int:
+	if n == stock().size() and template() == "pizza":
+		steal()
+		return 0
 	if n < 0 or n >= stock().size():
 		return 0
 	var item: String = stock()[n][0]
@@ -132,3 +146,34 @@ func buy(n: int, qty := 1) -> int:
 	g.bump("bought")
 	g.save_game()
 	return qty
+
+## Spec 08: +25 heat either way; a free slice only while the clerk looks away.
+func steal() -> bool:
+	g.wanted.add_heat(25, "steal")
+	if watch_t > 0.0:
+		g.show_msg("The clerk saw you! Out!")
+		g.interior.leave()
+		return false
+	g.player.consume("pizza")
+	g.show_msg("Stole a slice!")
+	return true
+
+func clerk_watch(delta: float) -> void:
+	if not is_instance_valid(clerk) or clerk.is_queued_for_deletion():
+		clerk = Node2D.new()
+		clerk.position = g.interior.O + Vector2(480, 215)  # behind the counter
+		clerk.draw.connect(func():
+			clerk.draw_rect(Rect2(-9, -14, 18, 22), Color.WHITE)  # apron
+			clerk.draw_circle(Vector2(0, -20), 7, Color(0.95, 0.78, 0.62) if watch_t > 0.0 else Color(0.3, 0.2, 0.15))  # face / back of head
+			if watch_t > 0.0:
+				clerk.draw_string(ThemeDB.fallback_font, Vector2(-4, -32), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 0.3, 0.2)))
+		g.interior.room.add_child(clerk)
+	if watch_t > 0.0:
+		watch_t -= delta
+		if watch_t <= 0.0:
+			turn_t = randf_range(3.0, 6.0)
+	else:
+		turn_t -= delta
+		if turn_t <= 0.0:
+			watch_t = 1.5
+	clerk.queue_redraw()

@@ -690,9 +690,59 @@ func _initialize() -> void:
 	await frames(2)
 	assert(wanted.warn_t > 0.0, "whistle + edge warning when an officer closes in")
 	await frames(75)
-	assert(wanted.caught_n == 1 and wanted.stars() == 0 and player.treats == 55, "grab = caught, fine 15 x stars")
+	assert(wanted.caught_n == 1 and wanted.stars() == 0 and wanted.heat == 0.0 and game.inside == "pound" and player.treats == 100, "grab = pound, heat 0, treats kept")
 	await frames(1)
 	assert(wanted.officers().is_empty() and wanted.vans().is_empty(), "caught clears animal control")
+	# pound (M4-6): fine 15 x stars x city mult (min 10) at the cell door; breakout sneak / dig / squeeze
+	var pound: Node = game.pound
+	assert(pound.fine == 45 and game.ctx == "pound", "fine is 15 x 3 stars, cell door menu")
+	pound.choose(0)
+	assert(game.inside == "" and player.treats == 55, "paid the fine, back on the street")
+	wanted.add_heat(25)
+	player.take_damage(1e6)
+	await frames(1)
+	assert(game.inside == "pound" and not player.dead and not paused and not game.death_panel.visible and player.treats == 55 and pound.fine == 15, "HP 0 at 1 star = pound, treats kept")
+	pound.choose(1)
+	assert(pound.stage == "sneak", "break out")
+	player.position = pound.guard.position + pound.guard_dir * 60.0
+	await frames(1)
+	assert(player.position == game.interior.spots.out, "guard sees the dog: sneak restarts")
+	player.position = game.interior.spots.fence
+	await frames(1)
+	assert(pound.stage == "dig" and player.frozen, "fence reached: dig")
+	pound.hits = 5
+	pound.mark = 0.0
+	for i in 3:
+		pound.press("pee")
+	assert(pound.hits == 0 and pound.misses == 0, "3 misses refill the hole")
+	for i in 6:
+		pound.mark = 0.5
+		pound.press("pee")
+	assert(pound.stage == "squeeze", "6 hits: squeeze")
+	await frames(200)
+	assert(game.inside == "pound" and pound.stage == "" and not player.frozen, "squeeze timer out: back in the cell")
+	pound.choose(1)
+	player.position = game.interior.spots.fence
+	await frames(1)
+	for i in 6:
+		pound.mark = 0.5
+		pound.press("pee")
+	var xp0: int = player.xp + player.level * 1000
+	for i in pound.MASH:
+		pound.press("dash")
+	assert(game.inside == "" and game.stat("escapes") == 1 and player.xp + player.level * 1000 > xp0 and not player.frozen, "breakout: out, +XP, escapes +1")
+	while player.points > 0:
+		game.pick_stat(0)
+	# pizza steal (M4-5): +25 heat; unwatched = free slice, watched = pushed out
+	game.interior.enter(game.doors.filter(func(d): return d.template == "pizza")[0])
+	game.shop.watch_t = 0.0
+	game.shop.turn_t = 99.0
+	player.buffs.erase("food")
+	game.shop.buy(game.shop.stock().size())
+	assert(wanted.heat == 25.0 and player.buffs.food.id == "pizza" and game.inside == "shop", "steal adds 25 heat, free slice")
+	game.shop.watch_t = 1.0
+	assert(not game.shop.steal() and wanted.heat == 50.0 and game.inside == "", "watched: +25 heat, pushed out")
+	wanted.clear()
 	# territory (M3-6): 3 markers claim a block (+2 each, +10 claim), markers fade after 3 days
 	var terr: Node2D = game.territory
 	var bld: Rect2 = game.building_rects.filter(func(r): return r.size.x > 100 and r.size.x < game.BLOCK.x and r.size.y > 100 and terr.block_of(r.position) == terr.block_of(r.end))[0]

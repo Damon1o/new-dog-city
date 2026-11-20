@@ -251,7 +251,8 @@ func die() -> void:
 	dead = true
 	frozen = true
 	hp = 0.0
-	treats = treats / 2
+	if not get_parent().wanted.jails_on_death():  # caught instead: treats kept (spec 08)
+		treats = treats / 2
 	died.emit()
 
 func respawn() -> void:

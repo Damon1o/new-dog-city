@@ -72,15 +72,15 @@ func root(t: float) -> void:
 	root_t = t
 	g.player.frozen = true
 
-## Spec 08 getting caught. ponytail: the Pound (M4-6) isn't built; a fine (15 x stars, min 10,
-## capped at what the dog has) and a respawn at the park stand in for the cell and breakout.
+## Spec 08 getting caught: the pound cell (scripts/world/pound.gd), heat 0, treats and XP kept.
 func caught() -> void:
-	var fine := mini(maxi(10, 15 * stars()), g.player.treats)
-	g.player.treats -= fine
 	caught_n += 1
+	g.pound.jail(stars())
 	clear()
-	g.set_inside("", g.player.spawn_point)
-	g.show_msg("Caught by animal control!  Fine: %d treats" % fine)
+
+## Spec 08: HP 0 at 1+ stars is a catch, not a death (player.die keeps the treats then).
+func jails_on_death() -> bool:
+	return stars() > 0 and g.inside != "boss"
 
 func _process(delta: float) -> void:
 	if not stars_ui:

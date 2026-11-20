@@ -40,6 +40,8 @@ const Keys := preload("res://scripts/systems/keys.gd")
 const Look := preload("res://scripts/ui/theme.gd")
 const KeybindsUi := preload("res://scripts/ui/keybinds.gd")
 const Wanted := preload("res://scripts/systems/wanted.gd")
+const Pound := preload("res://scripts/world/pound.gd")
+var pound: Node  # scripts/world/pound.gd: cell, fine, breakout (wanted.caught)
 var wanted: Node  # scripts/systems/wanted.gd: heat, stars, animal control (add_heat)
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
@@ -171,7 +173,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["territory", Territory]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -214,6 +216,10 @@ func _ready() -> void:
 		shake_amt = 6.0
 		sfx("hurt"))
 	player.died.connect(func():
+		if wanted.jails_on_death():  # spec 08: HP 0 at 1+ stars = the pound, no death screen
+			player.respawn()
+			wanted.caught()
+			return
 		if inside == "boss":
 			hedgehog.stop()
 			player.treats = mini(player.treats, 20)  # spec 06: the hedgehog keeps treats above 20
@@ -655,7 +661,7 @@ func update_prompts(delta: float) -> void:
 		var spots: Dictionary = interior.spots
 		if interior.room == null:
 			pass  # a test set `inside` without going through a door
-		elif at.distance_to(spots.exit) < 40.0 and interior.floor_n == 0:
+		elif spots.has("exit") and at.distance_to(spots.exit) < 40.0 and interior.floor_n == 0:
 			var e: Array = interior.data().exit
 			var n: String = interior.door.name
 			set_act("exit", e[0].format({"name": n, "NAME": n.to_upper()}),
