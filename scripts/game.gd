@@ -46,6 +46,7 @@ var wanted: Node  # scripts/systems/wanted.gd: heat, stars, animal control (add_
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
 var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
+var stocks: Node  # scripts/systems/stocks.gd: NYSE ticks, news, trades, stock app (P)
 const DialogUi := preload("res://scripts/ui/dialog.gd")
 var dialog: Node  # scripts/ui/dialog.gd (dialog box + cutscenes)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
@@ -136,6 +137,7 @@ var territory: Node2D  # scripts/systems/territory.gd (G: pee markers)
 var city: Node  # scripts/world/city_builder.gd
 var interior: Node  # scripts/world/interior.gd
 var flashback: Node  # scripts/world/flashback.gd
+var hq: Node  # scripts/world/hq_floor.gd (M5-4 puzzle floors)
 var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
@@ -177,7 +179,8 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")],
+			["stocks", preload("res://scripts/systems/stocks.gd")]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -188,6 +191,9 @@ func _ready() -> void:
 	trader = preload("res://scripts/world/trader.gd").new()
 	trader.g = self
 	add_child(trader)
+	hq = preload("res://scripts/world/hq_floor.gd").new()  # M5-4
+	hq.g = self
+	add_child(hq)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
@@ -323,6 +329,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			inventory.toggle()
 		elif wardrobe.is_open():
 			wardrobe.toggle()
+		elif stocks.is_open():
+			stocks.toggle()
 		elif not name_edit.visible:
 			set_paused(true)
 		return
@@ -358,6 +366,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			inventory.toggle()
 		"wardrobe":
 			wardrobe.toggle()
+		"stocks":
+			stocks.toggle()
 		"map":
 			if inside == "":
 				god_view = not god_view
@@ -407,6 +417,8 @@ func interact() -> void:
 			interior.enter(doors.filter(func(d): return d.template == "burrow")[0])
 		"exit":
 			interior.leave()
+		"stocks":  # NYSE terminal (scripts/systems/stocks.gd sets the prompt)
+			stocks.toggle(true)
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:

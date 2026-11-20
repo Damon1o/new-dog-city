@@ -102,6 +102,18 @@ const ROOMS := {
 		"spots": {"exit": Vector2(256, 368), "start": Vector2(256, 316), "counter": Vector2(400, 280)},
 		"door": ["SHOP", "[F]  Go inside"], "exit": ["SHOP", "[F]  Back to the street"],
 	},
+	# M4-9 NYSE (spec 03 / 09): trading floor; scripts/systems/stocks.gd draws the ticker tape and
+	# terminals and opens the stock app at the terminal spot. The Fat Cat arena (M5-7) adds the podium.
+	"nyse": {
+		"size": Vector2(1152, 640), "kind": "nyse", "tint": Color(1, 0.97, 0.9),
+		"paint": [[Rect2(0, 0, 1152, 640), "platform", Color(0.75, 0.6, 0.45)], [Rect2(0, 0, 1152, 96), "station_wall", Color(0.45, 0.35, 0.3)],
+			[Rect2(536, 616, 80, 24), Color(0.25, 0.15, 0.1)]],
+		"props": [["counter", Vector2(300, 260), 2.0, Vector2(128, 40)], ["counter", Vector2(852, 260), 2.0, Vector2(128, 40)],
+			["counter", Vector2(300, 440), 2.0, Vector2(128, 40)], ["counter", Vector2(852, 440), 2.0, Vector2(128, 40)],
+			["pillar", Vector2(120, 600), 2.5, Vector2(20, 10)], ["pillar", Vector2(1032, 600), 2.5, Vector2(20, 10)]],
+		"spots": {"exit": Vector2(576, 624), "start": Vector2(576, 572), "terminal": Vector2(576, 170)},
+		"door": ["NYSE   stock exchange", "[F]  Go inside"], "exit": ["NYSE TRADING FLOOR", "[F]  Back to the street"],
+	},
 	# M4-6 pound (spec 08): no street door, wanted.caught() sends the dog here. No exit spot:
 	# scripts/world/pound.gd adds the cell walls, guard and fence and lets him out.
 	"pound": {
@@ -120,6 +132,15 @@ const ROOMS := {
 		"props": [],
 		"spots": {"exit": Vector2(-9999, -9999), "start": Vector2(320, 330)},
 		"door": ["MEMORY", ""], "exit": ["MEMORY", ""],
+	},
+	# M5-4 HQ puzzle floors (spec 04): 15 x 10 tiles of 64 px. scripts/world/hq_floor.gd draws the
+	# grid and moves the exit spot onto the floor's start tile.
+	"hq_floor": {
+		"size": Vector2(960, 640), "kind": "hq", "tint": Color(0.95, 0.97, 1),
+		"paint": [[Rect2(0, 0, 960, 640), Color(0.12, 0.13, 0.18)]],
+		"props": [],
+		"spots": {"start": Vector2(480, 320)},
+		"door": ["HACK CLUB HQ", "[F]  Go inside"], "exit": ["HACK CLUB HQ", "[F]  Leave the floor"],
 	},
 }
 

@@ -958,6 +958,125 @@ func _initialize() -> void:
 		terr.new_day()
 	assert(not terr.claimed(blk) and terr.markers().size() == marks0 and terr.rep().nyc == rep0 + 22, "markers fade after 3 days")
 
+	# NYSE stocks (M4-9): seeded 10,000-tick sim stays in [1, 999]; a same-tick round trip
+	# loses treats; P only after a terminal visit; prices, history and holdings save
+	var stk: Node = game.stocks
+	var sim := RandomNumberGenerator.new()
+	sim.seed = 7
+	for id: String in stk.TICKERS:
+		var t: Array = stk.TICKERS[id]
+		var sp: float = t[1]
+		for i in 10000:
+			sp = stk.step(sp, t[3], t[2], sim)
+			assert(sp >= 1.0 and sp <= 999.0, "%s price %f out of [1, 999]" % [id, sp])
+	for sp: float in [1.0, 1.37, 20.0, 998.99]:
+		stk.book("stocks/prices").KIBL = sp
+		for n in [1, 7, 999]:
+			assert(stk.cost("KIBL", n) > stk.payout("KIBL", n), "round trip at %f x%d loses" % [sp, n])
+	stk.book("stocks/prices").KIBL = 20.0
+	player.treats = 500
+	assert(stk.buy("KIBL", 10) == 10 and stk.held("KIBL") == 10 and player.treats == 300, "buy 10 at 20")
+	assert(stk.sell("KIBL", 99) == 10 and stk.held("KIBL") == 0 and player.treats == 496, "sell all, 2% fee")
+	stk.toggle()
+	assert(not stk.is_open(), "P is locked before the first terminal visit")
+	var nyse: Dictionary = game.doors.filter(func(d): return d.template == "nyse")[0]
+	game.interior.enter(nyse)
+	player.position = game.interior.spots.terminal
+	await frames(1)
+	assert(game.inside == "nyse" and game.act == "stocks", "NYSE terminal prompt")
+	game.interact()
+	assert(stk.is_open() and player.frozen, "terminal opens the app")
+	root.push_input(esc)
+	assert(not stk.is_open() and not player.frozen, "Esc closes the app")
+	game.interior.leave()
+	var pkey := InputEventKey.new()
+	pkey.keycode = KEY_P
+	pkey.pressed = true
+	root.push_input(pkey)
+	assert(stk.is_open(), "P opens the app anywhere after the visit")
+	root.push_input(pkey)
+	assert(not stk.is_open() and not player.frozen, "P closes it")
+	for i in stk.HISTORY + 5:
+		stk.tick()
+	assert(stk.history("SQRL").size() == stk.HISTORY, "history keeps 60 points")
+	stk.buy("BONE", 2)
+	var held_save := ConfigFile.new()
+	held_save.load(SAVE)
+	assert(held_save.get_value("stocks", "held").BONE == 2 and held_save.get_value("stocks", "prices").BONE == stk.price("BONE") 		and held_save.get_value("stocks", "history").BONE.size() == stk.HISTORY, "prices, history and holdings saved")
+	# HQ puzzles (M5-4): each NYC floor solved by a scripted input list (U D L R steps, 1-4 program
+	# slots, F run, < undo); hold R 1 s resets, 3 resets show the hint; the door clears the floor
+	# (rewards, fb_<id> flashback via flashback.clear_floor)
+	var hq: Node = game.hq
+	var pz_story: Node = root.get_node("Story")
+	pz_story.reset()
+	game.save_extra["ui/reduce_motion"] = true
+	var pz_keys := {"U": KEY_W, "D": KEY_S, "L": KEY_A, "R": KEY_D, "F": KEY_F, "<": KEY_BACKSPACE,
+		"1": KEY_1, "2": KEY_2, "3": KEY_3, "4": KEY_4}
+	var pz_press := func(s: String):
+		for ch in s:
+			var ev := InputEventKey.new()
+			ev.keycode = pz_keys[ch]
+			ev.pressed = true
+			root.push_input(ev)
+			var up: InputEventKey = ev.duplicate()
+			up.pressed = false
+			root.push_input(up)
+	var pz_street: Vector2 = player.position
+	var finish_floor := func(fid: String):  # after the door: spend level-up points, walk the flashback
+		assert(pz_story.floors.has(fid) and fb.playing() and fb.id == "fb_" + fid, fid + " cleared, flashback plays")
+		while player.points > 0:
+			game.pick_stat(0)
+		for k in fb.props.size():
+			fb.inspect(k)
+			root.push_input(esc)
+	var treats0: int = player.treats
+	var pz_bones0: int = game.economy.bones
+	var lvl0: int = player.level
+	hq.enter("nyc_1")
+	assert(game.inside == "hq" and hq.at == hq.start and not player.is_physics_processing(), "on the sort floor, grid steps")
+	pz_press.call("UU")
+	assert(hq.at == hq.start + Vector2i(0, -2), "one tile per key")
+	pz_press.call("RRRRRRRRRRRRRRRR")
+	assert(hq.at == Vector2i(13, 6), "walls stop Byte")
+	for i in 3:
+		Input.action_press("bark")
+		await frames(64)
+		Input.action_release("bark")
+		await frames(1)
+		assert(hq.at == hq.start and hq.resets.nyc_1 == i + 1, "hold R resets")
+		assert(hq.hint.visible == (i == 2), "hint after 3 resets")
+	assert(hq.hint.text.contains("crate"))
+	pz_press.call("LUUUUU" + "LLLLDDRRDRUUU" + "RRRRRDDLLDLUUU" + "DDDDDRUUUUU")
+	assert(hq.puzzle.is_solved() and [hq.crates[Vector2i(5, 2)], hq.crates[Vector2i(8, 2)]] == ["1", "4"], "crates sorted")
+	pz_press.call("RRRRRDR")
+	await frames(1)
+	finish_floor.call("nyc_1")
+	await frames(2)
+	assert(game.inside == "" and player.position == pz_street and player.is_physics_processing(), "back on the street")
+	assert(player.treats == treats0 + 5 and game.economy.bones == pz_bones0 + 1 and player.level > lvl0, "rewards: XP, 5 treats, par bone")
+	hq.enter("nyc_2")
+	pz_press.call("RRRRUUU")
+	assert(not hq.puzzle.is_solved() and not hq.passable(Vector2i(7, 0)), "crate on b: NOT b off, door shut")
+	pz_press.call("LLLLLL")
+	assert(hq.puzzle.is_solved() and hq.crates.has(Vector2i(4, 5)), "a on, b off: door open")
+	pz_press.call("UUUURRU")
+	await frames(1)
+	finish_floor.call("nyc_2")
+	await frames(2)
+	hq.enter("nyc_3")
+	pz_press.call("UU")
+	assert(hq.at == hq.start, "program: no free walking")
+	pz_press.call("11F")
+	await frames(60)
+	assert(hq.at == hq.start and not hq.puzzle.running, "short program ends, Byte back at the start")
+	pz_press.call("<<<11341121F")
+	assert(hq.puzzle.bar.size() == 8, "undo, then 8 slots")
+	await frames(200)
+	finish_floor.call("nyc_3")
+	await frames(2)
+	assert(game.inside == "" and ["fb_nyc_1", "fb_nyc_2", "fb_nyc_3"].all(pz_story.has), "three NYC floors, three polaroids")
+	game.save_extra.erase("ui/reduce_motion")
+
 	# restart: progress wiped, scene rebuilt
 	assert(player.level > 1)
 	current_scene = game

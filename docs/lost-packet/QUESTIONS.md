@@ -19,3 +19,20 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
    - At 5 hearts, the first cat gives the Bell collar and the others give 2 bones.
    - The Bell collar's "+1 extra heart progress" is read as +1 point per gift.
    - "Bite a bodega cat = +15 heat" (spec 08) isn't built yet.
+10. **NYSE (M4-9).**
+    - The NYSE is at NYC block (1, 5), downtown.
+    - Buys round up and sells round down after the 2% fee, so a same-tick round trip always loses.
+    - P opens the stock app anywhere only after a first visit to an NYSE terminal.
+    - Prices keep ticking while the app is open.
+    - Headlines are placeholder text.
+    - KIBL rallies once, when 10+ NYC blocks are claimed.
+    - The next news day isn't saved, so it's re-rolled each session.
+    - There's no bell podium; that's for the Fat Cat arena (M5-7).
+11. **HQ puzzles (M5-4).**
+    - Byte moves one tile per key on puzzle floors, with no free movement. Hunger and thirst pause there.
+    - The door opens and closes live as the floor's solved state changes; it doesn't stay open once solved.
+    - XP and 5 treats are given on the first clear; a bone the first time a clear beats par.
+    - F on the start tile leaves a floor. On program floors this works only while the command bar is empty.
+    - On program floors Byte starts facing up, and bark opens a gate only when it's directly ahead.
+    - Backspace undoes the last program slot. The spec doesn't list this key.
+    - Reset counts aren't saved, and there's no repeat slot (nyc_3 doesn't need one).
