@@ -142,6 +142,7 @@ var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
 var cats: Node  # scripts/world/bodega_cats.gd (friendly bodega cats, M4-3)
+var steps: Node  # scripts/systems/footsteps.gd (M3-5 footsteps by surface, ambience)
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var abilities := {}  # ability bar: name -> {ctl, key, v (cooldown left, 0..1)}
@@ -190,6 +191,9 @@ func _ready() -> void:
 	hq = preload("res://scripts/world/hq_floor.gd").new()  # M5-4
 	hq.g = self
 	add_child(hq)
+	steps = preload("res://scripts/systems/footsteps.gd").new()  # M3-5 footsteps + ambience
+	steps.g = self
+	add_child(steps)
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10

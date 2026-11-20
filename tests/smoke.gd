@@ -186,6 +186,37 @@ func _initialize() -> void:
 	assert(weather.scent_range() < 1400.0 and weather.scent_range() > 700.0, "rain blends in over 10 s")
 	assert(weather.roll("nyc") in ["clear", "snow", "rain"])
 	weather.set_weather("clear", false)
+	# M3-5 audio: surface lookup (grass inside a park), one step sound per step, ambience ducks indoors
+	var au_steps: Node = game.steps
+	var au_park: Rect2 = game.parks[0]
+	var au_street: Vector2 = au_park.position - Vector2(8, 8)
+	assert(game.parks.all(func(r: Rect2) -> bool: return not r.has_point(au_street)))
+	assert(au_steps.surface(au_park.get_center()) == "grass", "surface lookup is grass inside a park")
+	assert(au_steps.surface(au_street) == "concrete", "street is concrete")
+	weather.set_weather("rain", false)
+	assert(au_steps.surface(au_street) == "puddle" and au_steps.surface(au_park.get_center()) == "grass", "rain: puddles off the grass")
+	weather.set_weather("snow", false)
+	assert(au_steps.surface(au_park.get_center()) == "snow", "snow covers everything")
+	weather.set_weather("clear", false)
+	var au_snd: Node = root.get_node("Sound")
+	for au_s in ["concrete", "grass", "puddle", "snow", "wood"]:
+		assert(au_snd.sounds["step_" + au_s] is AudioStreamWAV)
+	var au_kids := au_snd.get_child_count()
+	player.velocity = Vector2(100, 0)
+	au_steps.step_t = 0.0
+	au_steps._process(0.0)
+	au_steps._process(0.1)
+	assert(au_snd.get_child_count() == au_kids + 1, "one step, then wait 0.28 s")
+	au_steps._process(0.2)
+	assert(au_snd.get_child_count() == au_kids + 2, "second step after 0.28 s")
+	player.velocity = Vector2.ZERO
+	assert(au_steps.amb.playing and au_steps.amb.bus == "Ambience" and is_equal_approx(au_steps.amb.volume_db, au_steps.AMB_DB))
+	game.inside = "shop"
+	assert(au_steps.surface(player.position) == "wood", "interiors are wood")
+	au_steps._process(0.0)
+	assert(is_equal_approx(au_steps.amb.volume_db, au_steps.AMB_DB + au_steps.DUCK_DB), "ambience ducks 12 dB indoors")
+	game.inside = ""
+	au_steps._process(0.0)
 
 	# cars: one per lane, and they hurt
 	var cars := get_nodes_in_group("car")

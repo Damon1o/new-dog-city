@@ -79,10 +79,19 @@ func _ready() -> void:
 		shots.append([c[0] % "yowl", {"bpm": 240 + c[1], "root": c[1], "wave": "saw", "decay": 0.3, "lead": [0, 2, 5, 7, 8, 7, 5, 2, -3]}])
 		shots.append([c[0] % "hiss", {"bpm": 3000 - c[1] * 20, "root": c[1] + 30, "wave": "sq", "decay": 0.01, "hats": 6.0,
 			"lead": [0, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R]}])
+	# M3-5 footsteps: one noise burst (hats) over a short thud; wave/pitch/noise tell surfaces apart
+	for st: Array in [["concrete", "sq", 45, 3.0], ["grass", "tri", 40, 1.5], ["puddle", "sine", 76, 2.5],
+			["snow", "tri", 36, 4.0], ["wood", "tri", 52, 0.5]]:
+		shots.append(["step_" + st[0], {"bpm": 400, "root": st[2], "wave": st[1], "decay": 0.03, "hats": st[3], "lead": [0]}])
 	for s: Array in shots:
 		var w := _synth(s[1].merged({"decay": 0.5, "hats": 0.0, "swing": 0.0, "bass": []}))
 		w.loop_mode = AudioStreamWAV.LOOP_DISABLED
 		sounds[s[0]] = w
+	# M3-5 ambience loops (scripts/systems/footsteps.gd plays them): low traffic hum + far-off honk, night crickets
+	sounds["amb_city"] = _synth({"bpm": 30, "root": 57, "wave": "saw", "decay": 1.5, "hats": 0.3, "swing": 0.0,
+		"lead": [-24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24], "bass": [R, R, R, 31, R, R, R, R]})
+	sounds["amb_night"] = _synth({"bpm": 240, "root": 96, "wave": "sine", "decay": 0.02, "hats": 0.0, "swing": 0.0, "bass": [],
+		"lead": [0, 0, R, R, R, R, R, R, 0, 0, 0, R, R, R, R, R, R, R, R, R, 0, 0, R, R, R, R, R, R, R, R, R, R]})
 	for i in 2:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Music"
