@@ -572,7 +572,7 @@ func _initialize() -> void:
 
 	# territory (M3-6): 3 markers claim a block (+2 each, +10 claim), markers fade after 3 days
 	var terr: Node2D = game.territory
-	var bld: Rect2 = game.building_rects.filter(func(r): return r.size.x > 100 and r.size.x < game.BLOCK.x and r.size.y > 100 		and terr.block_of(r.position) == terr.block_of(r.end))[0]
+	var bld: Rect2 = game.building_rects.filter(func(r): return r.size.x > 100 and r.size.x < game.BLOCK.x and r.size.y > 100 and terr.block_of(r.position) == terr.block_of(r.end))[0]
 	var blk: Vector2i = terr.block_of(bld.get_center())
 	var rep0: int = terr.rep().get("nyc", 0)
 	var marks0: int = terr.markers().size()
