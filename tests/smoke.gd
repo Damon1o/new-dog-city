@@ -69,6 +69,15 @@ func _initialize() -> void:
 	player.stamina = 10.0
 	assert(not player.dash(), "too winded to dash")
 	player.stamina = 100.0
+	# reduce motion (spec 11): shake is tracked but the camera stays still
+	game.save_extra["ui/reduce_motion"] = true
+	game.shake_amt = 10.0
+	await frames(1)
+	assert(game.cam.offset == Vector2.ZERO, "reduce motion: no screen shake")
+	game.save_extra["ui/reduce_motion"] = false
+	var kids: int = game.get_child_count()
+	game.poof(player.position, Color.WHITE, 10, 70.0)
+	assert(game.get_child_count() == kids + 1 and game.get_child(-1).amount == 10, "poof takes amount")
 	# weather: snow sets sprint to 0.9; changes blend over 10 s; today's weather is saved
 	var weather: Node = game.weather
 	weather.set_weather("snow", false)

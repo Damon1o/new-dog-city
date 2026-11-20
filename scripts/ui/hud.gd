@@ -286,6 +286,11 @@ func build_hud() -> void:
 	keys_btn.text = "Key bindings"
 	keys_btn.pressed.connect(func(): g.keybinds.open())
 	pv.add_child(keys_btn)
+	var calm := CheckBox.new()
+	calm.text = "Reduce motion  (no screen shake)"
+	calm.toggled.connect(func(on: bool): g.save_extra["ui/reduce_motion"] = on)
+	g.pause_panel.visibility_changed.connect(func(): calm.set_pressed_no_signal(g.save_extra.get("ui/reduce_motion", false)))
+	pv.add_child(calm)
 	for bus in ["Master", "Music", "SFX", "Ambience"]:
 		hud_label(pv, 14).text = "Volume" if bus == "Master" else bus
 		var sl := HSlider.new()

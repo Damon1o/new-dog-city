@@ -252,7 +252,8 @@ func _process(delta: float) -> void:
 	update_train(delta)
 	check_pickups()
 	check_landmarks()
-	cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake_amt
+	var shake := 0.0 if save_extra.get("ui/reduce_motion", false) else shake_amt  # spec 11 reduce motion
+	cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
 	shake_amt = lerpf(shake_amt, 0.0, minf(delta * 10.0, 1.0))
 	update_hud(delta)
 	mini.queue_redraw()
@@ -296,7 +297,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		"bite":
 			player.bite()
 		"dash":
-			player.dash()
+			if player.dash():
+				poof(player.position - player.facing * 14.0 + Vector2(0, 12), Color(0.78, 0.74, 0.66, 0.7), 10, 70.0)
 		"bark":
 			player.bark()
 		"purina":
@@ -697,12 +699,13 @@ func float_text(pos: Vector2, text: String, color := Color.WHITE, crit := false)
 	if not crit:
 		fx.float_text(pos, text, color)
 		return
+	fx.poof(pos, Color(1, 0.9, 0.3), 20, 260.0)  # crit sparks; before the label, which must stay last
 	fx.float_text(pos, text + "!", Color(1, 0.9, 0.2))
 	var l: Label = get_child(-1)  # the label fx just added
 	l.add_theme_font_size_override("font_size", 24)
 
-func poof(pos: Vector2, color: Color) -> void:
-	fx.poof(pos, color)
+func poof(pos: Vector2, color: Color, amount := 14, speed := 110.0) -> void:
+	fx.poof(pos, color, amount, speed)
 
 func scratch(center: Vector2, dir: Vector2) -> void:
 	fx.scratch(center, dir)
