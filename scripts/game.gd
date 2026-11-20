@@ -37,6 +37,8 @@ const ShopUi := preload("res://scripts/ui/shop.gd")
 const InventoryUi := preload("res://scripts/ui/inventory.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
 const KeybindsUi := preload("res://scripts/ui/keybinds.gd")
+const Wanted := preload("res://scripts/systems/wanted.gd")
+var wanted: Node  # scripts/systems/wanted.gd: heat, stars, animal control (add_heat)
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
@@ -163,7 +165,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)

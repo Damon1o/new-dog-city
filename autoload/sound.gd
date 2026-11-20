@@ -67,6 +67,12 @@ func _ready() -> void:
 		sounds[n] = load("res://assets/sfx/%s.wav" % n)
 	sounds["ding"] = sounds["pickup"]  # ponytail: elevator ding = pickup pitched up; own synth later
 	sounds["bark_scare"] = sounds["bark"]  # ponytail: pitched-down bark (lower, longer); swap for its own synth/wav later
+	# M4-4 animal control: one-shot synths off the music synth. ponytail: siren is one sweep, not a loop on the van
+	for s: Array in [["whistle", {"bpm": 400, "root": 88, "wave": "sine", "lead": [0, 3, 0, 3, 0, 3]}],
+			["siren", {"bpm": 90, "root": 72, "wave": "saw", "lead": [0, 1, 3, 5, 7, 5, 3, 1]}]]:
+		var w := _synth(s[1].merged({"decay": 0.5, "hats": 0.0, "swing": 0.0, "bass": []}))
+		w.loop_mode = AudioStreamWAV.LOOP_DISABLED
+		sounds[s[0]] = w
 	for i in 2:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Music"
