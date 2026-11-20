@@ -39,6 +39,7 @@ const Keys := preload("res://scripts/systems/keys.gd")
 const KeybindsUi := preload("res://scripts/ui/keybinds.gd")
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (I)
+var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
 const SHOP := Items.SHOP
@@ -281,6 +282,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.keycode == KEY_ESCAPE:  # fixed: always reaches pause / Settings
 		if inventory.is_open():
 			inventory.toggle()
+		elif wardrobe.is_open():
+			wardrobe.toggle()
 		elif not name_edit.visible:
 			set_paused(true)
 		return
@@ -311,6 +314,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			interact()
 		"inventory":
 			inventory.toggle()
+		"wardrobe":
+			wardrobe.toggle()
 		"map":
 			if inside == "":
 				god_view = not god_view
@@ -574,6 +579,10 @@ func build_hud() -> void:
 	inventory.g = self
 	add_child(inventory)
 	inventory.build()
+	wardrobe = preload("res://scripts/ui/wardrobe.gd").new()
+	wardrobe.g = self
+	add_child(wardrobe)
+	wardrobe.build()
 	keybinds = KeybindsUi.new()
 	keybinds.g = self
 	add_child(keybinds)

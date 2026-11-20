@@ -7,6 +7,7 @@ signal hit
 
 const XP := preload("res://scripts/systems/xp.gd")
 const Items := preload("res://scripts/data/items.gd")
+const Wardrobe := preload("res://scripts/data/wardrobe.gd")
 const PX_PER_MPH := 16.0  # ideas.md top speed 15-20 mph -> 240-320 px/s
 const BREEDS := [
 	{"name": "Pug", "file": "pug", "scale": 2.4, "mph": 15.0, "hp": 90.0, "atk": 8.0, "scare": 0.8},
@@ -116,6 +117,7 @@ func spend(i: int) -> void:
 	hp += max_hp - before
 
 func _physics_process(delta: float) -> void:
+	Wardrobe.flip(sprite)  # hats / collars follow flip_h (set here and by game.gd's mouse bite)
 	attack_cd = maxf(attack_cd - delta, 0.0)
 	dash_cd = maxf(dash_cd - delta, 0.0)
 	bark_cd = maxf(bark_cd - delta, 0.0)
@@ -304,4 +306,6 @@ func cycle_skin() -> void:
 func apply_skin() -> void:
 	sprite.texture = load("res://assets/dog_%s.png" % breed().file)
 	sprite.scale = Vector2.ONE * float(breed().scale)
-	name_tag.text = collar
+	var eq := Wardrobe.worn(get_parent().get("save_extra"), collar)  # scripts/data/wardrobe.gd
+	name_tag.text = collar if eq.get("collar", "name") == "name" else ""
+	Wardrobe.dress(sprite, breed().file, eq)
