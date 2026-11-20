@@ -130,6 +130,25 @@ func _initialize() -> void:
 		assert(Spawns.pick("nyc", 0.1) != "pigeon", "night spawns have no pigeons")
 	assert(Spawns.phase(0.7) == "day" and Spawns.phase(0.4) == "dusk" and Spawns.phase(0.1) == "night")
 	assert(Spawns.cap(36, Vector2i(9, 7)) == 75, "cap 36 x 63 / 30 blocks")
+	# elevators (M2-4): lobby to floor 3 and back; landmarks have 6 floors and a roof
+	var tall: Dictionary = game.doors.filter(func(d): return d.template in ["apartment", "office"] and d.floors >= 3)[0]
+	assert(game.doors.filter(func(d): return d.floors == 6).size() == 2, "both landmarks have 6 floors")
+	game.interior.enter(tall)
+	player.position = game.interior.spots.elevator
+	await frames(1)
+	assert(game.ctx == "elevator", "elevator menu at the elevator spot")
+	game.on_number(2)
+	await frames(45)
+	assert(game.interior.floor_n == 2 and player.position == game.interior.spots.elevator and not player.frozen, "rode to floor 3")
+	player.position = game.interior.spots.exit
+	await frames(1)
+	assert(game.act != "exit", "no street exit above the lobby")
+	player.position = game.interior.spots.elevator
+	await frames(1)
+	game.on_number(0)
+	await frames(45)
+	assert(game.interior.floor_n == 0, "back in the lobby")
+	game.interior.leave()
 	# GPS (M2-5): clicking near a bodega sets the waypoint; far away the edge arrow points at it
 	game.set_waypoint(game.bodega_doors[0] + Vector2(20, 0))
 	assert(not game.waypoint.is_empty() and game.waypoint.pos.distance_to(game.bodega_doors[0]) < 250.0, "waypoint on a bodega")

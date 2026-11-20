@@ -185,6 +185,8 @@ func add_can(pos: Vector2) -> void:
 ## Street door (spec 03). id "<city>:<bx>,<by>:<slot>" is stable, so per-room state can be saved.
 func add_door(pos: Vector2, template: String, b: Vector2i, slot: int, floors := 1, door_name := "") -> Dictionary:
 	var id := "%s:%d,%d:%d" % [g.save_extra.get("world/city", "nyc"), b.x, b.y, slot]
+	if floors == 1 and template in ["apartment", "office"]:  # 2-4 floors, hashed so the seeded layout is untouched
+		floors = 2 + absi(hash(id)) % 3
 	var d := {"pos": pos, "template": template, "id": id, "seed": hash(id), "floors": floors, "name": door_name}
 	g.doors.append(d)
 	return d

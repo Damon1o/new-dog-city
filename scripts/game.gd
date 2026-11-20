@@ -300,7 +300,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				bump("map", true)
 				zoom_tw = create_tween()
 				zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
-		KEY_1, KEY_2, KEY_3, KEY_4:
+		KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9:  # shop rows use 1-4, elevators up to 7
 			on_number(event.keycode - KEY_1)
 
 func sun() -> float:
@@ -514,6 +514,8 @@ func quest_text() -> String:
 func on_number(n: int) -> void:
 	if ctx == "bodega":
 		shop.buy(n, 5 if Input.is_key_pressed(KEY_SHIFT) else 1)
+	elif ctx == "elevator":
+		interior.ride(n)
 	elif ctx == "subway" and n < stations.size():
 		if n != station_i and not player.frozen:
 			travel(n)
@@ -592,13 +594,16 @@ func update_prompts(delta: float) -> void:
 		var spots: Dictionary = interior.spots
 		if interior.room == null:
 			pass  # a test set `inside` without going through a door
-		elif at.distance_to(spots.exit) < 40.0:
+		elif at.distance_to(spots.exit) < 40.0 and interior.floor_n == 0:
 			var e: Array = interior.data().exit
 			var n: String = interior.door.name
 			set_act("exit", e[0].format({"name": n, "NAME": n.to_upper()}),
 				"[F]  Flee to the street" if inside == "boss" and hedgehog.active else e[1])
 		elif spots.has("counter") and at.distance_to(spots.counter) < 60.0:
 			ctx = "bodega"  # scripts/ui/shop.gd shows its panel while ctx is "bodega"
+		elif spots.has("elevator") and at.distance_to(spots.elevator) < 50.0:
+			ctx = "elevator"
+			show_menu("ELEVATOR", interior.floor_rows())
 		elif spots.has("board") and at.distance_to(spots.board) < 50.0:
 			ctx = "subway"
 			var rows := []

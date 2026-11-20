@@ -8,6 +8,7 @@ const ROOMS := preload("res://scripts/data/rooms.gd").ROOMS
 var g: Node2D
 var room: Node2D       # the built room (group "interior"), null on the street
 var door := {}         # street door the dog came in by
+var floor_n := 0       # elevator floor, 0 = lobby (only the lobby has the street exit)
 var rect := Rect2()    # room area, for the camera clamp
 var spots := {}        # spot name -> world position
 var tint := Color.WHITE
@@ -15,8 +16,41 @@ var tint := Color.WHITE
 func data() -> Dictionary:
 	return ROOMS[door.template]
 
+## Elevator (spec 03): 0.6 s fade, ding, rebuild the template as floor n (0 = lobby).
+## n == door.floors on a landmark = the roof: back on the street, camera zoomed out.
+func ride(n: int) -> void:
+	if n == floor_n or n < 0 or n > door.floors or (n == door.floors and not has_roof()) or g.player.frozen:
+		return
+	g.player.frozen = true
+	var tw := g.create_tween()
+	tw.tween_property(g.fade, "color:a", 1.0, 0.3)
+	tw.tween_callback(func():
+		Sound.sfx("ding")
+		if n == door.floors:
+			leave()
+			g.cam.zoom = Vector2.ONE * 0.6  # roof view over the city
+			return
+		floor_n = n
+		build(door.template)
+		g.set_inside(data().kind, spots.elevator))
+	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
+	tw.tween_callback(func(): g.player.frozen = false)
+
+func has_roof() -> bool:
+	return g.landmarks.any(func(l): return l.name == door.name)
+
+## Menu rows for the elevator panel: [text, selectable].
+func floor_rows() -> Array:
+	var rows := []
+	for k in door.floors:
+		rows.append(["[%d]  %s%s" % [k + 1, "Lobby" if k == 0 else "Floor %d" % (k + 1), "   (you are here)" if k == floor_n else ""], k != floor_n])
+	if has_roof():
+		rows.append(["[%d]  Roof" % (door.floors + 1), true])
+	return rows
+
 func enter(d: Dictionary) -> void:
 	door = d
+	floor_n = 0
 	g.return_pos = d.pos
 	build(d.template)
 	g.set_inside(data().kind, spots.start)
@@ -72,7 +106,7 @@ func build(template: String) -> void:
 	box(Vector2(s.x + 16, s.y / 2), Vector2(32, s.y))
 	box(Vector2(s.x / 2, s.y + 16), Vector2(s.x, 32))
 	var rng := RandomNumberGenerator.new()
-	rng.seed = door.get("seed", 0)
+	rng.seed = hash("%s:f%d" % [door.id, floor_n]) if floor_n > 0 else door.get("seed", 0)  # spec 03: id + :fN
 	for p: Array in r.props:
 		var spr := Sprite2D.new()
 		var t: Texture2D = g.tex[p[0]]

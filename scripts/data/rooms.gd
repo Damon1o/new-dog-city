@@ -45,7 +45,7 @@ const ROOMS := {
 			[Rect2(280, 360, 80, 24), Color(0.3, 0.35, 0.6)]],
 		"props": [["shelf", Vector2(100, 130), 2.0, Vector2(96, 24)], ["shelf", Vector2(540, 130), 2.0, Vector2(96, 24)],
 			["water_bowl", Vector2(200, 300), 2.5, Vector2.ZERO], ["cat", Vector2(450, 280), 2.5, Vector2.ZERO]],
-		"spots": {"exit": Vector2(320, 368), "start": Vector2(320, 316)},
+		"spots": {"exit": Vector2(320, 368), "start": Vector2(320, 316), "elevator": Vector2(600, 200)},
 		"door": ["APARTMENTS", "[F]  Go inside"], "exit": ["APARTMENT LOBBY", "[F]  Back to the street"],
 	},
 	"office": {
@@ -54,7 +54,7 @@ const ROOMS := {
 			[Rect2(344, 424, 80, 24), Color(0.2, 0.25, 0.35)]],
 		"props": [["counter", Vector2(180, 220), 2.0, Vector2(128, 40)], ["counter", Vector2(384, 220), 2.0, Vector2(128, 40)],
 			["counter", Vector2(588, 220), 2.0, Vector2(128, 40)], ["cat", Vector2(600, 330), 2.5, Vector2.ZERO]],
-		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380)},
+		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "elevator": Vector2(720, 140)},
 		"door": ["OFFICES   {NAME}", "[F]  Go inside"], "exit": ["OFFICE LOBBY", "[F]  Back to the street"],
 	},
 	"shop_small": {
