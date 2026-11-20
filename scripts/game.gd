@@ -437,13 +437,16 @@ func on_boss_beaten(b: Node2D) -> void:
 func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	sfx("bark")
 	scratch(center, player.facing)
+	var crit: bool = player.roll_crit()
+	if crit:
+		dmg *= 1.75  # spec 05
 	hedgehog.hurt(center, radius, dmg)
 	for r in get_tree().get_nodes_in_group("raccoon"):
 		if r.position.distance_to(center) < radius + 10.0:
-			r.hurt(dmg, player.position)
+			r.hurt(dmg, player.position, crit)
 	for b in get_tree().get_nodes_in_group("boss"):
 		if b.position.distance_to(center) < radius + 34.0:  # bosses are big
-			b.hurt(dmg, player.position)
+			b.hurt(dmg, player.position, crit)
 	for p in get_tree().get_nodes_in_group("prey"):
 		if p.position.distance_to(center) < radius:
 			on_prey_caught(p)

@@ -139,7 +139,13 @@ func _initialize() -> void:
 		racs[i].position = player.position + Vector2(60, 0).rotated(i * 2.0)
 		racs[i].state = racs[i].State.CHASE
 		racs[i].level = [1, 20, 12][i]
+	var boss: Node2D = get_nodes_in_group("boss")[0]
+	var boss_at: Vector2 = boss.position
+	boss.position = player.position + Vector2(0, 100)
 	assert(player.bark(), "bark fires")
+	assert(boss.stun_t > 0.0, "boss within 4 levels is stunned by bark")
+	boss.position = boss_at
+	boss.stun_t = 0.0
 	assert(not player.bark(), "bark on cooldown")
 	assert(racs[0].state == racs[0].State.FLEE, "raccoon 9 levels below flees")
 	assert(racs[1].state == racs[1].State.CHASE, "raccoon 10 levels above ignores the bark")
@@ -154,7 +160,12 @@ func _initialize() -> void:
 	target.hp = 1000.0
 	assert(player.pounce(), "pounce fires at level 30")
 	await frames(25)
-	assert(is_equal_approx(1000.0 - target.hp, player.attack_damage() * 2.0), "pounce lands 2x bite, got %f" % (1000.0 - target.hp))
+	var dealt: float = 1000.0 - target.hp
+	assert(is_equal_approx(dealt, player.attack_damage() * 2.0) or is_equal_approx(dealt, player.attack_damage() * 3.5),
+		"pounce lands 2x bite (x1.75 on crit), got %f" % dealt)
+	player.stat_atk = 950  # 5% + 95% = always crit
+	assert(player.roll_crit(), "crit chance grows with stat_atk")
+	player.stat_atk = 0
 	assert(target.state == target.State.STUN, "pounce stuns")
 	# ability bar (M1-7): exists, cooldown sweep follows <name>_cd, pounce hidden below level 30
 	await frames(1)
@@ -230,9 +241,11 @@ func _initialize() -> void:
 		game.interact()
 		assert(game.inside == ROOMS[d.template].kind and get_nodes_in_group("interior").size() == 1, "one interior")
 		assert(game.Save.street_pos(game) == d.pos, "saving indoors keeps the street door")
+		player.points = 0  # a door quest can level the dog up; the stat picker would pause the game
+		game.show_stats()
 		player.position = game.interior.spots.exit
 		await frames(1)
-		assert(game.act == "exit")
+		assert(game.act == "exit", "exit prompt in %s, got '%s'" % [d.template, game.act])
 		game.interact()
 		assert(game.inside == "" and player.position == d.pos, "back at door %s" % d.id)
 		assert(get_nodes_in_group("interior").is_empty() and not game.hedgehog.active)

@@ -541,12 +541,10 @@ func draw_minimap() -> void:
 			g.mini.draw_arc(sp, 6.0, 0, TAU, 16, Color.WHITE, 1.5)
 			g.mini.draw_string(font, sp + Vector2(8, 4), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
 	var dog: Vector2 = g.player.position  # indoors: show the door / station the dog went in through
-	if g.inside == "shop":
-		dog = g.return_pos
-	elif g.inside == "subway":
+	if g.inside == "subway":
 		dog = g.stations[g.station_i].pos
-	elif g.inside == "boss":
-		dog = g.burrow
+	elif g.inside != "":  # any interior: Interior.enter() set return_pos to its door
+		dog = g.return_pos
 	var c := dog * s
 	var a: float = g.player.facing.angle()
 	g.mini.draw_colored_polygon(PackedVector2Array([c + Vector2(6, 0).rotated(a),

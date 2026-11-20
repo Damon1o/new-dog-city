@@ -181,14 +181,14 @@ func dash() -> bool:
 	dash_t = DASH_TIME
 	return true
 
-## R key. Raccoons 5+ levels below flee, within 4 levels get stunned, higher ones ignore it.
+## R key. Foes 5+ levels below flee, within 4 levels get stunned, higher ones ignore it.
 func bark() -> bool:
 	if frozen or bark_cd > 0.0 or stamina < BARK_COST:
 		return false
 	stamina -= BARK_COST
 	bark_cd = BARK_CD
 	Sound.sfx("bark_scare")
-	for r in get_tree().get_nodes_in_group("raccoon"):
+	for r in foes():
 		if r.position.distance_to(position) < BARK_RADIUS:
 			r.scare(level)
 	return true
@@ -205,15 +205,23 @@ func pounce() -> bool:
 func land() -> void:
 	var center := position + facing * 26.0
 	get_parent().on_bite(center, 46.0, attack_damage() * 2.0)
-	for r in get_tree().get_nodes_in_group("raccoon"):
-		if r.position.distance_to(center) < 56.0:  # same reach as on_bite
+	for r in foes():
+		if r.position.distance_to(center) < (80.0 if r.is_in_group("boss") else 56.0):  # same reach as on_bite
 			r.stun(0.8)
+
+func foes() -> Array:
+	return get_tree().get_nodes_in_group("raccoon") + get_tree().get_nodes_in_group("boss")
+
+## Spec 05: 5% crit, +1% per 10 stat_atk.
+func roll_crit() -> bool:
+	return randf() < 0.05 + stat_atk * 0.001
 
 func take_damage(amount: float) -> void:
 	if dead or dash_t > 0.0:
 		return
 	hp -= amount
 	if amount >= 1.0:
+		get_parent().float_text(position, str(int(amount)), Color(1, 0.3, 0.3))  # red: damage to Byte (spec 06)
 		sprite.modulate = Color(1, 0.4, 0.4)
 		create_tween().tween_property(sprite, "modulate", Color.WHITE, 0.25)
 		hit.emit()

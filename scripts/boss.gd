@@ -25,6 +25,7 @@ var special_cd := 0.0
 var special_n := 0     # cycles through cfg.specials
 var bite_cd := 0.0
 var knock := Vector2.ZERO
+var stun_t := 0.0
 var charge_dir := Vector2.ZERO
 var shots: Array[Dictionary] = []  # {s, vel, t, homing}
 var game: Node2D
@@ -52,6 +53,9 @@ func _process(delta: float) -> void:
 	queue_redraw()  # slam ring
 	position += knock * delta
 	knock = knock.lerp(Vector2.ZERO, minf(delta * 8.0, 1.0))
+	if stun_t > 0.0:  # bark / pounce: frozen in place, timers paused
+		stun_t -= delta
+		return
 	var to_player := player.position - position
 	var d := to_player.length()
 	var speed: float = cfg.speed
@@ -188,7 +192,16 @@ func clear_shots() -> void:
 		sh.s.queue_free()
 	shots.clear()
 
-func hurt(dmg: float, from: Vector2) -> void:
+## Bosses never flee a bark; within 4 levels they get the 0.5 s stun.
+func scare(dog_level: int) -> void:
+	if dog_level - level >= -4:
+		stun(0.5)
+
+func stun(time: float) -> void:
+	if state != State.DEAD:
+		stun_t = maxf(stun_t, time)
+
+func hurt(dmg: float, from: Vector2, crit := false) -> void:
 	if state == State.DEAD:
 		return
 	if state in [State.IDLE, State.RETURN]:
@@ -198,7 +211,7 @@ func hurt(dmg: float, from: Vector2) -> void:
 	if state != State.WINDUP:  # windup owns the flash
 		sprite.modulate = Color(1, 0.4, 0.4)
 		create_tween().tween_property(sprite, "modulate", Color(cfg.tint), 0.2)
-	game.float_text(position, str(int(dmg)), Color.WHITE)
+	game.float_text(position, str(int(dmg)), Color.WHITE, crit)
 	if hp <= 0.0:
 		state = State.DEAD
 		t = RESPAWN
