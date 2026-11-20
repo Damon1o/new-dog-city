@@ -25,6 +25,7 @@ const Street := preload("res://scripts/world/street.gd")
 const Spawner := preload("res://scripts/world/spawner.gd")
 const Fx := preload("res://scripts/world/fx.gd")
 const Subway := preload("res://scripts/world/subway.gd")
+const Territory := preload("res://scripts/systems/territory.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Interior := preload("res://scripts/world/interior.gd")
 const Rooms := preload("res://scripts/data/rooms.gd")
@@ -128,6 +129,7 @@ var street: Node  # scripts/world/street.gd
 var spawner: Node  # scripts/world/spawner.gd
 var fx: Node  # scripts/world/fx.gd
 var subway: Node  # scripts/world/subway.gd
+var territory: Node2D  # scripts/systems/territory.gd (G: pee markers)
 var city: Node  # scripts/world/city_builder.gd
 var interior: Node  # scripts/world/interior.gd
 var weather: Node  # scripts/systems/weather.gd
@@ -169,7 +171,7 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["territory", Territory]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -314,7 +316,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if player.dash():
 				poof(player.position - player.facing * 14.0 + Vector2(0, 12), Color(0.78, 0.74, 0.66, 0.7), 10, 70.0)
 		"bark":
-			player.bark()
+			if player.bark():
+				spawner.scatter_near(player.position, player.BARK_RADIUS)  # spec 05: pigeon flocks scatter
 		"purina":
 			if player.use_purina():
 				sfx("pickup")
@@ -503,6 +506,8 @@ func on_prey_caught(prey: Node2D) -> void:
 	poof(prey.position, Color(0.85, 0.85, 0.9))
 	sfx("catch")
 	prey.queue_free()
+	if not prey.flock.is_empty():
+		spawner.scatter(prey.flock)  # spec 07: catch one, the flock flees
 	if prey.kind == "squirrel":
 		bump("squirrels")
 	bump("prey")

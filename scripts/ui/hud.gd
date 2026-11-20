@@ -588,6 +588,9 @@ func draw_minimap() -> void:
 	for r in get_tree().get_nodes_in_group("raccoon"):
 		if r.visible:
 			g.mini.draw_circle(r.position * s, 2.5, Color(1, 0.2, 0.2))
+	for m in g.territory.markers():  # spec 05: markers show on the map
+		if m.city == g.city.id:
+			g.mini.draw_circle(m.pos * s, 1.5, Color(1, 0.85, 0.2))
 	for poi in g.pois:
 		if poi.text != "Drink":
 			g.mini.draw_circle(poi.pos * s, 3.0, poi.color)
