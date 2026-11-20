@@ -22,8 +22,9 @@ const DASH_PX := 220.0
 const DASH_TIME := 0.15
 const DASH_CD := 1.2
 const DASH_COST := 25.0
-# spec 05: bark (R) = 180 px ring, 15 stamina, 6 s; pounce = hold Space 0.6 s, level 30, 160 px leap, 2x bite + 0.8 s stun
-const BARK_RADIUS := 180.0
+# spec 05: bark (R) = ranged sound wave (bark_wave.gd, 520 px), 15 stamina, 6 s; pounce = hold Space 0.6 s, level 30, 160 px leap, 2x bite + 0.8 s stun
+const BarkWave := preload("res://scripts/bark_wave.gd")
+const BARK_DMG := 0.4  # x bite damage per wave hit
 const BARK_CD := 6.0
 const BARK_COST := 15.0
 const POUNCE_LEVEL := 30
@@ -199,16 +200,21 @@ func dash() -> bool:
 	dash_t = DASH_TIME
 	return true
 
-## R key. Foes 5+ levels below flee, within 4 levels get stunned, higher ones ignore it.
+## R key: fires a sound wave along `facing`. Foes it hits take a light hit, then
+## 5+ levels below flee, within 4 levels get stunned, higher ones ignore the scare.
 func bark() -> bool:
 	if frozen or bark_cd > 0.0 or stamina < BARK_COST:
 		return false
 	stamina -= BARK_COST
 	bark_cd = BARK_CD * mod("bark_cd")
 	Sound.sfx("bark_scare")
-	for r in foes():
-		if r.position.distance_to(position) < BARK_RADIUS:
-			r.scare(level)
+	var w := BarkWave.new()
+	w.dir = facing
+	w.dog_level = level
+	w.dmg = attack_damage() * BARK_DMG
+	w.game = get_parent()
+	w.position = position + facing * 20.0
+	get_parent().add_child(w)
 	return true
 
 ## Hold Space (level 30). The leap itself lands the hit, see land().

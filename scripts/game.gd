@@ -250,6 +250,9 @@ func _ready() -> void:
 	show_msg("Press Esc for controls")
 	if not Story.has("cs_intro"):  # ponytail: old saves see it once too; gate on a fresh dog if that annoys
 		dialog.play("cs_intro")
+	elif get_tree().root.get_meta("open", "") == "wardrobe":  # home screen's Wardrobe button
+		wardrobe.toggle()
+	get_tree().root.remove_meta("open")
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
@@ -323,7 +326,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				poof(player.position - player.facing * 14.0 + Vector2(0, 12), Color(0.78, 0.74, 0.66, 0.7), 10, 70.0)
 		"bark":
 			if player.bark():
-				spawner.scatter_near(player.position, player.BARK_RADIUS)  # spec 05: pigeon flocks scatter
+				spawner.scatter_near(player.position, 300.0)  # spec 05: pigeon flocks scatter at the sound
 		"purina":
 			if player.use_purina():
 				sfx("pickup")
