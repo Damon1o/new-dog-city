@@ -194,6 +194,7 @@ func _ready() -> void:
 	steps = preload("res://scripts/systems/footsteps.gd").new()  # M3-5 footsteps + ambience
 	steps.g = self
 	add_child(steps)
+	add_child(preload("res://scripts/systems/scent.gd").new())  # M5-3 scent trail (V), node "Scent"
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10

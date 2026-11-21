@@ -218,6 +218,42 @@ func _initialize() -> void:
 	game.inside = ""
 	au_steps._process(0.0)
 
+	# scent trail (M5-3): hold V, the road-grid path ends at the story target, the GPS edge
+	# arrow points at it off screen, rain cuts the range; prints stay after release; Biscuit's ball wins
+	var sc: Node2D = game.get_node("Scent")
+	var sc_pos: Vector2 = player.position
+	var sc_to: Vector2 = root.get_node("Story").target()
+	assert(sc_to == game.bodega_doors[0], "story target: the bodega")
+	player.position = game.city.fix_pos(sc_to + Vector2(3000, 2000))
+	game.cam.reset_smoothing()
+	Input.action_press("sniff")
+	await frames(2)
+	var sc_path: PackedVector2Array = sc.trail
+	assert(sc_path[-1] == sc_to, "scent path ends at the target")
+	for i in sc_path.size() - 1:
+		var sc_d: Vector2 = (sc_path[i + 1] - sc_path[i]).abs()
+		assert(minf(sc_d.x, sc_d.y) < 0.5, "scent path runs along the grid")
+		assert(i == 0 or game.city.on_road(sc_path[i]), "scent path walks the roads")
+	assert(game.waypoint.pos == sc_to and not game.ui.waypoint_arrow().is_empty(), "edge arrow at the off-screen target")
+	var sc_clear: int = sc.paws().size()
+	weather.set_weather("rain", false)
+	var sc_rain: int = sc.paws().size()
+	assert(sc_clear * sc.GAP > 1500.0 and sc_rain * sc.GAP <= 700.0 and sc_rain > 0, "shorter scent range in rain")
+	Input.action_release("sniff")
+	await frames(1)
+	assert(not sc.trail.is_empty(), "trail stays after V is let go")
+	sc.left = 0.01
+	await frames(2)
+	assert(sc.trail.is_empty(), "trail fades out")
+	var sc_park: Node = get_nodes_in_group("dog_park")[0]
+	sc_park.ball = sc_to + Vector2(0, 200)
+	assert(sc.target() == sc_park.ball, "scent leads to Biscuit's ball while it is out")
+	sc_park.ball = Vector2.ZERO
+	weather.set_weather("clear", false)
+	game.waypoint = {}
+	player.position = sc_pos
+	game.cam.reset_smoothing()
+
 	# cars: one per lane, and they hurt
 	var cars := get_nodes_in_group("car")
 	assert(cars.size() == 2 * (game.NX + 1) + 2 * (game.NY + 1))
@@ -675,7 +711,7 @@ func _initialize() -> void:
 
 	# Story gates: G1 needs level 20 + the NYC keycard; popup shows why and Find XP sets a waypoint
 	story.reset()
-	assert(story.objective() == "Find Sam's things at the bodega" and story.target() == story.NO_TARGET)
+	assert(story.objective() == "Find Sam's things at the bodega" and story.target() == game.bodega_doors[0], "the city registers story spots")
 	story.spots["bodega"] = Vector2(100, 200)
 	assert(story.target() == Vector2(100, 200))
 	story.set_flag("ch1_bodega")
