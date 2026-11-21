@@ -584,6 +584,13 @@ func _initialize() -> void:
 		var hp_before: float = player.hp
 		await frames(2)
 		assert(b.marks.is_empty() and player.hp < hp_before, "a ground mark under the dog hits it")
+		assert((player.poison_t > 0.0) == (b.cfg.name == "The Rat Meister"), "only the Rat Meister poisons")
+		if player.poison_t > 0.0:
+			hp_before = player.hp
+			player.poison_tick = 0.99
+			await frames(2)
+			assert(player.hp < hp_before - b.cfg.poison + 0.5, "poison ticks for cfg.poison (minus a frame of regen)")
+			player.poison_t = 0.0
 		player.hp = player.max_hp
 		var treats: int = player.treats
 		b.hurt(1e9, player.position)

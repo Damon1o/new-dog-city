@@ -69,7 +69,7 @@ func _process(delta: float) -> void:
 			position += to_player.normalized() * CHASE_SPEED * delta
 			sprite.flip_h = to_player.x < 0.0
 			if to_player.length() < BITE_DIST and bite_cooldown <= 0.0:
-				player.take_damage(stats.dmg)
+				player.take_damage(stats.dmg, stats.get("poison", 0.0))
 				bite_cooldown = 1.0
 			special_cd -= delta
 			if special_cd <= 0.0 and to_player.length() > 50.0 and to_player.length() < 170.0:
@@ -90,7 +90,7 @@ func _process(delta: float) -> void:
 			t -= delta
 			position += lunge_dir * CHASE_SPEED * 3.2 * delta
 			if position.distance_to(player.position) < BITE_DIST + 6.0 and bite_cooldown <= 0.0:
-				player.take_damage(stats.dmg * 1.5)
+				player.take_damage(stats.dmg * 1.5, stats.get("poison", 0.0))
 				bite_cooldown = 1.0
 			if t <= 0.0:
 				state = State.CHASE

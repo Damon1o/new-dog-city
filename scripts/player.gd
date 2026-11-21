@@ -37,6 +37,8 @@ const POUNCE_COST := 30.0
 ## [var, label, gain per point]. 3 points per level, so each is a third of the old 10 HP / 2 bite / 1 mph.
 const STATS := [["stat_hp", "Max HP", 3.0], ["stat_atk", "Bite", 0.6], ["stat_spd", "Speed (mph)", 0.3]]
 const MAX_ARMOR := 0.5  # armor never cuts more than half a hit
+const POISON_TIME := 4.0  # a poisoned hit (data/bosses.gd "poison") ticks once a second this long
+const POISON_COL := Color(0.55, 1, 0.45)
 
 var points := 0  # unspent stat points, 3 per level; spent in the bag's STATS panel
 var stat_hp := 0
@@ -49,6 +51,9 @@ var hunger := 100.0
 var thirst := 100.0
 var buffs := {}  # "food" / "drink" -> {id, t (s left), mods}; not saved, they last 1-2 min
 var stamina := 100.0
+var poison_t := 0.0    # seconds of poison left; another poisoned hit refreshes it
+var poison_dps := 0.0
+var poison_tick := 0.0
 var level := 1
 var xp := 0
 var treats := 10
@@ -138,6 +143,16 @@ func _physics_process(delta: float) -> void:
 		buffs[slot].t -= delta
 		if buffs[slot].t <= 0.0:
 			buffs.erase(slot)
+	if poison_t > 0.0 and not dead:
+		poison_t -= delta
+		poison_tick += delta
+		if poison_tick >= 1.0:  # ignores armor and dash i-frames: it's already in the blood
+			poison_tick -= 1.0
+			hp -= poison_dps
+			get_parent().float_text(position, str(int(poison_dps)), POISON_COL)
+			if hp <= 0.0:
+				die()
+		sprite.self_modulate = POISON_COL if poison_t > 0.0 else Color.WHITE  # self_: hit flash tweens modulate
 	if Input.is_action_pressed("bite") and not frozen:
 		space_t += delta
 		if space_t >= POUNCE_HOLD and space_t - delta < POUNCE_HOLD:
@@ -254,9 +269,12 @@ func crit_chance() -> float:
 func roll_crit() -> bool:
 	return randf() < crit_chance()
 
-func take_damage(amount: float) -> void:
+func take_damage(amount: float, poison := 0.0) -> void:
 	if dead or dash_t > 0.0:
 		return
+	if poison > 0.0:
+		poison_dps = maxf(poison_dps if poison_t > 0.0 else 0.0, poison)
+		poison_t = POISON_TIME
 	if amount >= 1.0:  # hits, not the per-frame starving tick
 		amount *= 1.0 - defense()
 	hp -= amount
@@ -284,6 +302,8 @@ func respawn() -> void:
 	hunger = 60.0
 	thirst = 60.0
 	stamina = 100.0
+	poison_t = 0.0
+	sprite.self_modulate = Color.WHITE
 	sprite.rotation = 0.0
 	position = spawn_point
 

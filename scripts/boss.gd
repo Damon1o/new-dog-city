@@ -146,7 +146,7 @@ func _process(delta: float) -> void:
 				game.poof(position, cfg.tint)
 				if d < SLAM_R:
 					var dmg: float = cfg.dmg
-					player.take_damage(dmg * 1.8)
+					player.take_damage(dmg * 1.8, cfg.get("poison", 0.0))
 		State.PARACHUTE:  # off screen; the shadow marks where he lands
 			t -= delta
 			sprite.position.y = -1000.0 * maxf(t, 0.0) / AIR_TIME
@@ -156,12 +156,12 @@ func _process(delta: float) -> void:
 				game.poof(position, cfg.tint, 30, 200.0)
 				if d < SLAM_R:
 					var dmg: float = cfg.dmg
-					player.take_damage(dmg * 1.8)
+					player.take_damage(dmg * 1.8, cfg.get("poison", 0.0))
 				for i in 16:  # shockwave ring
 					shoot(Vector2.RIGHT.rotated(TAU * i / 16.0) * 220.0, false, 2.0, coin())
 	if state in [State.CHASE, State.CHARGE] and d < REACH and bite_cd <= 0.0:
 		var dmg: float = cfg.dmg
-		player.take_damage(dmg * (2.0 if state == State.CHARGE else 1.0))
+		player.take_damage(dmg * (2.0 if state == State.CHARGE else 1.0), cfg.get("poison", 0.0))
 		bite_cd = 1.0
 
 func wake() -> void:
@@ -292,6 +292,7 @@ func summon(cap: int, tex: Texture2D, lv: int, label: String, col: Color) -> voi
 		m.setup(position + Vector2.RIGHT.rotated(TAU * i / n) * 80.0, tex, game)
 		m.level = lv
 		m.stats = Levels.scale_for_level(Raccoon.BASE, lv)
+		m.stats.poison = cfg.get("poison", 0.0)  # the Rat Meister's pack bites poison too
 		m.tag.label.text = "%s Lv %d" % [label, lv]
 		m.max_hp = m.stats.hp
 		m.hp = m.max_hp
@@ -316,7 +317,7 @@ func update_marks(delta: float) -> void:
 		game.poof(m.p, m.col, 14, 170.0)
 		if m.p.distance_to(player.position) < MARK_R:
 			var dmg: float = cfg.dmg
-			player.take_damage(dmg * 1.3)
+			player.take_damage(dmg * 1.3, cfg.get("poison", 0.0))
 			return  # a downed dog may have ended the fight and cleared the marks
 
 ## Gold coin drawn in code, shared by every coin shot.
@@ -353,7 +354,7 @@ func update_shots(delta: float) -> void:
 		var hit := s.position.distance_to(player.position) < 20.0
 		if hit:
 			var dmg: float = cfg.dmg
-			player.take_damage(dmg * 0.6)
+			player.take_damage(dmg * 0.6, cfg.get("poison", 0.0))
 		if hit or sh.t <= 0.0:
 			s.queue_free()
 			shots.remove_at(i)
@@ -364,7 +365,7 @@ func update_wave(delta: float) -> void:
 	wave_x += wave_dir * WAVE_SPEED * delta
 	if signf(was - player.position.x) != signf(wave_x - player.position.x):
 		var dmg: float = cfg.dmg
-		player.take_damage(dmg * 1.2)
+		player.take_damage(dmg * 1.2, cfg.get("poison", 0.0))
 	if wave_x < arena.position.x or wave_x > arena.end.x:
 		wave_x = INF
 
