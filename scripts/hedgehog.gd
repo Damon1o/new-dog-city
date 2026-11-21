@@ -66,6 +66,7 @@ func start() -> void:
 
 func stop() -> void:
 	active = false
+	Sound.music("", Sound.BOSS)
 	quills.clear()
 	clear_minions()
 	hide()
@@ -73,6 +74,8 @@ func stop() -> void:
 func begin_wave() -> void:
 	quills.clear()
 	clear_minions()
+	if wave == WAVES - 1:  # the den plays battle 1 (Sound.ROOM_MUSIC "boss"); the last wave gets battle 2
+		Sound.music("hedgehog_battle_2", Sound.BOSS)
 	pause = 2.0
 	shot_cd = 0.0
 	summon_cd = 1.0

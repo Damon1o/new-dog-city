@@ -11,11 +11,16 @@ const DUCK_DB := -12.0  # indoors
 var g: Node2D
 var step_t := 0.0
 var amb: AudioStreamPlayer
+var rain: AudioStreamPlayer  # rain loop over the city ambience, faded in with the weather blend
 
 func _ready() -> void:
 	amb = AudioStreamPlayer.new()
 	amb.bus = "Ambience"
 	add_child(amb)
+	rain = AudioStreamPlayer.new()
+	rain.bus = "Ambience"
+	rain.stream = Sound.sounds["amb_rain"]
+	add_child(rain)
 
 ## What Byte's paws are on at pos: wood / snow / grass / puddle / concrete.
 ## ponytail: no puddle sprites yet, so rain anywhere but grass is puddle.
@@ -35,6 +40,12 @@ func _process(delta: float) -> void:
 		amb.stream = want
 		amb.play()
 	amb.volume_db = AMB_DB + (DUCK_DB if g.inside != "" else 0.0)
+	var wet: float = g.weather.look("rain")
+	if wet > 0.01 and not rain.playing:
+		rain.play()
+	elif wet <= 0.01 and rain.playing:
+		rain.stop()
+	rain.volume_db = amb.volume_db + linear_to_db(maxf(wet, 0.0001))
 	var p: CharacterBody2D = g.player
 	if p.dead or p.frozen or p.velocity.length() < 1.0:
 		step_t = 0.0  # first step lands as soon as Byte moves again

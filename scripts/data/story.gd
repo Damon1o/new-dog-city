@@ -73,6 +73,7 @@ const CUTSCENES := {
 		{"flag": "ch1_boss"},
 	],
 	"cs_hedgehog_pre": [
+		{"music": "hedgehog_theme"},
 		{"say": "Boss Hedgehog", "text": "Who's sniffing around MY den?"},
 		{"say": "Byte", "text": "I'm looking for Sam. Hoodie, laptop, smells like coffee."},
 		{"say": "Boss Hedgehog", "text": "Nobody leaves the den, pup. Not with treats. Not with fur."},

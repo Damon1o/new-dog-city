@@ -128,6 +128,7 @@ func enter(d: Dictionary) -> void:
 	match d.template:
 		"bodega":
 			g.bump("shop", true)
+			Sound.music("bodega")  # kind "shop" plays interior_shop; Sam's bodegas get their own song
 		"cafe":
 			g.bump("cafe")
 		"subway":
