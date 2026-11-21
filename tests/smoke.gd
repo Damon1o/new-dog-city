@@ -803,15 +803,18 @@ func _initialize() -> void:
 	eco.bones = 4
 	player.hp = 1.0
 	game.on_number(0)
-	assert(player.hp == player.max_hp and player.treats == 75, "Mega Purina: full HP, 25 treats")
+	assert(player.hp == player.max_hp and player.treats < 100, "Mega Purina: full HP, paid (a 'bought' quest may refund some)")
 	assert(tr.buy(1) and eco.bones == 0 and "spiked" in game.save_extra["wardrobe/owned"] and not tr.buy(1), "spiked collar once, 4 bones")
-	wanted.add_heat(30.0)
-	assert(tr.buy(2) and wanted.stars() == 0, "mustache: -1 star")
-	wanted.clear()
-	var tr_xp: int = player.xp
+	game.wanted.add_heat(30.0)
+	assert(tr.buy(2) and game.wanted.stars() == 0, "mustache: -1 star")
+	game.wanted.clear()
+	game.wanted.flash_t = 0.0
 	assert(tr.buy(3), "XP snack")
+	var tr_xp: int = player.xp
+	player.xp = 0
 	player.add_xp(10)
-	assert(player.xp == tr_xp + 11, "XP snack: +10% XP")
+	assert(player.xp == 11, "XP snack: +10% XP")
+	player.xp = tr_xp
 	player.buffs.erase("snack")
 	game.act = ""
 	game.interact()
