@@ -7,10 +7,12 @@ const PREY := {
 	"squirrel": {"speed": 150.0, "flee": 190.0, "treats": 4, "xp": 14, "food": 10.0},
 }
 
-const SHOP := [["purina", 5], ["water", 3], ["collar", 25]]
-## Stock per shop template (spec 09 base prices, NYC). Bodegas / shop_small sell SHOP.
-const SHOPS := {"bodega": SHOP, "shop_small": SHOP,
-	"gas": [["water", 2], ["hotdog", 4], ["jerky", 6]],
+const SHOP := [["purina", 5], ["water", 3], ["collar", 25], ["vest", 40]]
+## Armor (inventory Armor slot): id -> [name, damage cut]. Bought once, worn one at a time.
+const ARMOR := {"bandana": ["Thick Bandana", 0.05], "vest": ["Padded Vest", 0.12], "kevlar": ["K9 Kevlar", 0.2]}
+## Stock per shop template (spec 09 base prices, NYC). Bodegas sell SHOP; shop_small swaps the vest for Kevlar.
+const SHOPS := {"bodega": SHOP, "shop_small": [["purina", 5], ["water", 3], ["collar", 25], ["kevlar", 90]],
+	"gas": [["water", 2], ["hotdog", 4], ["jerky", 6], ["bandana", 15]],
 	"pizza": [["pizza", 4], ["pepperoni", 6]],
 	"cafe": [["puppuccino", 5], ["barkbrew", 6]]}
 ## Eaten on the spot: food gained.
@@ -38,5 +40,8 @@ const ITEM_INFO := {
 	"pepperoni": {"name": "Pepperoni Slice", "effect": "+30 food, +10% damage 60 s", "icon": ""},
 	"puppuccino": {"name": "Puppuccino", "effect": "stamina regen +50% 120 s", "icon": ""},
 	"barkbrew": {"name": "Bark Brew", "effect": "bark cooldown -50% 120 s", "icon": ""},
+	"bandana": {"name": "Thick Bandana", "effect": "armor: -5% damage taken", "icon": ""},
+	"vest": {"name": "Padded Vest", "effect": "armor: -12% damage taken", "icon": ""},
+	"kevlar": {"name": "K9 Kevlar", "effect": "armor: -20% damage taken", "icon": ""},
 }
 const SHOP_INFO :={"purina": "Purina  (+50 food, +40 HP)", "water": "Water  (+60 thirst)", "collar": "Name Collar"}

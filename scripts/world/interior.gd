@@ -37,7 +37,8 @@ func ride(n: int) -> void:
 			return
 		floor_n = n
 		build(door.template)
-		g.set_inside(data().kind, spots.elevator))
+		g.set_inside(data().kind, spots.elevator)
+		g.ui.show_loading("%s   %s" % [door.name.to_upper() if door.name != "" else data().exit[0], floor_name(n)]))
 	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
 	tw.tween_callback(func(): g.player.frozen = false)
 
@@ -69,7 +70,8 @@ func ride_hq(n: int) -> void:
 	tw.tween_property(g.fade, "color:a", 1.0, 0.3)
 	tw.tween_callback(func():
 		Sound.sfx("ding")
-		g.hq.enter(hq_id(n)))
+		g.hq.enter(hq_id(n))
+		g.ui.show_loading("HACK CLUB HQ   FLOOR %d" % (n + 1)))
 	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
 	tw.tween_callback(func(): g.player.frozen = false)
 
@@ -92,6 +94,9 @@ func fly(n: int) -> void:
 	var city_name: String = Gates.CITIES[Gates.AIRPORT[n][0]][0]
 	g.show_banner("FLIGHT TO %s" % city_name.to_upper())
 	g.show_msg("Flights to %s start soon" % city_name)
+
+func floor_name(n: int) -> String:
+	return "LOBBY" if n == 0 else "FLOOR %d" % (n + 1)
 
 func has_roof() -> bool:
 	return g.landmarks.any(func(l): return l.name == door.name)
@@ -117,6 +122,9 @@ func enter(d: Dictionary) -> void:
 	g.return_pos = d.pos
 	build(d.template)
 	g.set_inside(data().kind, spots.start)
+	if data().has("door") and d.template != "flashback_room":  # loading card with the place's name
+		var n: String = d.get("name", "")
+		g.ui.show_loading(data().exit[0].format({"name": n, "NAME": n.to_upper()}))
 	match d.template:
 		"bodega":
 			g.bump("shop", true)
@@ -136,6 +144,7 @@ func enter(d: Dictionary) -> void:
 func leave() -> void:
 	g.hedgehog.stop()  # fleeing the den resets the fight
 	g.set_inside("", door.pos)
+	g.ui.show_loading(str(Gates.CITIES.get(g.city.id, ["New York"])[0]).to_upper())
 
 ## Free the room (game.set_inside("") calls this, so dying indoors cleans up too).
 func clear() -> void:
@@ -148,6 +157,9 @@ func clear() -> void:
 func build(template: String) -> void:
 	clear()
 	var r: Dictionary = ROOMS[template]
+	var up: Dictionary = r.get("upper", {}) if floor_n > 0 else {}  # upper floors have their own layout
+	var paint_list: Array = up.get("paint", r.paint)
+	var props: Array = up.get("props", r.props)
 	rect = Rect2(O, r.size)
 	tint = r.tint
 	spots = {}
@@ -162,12 +174,16 @@ func build(template: String) -> void:
 	paint.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	paint.draw.connect(func():
 		paint.draw_rect(rect.grow(1200), Color.BLACK)  # a wide window never shows past the walls
-		for p: Array in r.paint:
+		for p: Array in paint_list:
 			var area := Rect2(O + p[0].position, p[0].size)
 			if p[1] is Color:
 				paint.draw_rect(area, p[1])
 			else:
-				paint.draw_texture_rect(g.tex[p[1]], area, true, p[2] if p.size() > 2 else Color.WHITE))
+				paint.draw_texture_rect(g.tex[p[1]], area, true, p[2] if p.size() > 2 else Color.WHITE)
+		for i in up.get("units", []).size():  # apartment doors along the hall: 3A, 3B, ...
+			draw_unit(paint, up.units[i], "%d%s" % [floor_n + 1, "ABCDEF"[i]])
+		if spots.has("elevator"):
+			draw_elevator(paint, spots.elevator.x))
 	room.add_child(paint)
 	var s := rect.size
 	box(Vector2(s.x / 2, g.WALL_H / 2), Vector2(s.x, g.WALL_H))  # back wall + three bounds
@@ -176,7 +192,7 @@ func build(template: String) -> void:
 	box(Vector2(s.x / 2, s.y + 16), Vector2(s.x, 32))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash("%s:f%d" % [door.id, floor_n]) if floor_n > 0 else door.get("seed", 0)  # spec 03: id + :fN
-	for p: Array in r.props:
+	for p: Array in props:
 		var spr := Sprite2D.new()
 		var t: Texture2D = g.tex[p[0]]
 		spr.texture = t
@@ -190,6 +206,27 @@ func build(template: String) -> void:
 			box(p[1] - Vector2(0, p[3].y / 2), p[3])
 	if template == "subway":
 		build_subway()
+
+## Elevator in the back wall above the elevator spot: steel frame, doors, floor readout, call button.
+func draw_elevator(c: CanvasItem, x: float) -> void:
+	var font := ThemeDB.fallback_font
+	c.draw_rect(Rect2(x - 38, O.y + 14, 76, 82), Color(0.42, 0.44, 0.5))
+	c.draw_rect(Rect2(x - 32, O.y + 26, 31, 70), Color(0.74, 0.77, 0.82))
+	c.draw_rect(Rect2(x + 1, O.y + 26, 31, 70), Color(0.7, 0.73, 0.78))
+	c.draw_line(Vector2(x, O.y + 26), Vector2(x, O.y + 96), Color(0.3, 0.32, 0.36), 2.0)
+	c.draw_rect(Rect2(x - 16, O.y + 1, 32, 12), Color(0.08, 0.08, 0.1))
+	var readout: String = "L" if floor_n == 0 else str(floor_n + 1)
+	c.draw_string(font, Vector2(x - 16, O.y + 11), readout, HORIZONTAL_ALIGNMENT_CENTER, 32, 11, Color(1, 0.7, 0.2))
+	c.draw_rect(Rect2(x + 42, O.y + 50, 10, 18), Color(0.3, 0.32, 0.36))
+	c.draw_circle(Vector2(x + 47, O.y + 55), 2.5, Color(1, 0.8, 0.3))
+	c.draw_circle(Vector2(x + 47, O.y + 63), 2.5, Color(0.9, 0.9, 0.95))
+
+func draw_unit(c: CanvasItem, x: float, label: String) -> void:
+	c.draw_rect(Rect2(O.x + x - 22, O.y + 30, 44, 66), Color(0.42, 0.26, 0.16))
+	c.draw_rect(Rect2(O.x + x - 18, O.y + 34, 36, 58), Color(0.52, 0.33, 0.2))
+	c.draw_circle(Vector2(O.x + x + 12, O.y + 66), 2.5, Color(0.95, 0.8, 0.35))
+	c.draw_rect(Rect2(O.x + x - 10, O.y + 38, 20, 11), Color(0.92, 0.88, 0.75))
+	c.draw_string(ThemeDB.fallback_font, Vector2(O.x + x - 10, O.y + 47), label, HORIZONTAL_ALIGNMENT_CENTER, 20, 9, Color(0.2, 0.15, 0.1))
 
 ## Room-local static collider.
 func box(pos: Vector2, size: Vector2) -> void:
