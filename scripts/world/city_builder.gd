@@ -1,11 +1,13 @@
 extends Node
-## City building: ground, blocks, props, interiors (moved from game.gd).
+## City building: ground, blocks, props, street doors (moved from game.gd).
 
 var g: Node2D
 
 const CITIES := preload("res://scripts/data/cities.gd").CITIES
 const OLD := Vector2i(6, 5)  # the pre-M2-1 map, kept block for block as the top-left corner
 const PERF_EVERY := 300  # frames per frame-time log line
+const VARIANTS := 16  # designs per generic kind, see tools/gen_buildings.py
+const DESIGN := {"building_a": "apartment", "building_b": "office", "building_c": "shop"}
 
 var perf_n := 0
 var perf_sum := 0.0
@@ -13,15 +15,17 @@ var perf_max := 0.0
 var perf_last := 0
 var id := ""     # current city, a key of CITIES
 var root: Node2D  # the current city's nodes; freed and rebuilt on travel
+var dog_park := Rect2()  # spec 03 safe zone (world/dog_park.gd); empty = this city has none
 
 ## Free the current city and build `city_id` from data/cities.gd (seeded, so the same layout every time).
 func build(city_id: String) -> void:
 	var seen: Array = g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name)
 	if root:
 		root.free()
-	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.stations, g.landmarks, g.manholes]:
+	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.doors, g.stations, g.landmarks, g.manholes]:
 		list.clear()
 	id = city_id
+	dog_park = Rect2()
 	root = Node2D.new()
 	root.name = "City"
 	root.y_sort_enabled = true
@@ -30,9 +34,18 @@ func build(city_id: String) -> void:
 	build_bounds()
 	build_blocks()
 	place_manholes()
+	for d: Dictionary in g.doors:  # story spots for Story.target() (scent trail, M5-3)
+		if d.template in ["nyse", "hq"]:
+			Story.spots["nyse" if d.template == "nyse" else "hq_" + id] = d.pos
+	if g.bodega_doors:  # ponytail: Sam's bodega = the first one built until M5-8 picks one
+		Story.spots["bodega"] = g.bodega_doors[0]
 	for l in g.landmarks:
 		l.seen = l.name in seen
 	g.ground.queue_redraw()
+
+## Spec 03/08: animal control never enters, wanted decay x3, HP regen.
+func in_dog_park(p: Vector2) -> bool:
+	return dog_park.has_point(p)
 
 ## Swap cities behind a fade (spec 02: only the current city is in the tree).
 func travel(city_id: String) -> void:
@@ -132,22 +145,6 @@ func draw_ground() -> void:
 				g.ground.draw_rect(Rect2(g.ROAD + i * step.x + k * 32 + 6, j * step.y + 62, 20, 4), yellow)
 	for p in g.parks:
 		g.ground.draw_texture_rect(g.tex.grass, p.grow(-8), true)
-	# interiors, on black so a wide window never shows past the walls
-	g.ground.draw_rect(g.SHOP_ROOM.grow(1200), Color.BLACK)
-	g.ground.draw_rect(g.SUB_ROOM.grow(1200), Color.BLACK)
-	g.ground.draw_texture_rect(g.tex.shop_floor, g.SHOP_ROOM, true)
-	g.ground.draw_texture_rect(g.tex.shop_wall, Rect2(g.SHOP_O, Vector2(g.SHOP_ROOM.size.x, g.WALL_H)), true)
-	g.ground.draw_rect(Rect2(g.SHOP_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.55, 0.15, 0.15))  # door mat
-	g.ground.draw_texture_rect(g.tex.platform, g.SUB_ROOM, true)
-	g.ground.draw_texture_rect(g.tex.station_wall, Rect2(g.SUB_O, Vector2(g.SUB_ROOM.size.x, g.WALL_H)), true)
-	g.ground.draw_rect(Rect2(g.SUB_O + Vector2(0, 88), Vector2(g.SUB_ROOM.size.x, 8)), Color(0.15, 0.4, 0.25))
-	g.ground.draw_rect(Rect2(g.SUB_O + Vector2(0, 308), Vector2(g.SUB_ROOM.size.x, 12)), yellow)  # platform edge
-	g.ground.draw_texture_rect(g.tex.track, Rect2(g.SUB_O + Vector2(0, 320), Vector2(g.SUB_ROOM.size.x, 128)), true)
-	# g.boss den under the park, and the g.burrow that leads down to it
-	g.ground.draw_rect(g.BOSS_ROOM.grow(1200), Color.BLACK)
-	g.ground.draw_texture_rect(g.tex.grass, g.BOSS_ROOM, true, Color(1.0, 0.8, 0.55))
-	g.ground.draw_texture_rect(g.tex.station_wall, Rect2(g.BOSS_O, Vector2(g.BOSS_ROOM.size.x, g.WALL_H)), true, Color(0.5, 0.35, 0.25))
-	g.ground.draw_rect(Rect2(g.BOSS_EXIT - Vector2(40, 8), Vector2(80, 24)), Color(0.1, 0.07, 0.05))
 	g.ground.draw_circle(g.burrow, 30.0, Color(0.35, 0.25, 0.15))
 	g.ground.draw_circle(g.burrow, 22.0, Color(0.05, 0.04, 0.03))
 
@@ -177,6 +174,10 @@ func add_prop(t: Texture2D, base: Vector2, scl: float, tint := Color.WHITE) -> S
 	holder().add_child(s)
 	return s
 
+## Generated exterior (tools/gen_buildings.py): "<kind>_<n>" or a custom front like "pizza".
+func design(look: String) -> Texture2D:
+	return load("res://assets/bld/%s.png" % look)
+
 ## foot = fraction of sprite height that is solid footprint (rest is walk-behind).
 func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := Color.WHITE) -> void:
 	add_prop(t, base, scl, tint)
@@ -186,24 +187,40 @@ func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := 
 	g.building_rects.append(Rect2(base - Vector2(size.x / 2.0, foot_size.y), foot_size))
 
 func add_tree(pos: Vector2) -> void:
-	add_prop(g.tex.tree, pos, 2.5)
+	add_prop(g.tex.tree, pos, 1.25)  # textures are 2x res (tools/gen_props.py)
 	add_static_box(pos - Vector2(0, 5), Vector2(14, 10))
 	g.trees.append(pos)
 
 func add_can(pos: Vector2) -> void:
-	add_prop(g.tex.trashcan, pos, 2.0)
+	add_prop(g.tex.trashcan, pos, 1.0)
 	add_static_box(pos - Vector2(0, 6), Vector2(20, 12))
 	g.cans.append(pos)
 	var rac: Node2D = g.RaccoonScript.new()
 	holder().add_child(rac)
 	rac.setup(pos + Vector2(0, 2), g.tex.raccoon, g)
 
+## Street door (spec 03). id "<city>:<bx>,<by>:<slot>" is stable, so per-room state can be saved.
+func add_door(pos: Vector2, template: String, b: Vector2i, slot: int, floors := 1, door_name := "") -> Dictionary:
+	var id := "%s:%d,%d:%d" % [g.save_extra.get("world/city", "nyc"), b.x, b.y, slot]
+	if floors == 1 and template in ["apartment", "office"]:  # 2-4 floors, hashed so the seeded layout is untouched
+		floors = 2 + absi(hash(id)) % 3
+	var d := {"pos": pos, "template": template, "id": id, "seed": hash(id), "floors": floors, "name": door_name}
+	g.doors.append(d)
+	return d
+
 func build_block(b: Vector2i) -> void:
 	var o := block_origin(b)
 	var c = o + g.BLOCK / 2.0
 	if b in g.PARKS:
 		g.parks.append(Rect2(o, g.BLOCK))
-		add_prop(g.tex.fountain, c, 2.5)
+		if CITIES[id].parks.find(b) == CITIES[id].get("dog_park", -1):
+			dog_park = Rect2(o, g.BLOCK)
+			var dp: Node2D = preload("res://scripts/world/dog_park.gd").new()
+			holder().add_child(dp)
+			dp.setup(g, dog_park, id)
+		if Rect2(o, g.BLOCK).has_point(g.burrow):
+			add_door(g.burrow, "burrow", b, 0)
+		add_prop(g.tex.fountain, c, 1.25)
 		add_static_box(c - Vector2(0, 20), Vector2(90, 36))
 		g.water_spots.append(c + Vector2(0, 6))
 		for i in 8:
@@ -212,33 +229,44 @@ func build_block(b: Vector2i) -> void:
 				add_tree(p)
 	elif g.LANDMARKS.has(b):
 		var base := o + Vector2(256, 372)
-		add_building(g.tex[g.LANDMARKS[b][0]], base, 2.5, 0.45)
+		add_building(g.tex[g.LANDMARKS[b][0]], base, 1.25, 0.45)
 		g.landmarks.append({"pos": base, "name": g.LANDMARKS[b][1], "seen": false})
+		add_door(base + Vector2(0, 18), "office", b, 0, 6, g.LANDMARKS[b][1])
 		add_tree(o + Vector2(60, 360))
 		add_tree(o + Vector2(452, 360))
+	elif b == CITIES[id].get("airport", Vector2i(-1, -1)):
+		add_building(design("airport"), o + Vector2(256, 260), 2.2, 0.6)
+		add_door(o + Vector2(256, 282), "airport", b, 0, 1, "JFK Airport")
 	elif b in g.BODEGAS:
 		var base := o + Vector2(256, 240)
-		add_building(g.tex.bodega, base, 2.0, 0.6)
+		add_building(g.tex.bodega, base, 1.0, 0.6)
 		g.bodega_doors.append(base + Vector2(54, 24))
-		add_prop(g.tex.water_bowl, base + Vector2(-70, 34), 2.5)
+		add_door(base + Vector2(54, 24), "bodega", b, 0)
+		add_prop(g.tex.water_bowl, base + Vector2(-70, 34), 1.25)
 		g.water_spots.append(base + Vector2(-70, 30))
 		add_can(o + Vector2(450, 250))
 		add_tree(o + Vector2(60, 340))
 	else:
+		var special: String = CITIES[id].get("shops", {}).get(b, "")  # M4-2: same rolls, swapped template
 		for i in 3:
 			if randf() < 0.85:
 				var kind: String = ["building_a", "building_b", "building_c"].pick_random()
-				add_building(g.tex[kind], o + Vector2(96 + i * 160, 236), 1.5, 0.6,
-					Color.from_hsv(randf(), 0.15, randf_range(0.8, 1.0)))
+				randf(); randf()  # old tint rolls, kept so the seeded layout is unchanged
+				# variant hashed from the slot, so it costs no random rolls either; rand_from_seed
+				# mixes the bits (string hash mod 16 is just the char sum, so neighbours repeated)
+				var look: String = special if special != "" else "%s_%d" % [DESIGN[kind], rand_from_seed(hash("%s:%d,%d:%d" % [id, b.x, b.y, i]))[0] % VARIANTS]
+				add_building(design(look), o + Vector2(96 + i * 160, 236), 1.5, 0.6)
+				add_door(o + Vector2(96 + i * 160, 256), special if special != "" else g.Rooms.BY_BUILDING[kind], b, i)
+				special = ""
 		add_can(o + Vector2(randf_range(40, 170), randf_range(285, 360)))
 		if randf() < 0.5:
 			add_can(o + Vector2(randf_range(340, 470), randf_range(285, 360)))
 		if g.STATIONS.has(b):
 			var pos := o + Vector2(256, 340)
-			add_prop(g.tex.subway, pos, 1.5)
-			g.stations.append({"pos": pos, "name": g.STATIONS[b]})
+			add_prop(g.tex.subway, pos, 0.75)
+			g.stations.append({"pos": pos, "name": g.STATIONS[b], "door": add_door(pos, "subway", b, 3, 1, g.STATIONS[b])})
 		elif randf() < 0.5:
-			add_prop(g.tex.hydrant, o + Vector2(256, 300), 2.0)
+			add_prop(g.tex.hydrant, o + Vector2(256, 300), 1.0)
 			g.water_spots.append(o + Vector2(256, 300))
 		else:
 			add_tree(o + Vector2(256, 330))
@@ -258,7 +286,7 @@ func add_manhole(pos: Vector2) -> void:
 	var s := Sprite2D.new()
 	s.texture = g.tex.manhole
 	s.position = pos
-	s.scale = Vector2(1.5, 1.5)
+	s.scale = Vector2(0.75, 0.75)
 	s.z_index = -5
 	holder().add_child(s)
 	var p := CPUParticles2D.new()
@@ -277,46 +305,3 @@ func add_manhole(pos: Vector2) -> void:
 	p.color = Color(1, 1, 1, 0.55)
 	holder().add_child(p)
 	g.manholes.append({"pos": pos, "steam": p, "t": randf_range(2.0, 7.0), "on": false})
-
-func build_interiors() -> void:
-	g.hedgehog = g.HedgehogScript.new()
-	g.add_child(g.hedgehog)
-	g.hedgehog.setup(g, g.BOSS_ROOM)
-	for r: Rect2 in [g.SHOP_ROOM, g.SUB_ROOM, g.BOSS_ROOM]:  # back wall + three bounds
-		add_static_box(r.position + Vector2(r.size.x / 2, g.WALL_H / 2), Vector2(r.size.x, g.WALL_H))
-		add_static_box(r.position + Vector2(-16, r.size.y / 2), Vector2(32, r.size.y))
-		add_static_box(r.position + Vector2(r.size.x + 16, r.size.y / 2), Vector2(32, r.size.y))
-		add_static_box(r.position + Vector2(r.size.x / 2, r.size.y + 16), Vector2(r.size.x, 32))
-
-	# bodega: shelves on the back wall and the floor, counter with the cat in charge
-	for p in [Vector2(80, 130), Vector2(190, 130), Vector2(300, 130), Vector2(410, 130),
-			Vector2(150, 320), Vector2(330, 320)]:
-		add_prop(g.tex.shelf, g.SHOP_O + p, 2.0)
-		add_static_box(g.SHOP_O + p - Vector2(0, 12), Vector2(96, 24))
-	var counter = g.SHOP_COUNTER - Vector2(0, 30)
-	add_prop(g.tex.counter, counter, 2.0)
-	add_static_box(counter - Vector2(0, 20), Vector2(128, 40))
-	add_prop(g.tex.cat, counter + Vector2(-30, 1), 2.5).offset.y -= 22.0  # sits on the countertop
-
-	# subway: exit stairs and map board set into the wall, pillars, tracks, g.train
-	add_prop(g.tex.stairs, g.SUB_EXIT - Vector2(0, 12), 2.0)
-	add_prop(g.tex.map_board, g.SUB_O + Vector2(576, 84), 2.0)
-	for x in [200, 456, 712, 968]:
-		add_prop(g.tex.pillar, g.SUB_O + Vector2(x, 296), 2.5)
-		add_static_box(g.SUB_O + Vector2(x, 291), Vector2(20, 10))
-	g.station_sign = Label.new()
-	g.station_sign.position = g.SUB_O + Vector2(476, 6)
-	g.station_sign.size = Vector2(200, 26)
-	g.station_sign.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var sign_bg := StyleBoxFlat.new()
-	sign_bg.bg_color = Color(0.08, 0.08, 0.1)
-	g.station_sign.add_theme_stylebox_override("normal", sign_bg)
-	g.add_child(g.station_sign)
-	g.train = Sprite2D.new()
-	g.train.texture = g.tex.train
-	g.train.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
-	g.train.region_enabled = true
-	g.train.region_rect = Rect2(0, 0, g.tex.train.get_width() * 4, g.tex.train.get_height())  # 4 cars
-	g.train.scale = Vector2(2.5, 2.5)
-	g.train.position = g.SUB_O + Vector2(-600, 372)
-	g.add_child(g.train)

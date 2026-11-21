@@ -19,6 +19,11 @@ const GATES := {
 const CITIES := {"nyc": ["NYC", "Fat Cat"], "sf": ["SF", "Seagull King"],
 	"tokyo": ["Tokyo", "Claw King"], "shenzhen": ["Shenzhen", "Mecha-Cat"]}
 
+## Airport gates (spec 02 City travel): [city id, gate id ("" = always open), locked hint].
+const AIRPORT := [["nyc", "", ""], ["sf", "G2", "Find the next clue at the NYC Hack Club HQ"],
+	["tokyo", "G4", "Find the next clue at the SF Hack Club HQ"],
+	["shenzhen", "G6", "Find the next clue at the Tokyo Hack Club HQ"]]
+
 ## Main story line, in order: [flag that ends the step, objective text, story spot id].
 ## objective() shows the first step whose flag is not set yet.
 const OBJECTIVES := [
