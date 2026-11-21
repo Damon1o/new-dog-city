@@ -1,5 +1,5 @@
 """Boss sprites for New Dog City: King of Raccoons, Pideon Queen, Rat Meister, Fat Cat and the
-Boss Hedgehog. Pure stdlib, reuses gen_props' helpers. Run: python tools/gen_bosses.py
+Daven the Hedgehog. Pure stdlib, reuses gen_props' helpers. Run: python tools/gen_bosses.py
 
 Every sprite faces right (boss.gd flips it toward the dog) and is drawn untinted; boss.gd shows
 it at ART_SCALE and keeps the small critter PNGs for shots."""

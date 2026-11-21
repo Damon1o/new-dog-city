@@ -60,7 +60,7 @@ Pocket shows 4 random entries per visit.
 | Source | Bones |
 |--------|-------|
 | King of Raccoons / Pigeon Queen / Rat Meister | 1 each, first kill |
-| Boss Hedgehog | 2, first kill |
+| Daven the Hedgehog | 2, first kill |
 | Fat Cat | 5 |
 | Seagull King | 8 |
 | Claw King | 10 |

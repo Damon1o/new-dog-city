@@ -10,7 +10,7 @@
   `pack`. Projectiles via `shoot(vel, homing, life)`, telegraphed ground hits
   via `mark(p, col, delay)`, minions via `summon(cap, tex, lv, label, col)`.
   Sprites: `assets/boss_<tex>.png` from `tools/gen_bosses.py`.
-- `hedgehog.gd`: Boss Hedgehog, 3 waves, in the burrow room. Every wave also
+- `hedgehog.gd`: Daven the Hedgehog, 3 waves, in the burrow room. Every wave also
   bursts ground spikes after a red warning circle (`spike_attack()`).
 
 New bosses reuse `boss.gd`: add new special names to its `special()` match,
@@ -126,7 +126,7 @@ Drops: Shenzhen keycard, 12 bones, shipping label (story item), flag `ch4_boss`.
 
 ### Existing NYC mini-bosses
 
-King of Raccoons, Pigeon Queen, Rat Meister and Boss Hedgehog stay as NYC side
-content, now at levels 6, 8, 10 and 15. Boss Hedgehog's 10-level loss on
+King of Raccoons, Pigeon Queen, Rat Meister and Daven the Hedgehog stay as NYC side
+content, now at levels 6, 8, 10 and 15. Daven the Hedgehog's 10-level loss on
 defeat (`BOSS_LEVEL_LOSS`) is removed: with level gates it is too harsh.
 New penalty: lose carried treats above 20.
