@@ -197,57 +197,12 @@ def platform_tile():
     rect(px, 0, 0, 1, 32, (104, 104, 102, 255))
     return px
 
-def track_tile():
-    px = blank(32, 128, (44, 41, 39, 255))
-    for j in range(128):
-        for i in range(32):
-            if (i * 5 + j * 11) % 9 == 0:
-                px[j][i] = (58, 54, 50, 255)
-    for i in (4, 20):
-        rect(px, i, 24, 7, 82, (88, 62, 42, 255))    # ties
-    for y in (36, 90):
-        rect(px, 0, y, 32, 4, (150, 152, 158, 255))  # rails
-        rect(px, 0, y + 3, 32, 1, (95, 97, 102, 255))
-    return px
-
 def pillar():
     px = blank(12, 40, T)
     rect(px, 2, 0, 8, 40, (50, 95, 70, 255))
     rect(px, 4, 4, 2, 32, (80, 130, 100, 255))
     rect(px, 0, 0, 12, 4, (38, 75, 55, 255))
     rect(px, 0, 36, 12, 4, (38, 75, 55, 255))
-    return px
-
-def stairs():
-    px = blank(48, 32, (28, 28, 33, 255))
-    for k in range(6):
-        g = 45 + k * 22
-        rect(px, 4, 1 + k * 5, 40, 4, (g, g, g + 5, 255))
-    rect(px, 0, 0, 3, 32, (50, 95, 70, 255))
-    rect(px, 45, 0, 3, 32, (50, 95, 70, 255))
-    return px
-
-def map_board():
-    px = blank(32, 24, (40, 40, 46, 255))
-    rect(px, 2, 2, 28, 20, (236, 236, 230, 255))
-    rect(px, 4, 8, 24, 2, (210, 60, 50, 255))
-    rect(px, 12, 4, 2, 16, (50, 100, 200, 255))
-    rect(px, 6, 16, 20, 2, (60, 160, 90, 255))
-    for x, y in ((12, 8), (22, 8), (12, 16), (6, 16)):
-        rect(px, x, y, 2, 2, (20, 20, 20, 255))
-    return px
-
-def train_car():
-    px = blank(96, 36, (176, 181, 190, 255))
-    rect(px, 0, 0, 96, 4, (118, 123, 132, 255))
-    rect(px, 0, 22, 96, 3, (40, 80, 165, 255))
-    rect(px, 0, 30, 96, 6, (48, 48, 54, 255))
-    for i in (6, 28, 56, 78):
-        rect(px, i, 8, 12, 10, (238, 226, 160, 255))  # lit windows
-    for i in (44, 50):
-        rect(px, i, 6, 5, 24, (140, 145, 155, 255))   # doors
-    rect(px, 0, 0, 1, 36, (30, 30, 34, 255))
-    rect(px, 95, 0, 1, 36, (30, 30, 34, 255))
     return px
 
 os.makedirs(OUT, exist_ok=True)
@@ -257,12 +212,8 @@ write_png("shelf.png", shelf())
 write_png("counter.png", counter())
 write_png("station_wall.png", station_wall_tile())
 write_png("platform.png", platform_tile())
-write_png("track.png", track_tile())
 write_png("pillar.png", pillar())
-write_png("stairs.png", stairs())
-write_png("map_board.png", map_board())
-write_png("train.png", train_car())
-write_png("building_c.png", brownstone())
+write_png("building_c.png", brownstone())  # train / track / stairs / map_board: tools/gen_subway.py
 
 random.seed(1)
 write_wav("bark", sweep(420, 180, 0.09, 0.3) + sweep(380, 150, 0.12, 0.3))
