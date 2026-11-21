@@ -20,7 +20,7 @@ func _initialize() -> void:
 	game.dialog.skip()  # new dog: the intro cutscene freezes it
 	var player: CharacterBody2D = game.player
 	var boss: Node2D = game.hedgehog
-	var spend := func():  # level-ups pause for a stat pick; spend so the game keeps running
+	var spend := func():  # level-ups bank stat points; spend them like the bag's STATS panel does
 		while player.points > 0:
 			game.pick_stat(0)
 
@@ -36,9 +36,9 @@ func _initialize() -> void:
 	for i in 4:
 		game.bump("prey")
 	check(game.quest_step["Street Hunter"] == 1, "catch-5 step completes")
-	check(player.points > 0 and paused, "quest XP levels the dog and opens the stat picker")
+	check(player.points > 0 and not paused, "quest XP levels the dog; stat points wait without pausing")
 	spend.call()
-	check(not paused, "picker closes once points are spent")
+	check(player.points == 0 and not paused, "points spent from the stats panel")
 
 	# boss: three waves, each needs its HP bitten off; unhittable during the wave intro
 	player.level = 25

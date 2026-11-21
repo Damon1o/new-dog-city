@@ -44,7 +44,7 @@ const Pound := preload("res://scripts/world/pound.gd")
 var pound: Node  # scripts/world/pound.gd: cell, fine, breakout (wanted.caught)
 var wanted: Node  # scripts/systems/wanted.gd: heat, stars, animal control (add_heat)
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
-var inventory: Node  # scripts/ui/inventory.gd (I)
+var inventory: Node  # scripts/ui/inventory.gd (E bag, K stats)
 var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
 var stocks: Node  # scripts/systems/stocks.gd: NYSE ticks, news, trades, stock app (P)
 const DialogUi := preload("res://scripts/ui/dialog.gd")
@@ -109,9 +109,6 @@ var save_version := 2  # version of the file last loaded (1 = before meta/versio
 var save_extra := {}  # v2 keys no system owns yet, see Save.V2
 var save_path := "user://save.cfg"  # var so the smoke test can point it elsewhere
 var rng_seed := 0  # 0 = random cars / prey / rolls; the smoke test pins one (city.build reseeds the global RNG)
-var stat_panel: PanelContainer
-var stat_head: Label
-var stat_buttons: Array[Button] = []
 var station_sign: Label
 var fade: ColorRect
 var spawn_timer := 0.0
@@ -234,6 +231,7 @@ func _ready() -> void:
 	player.leveled.connect(func():
 		show_banner("LEVEL %d" % player.level)
 		sfx("levelup")
+		show_msg("+%d stat points - spend them in Stats [%s]" % [XP.points_for(player.level), Keys.label("stats")])
 		show_stats()
 		check_quests())
 	player.hit.connect(func():
@@ -317,6 +315,8 @@ func _notification(what: int) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
 			and not player.frozen:
+		if get_viewport().gui_get_hovered_control() is BaseButton:  # HUD corner boxes: no bite, no waypoint
+			return
 		if god_view:  # clicking the full map picks a waypoint instead of biting
 			set_waypoint(get_canvas_transform().affine_inverse() * event.position)
 			return
@@ -357,30 +357,27 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if player.bark():
 				spawner.scatter_near(player.position, 300.0)  # spec 05: pigeon flocks scatter at the sound
 				cats.on_bark()  # spec 07: barking in a bodega costs friendship
-		"purina":
-			if player.use_purina():
-				sfx("pickup")
-				float_text(player.position, "+HP", Color(0.5, 1, 0.5))
-		"water":
-			if player.use_water():
-				sfx("pickup")
-				float_text(player.position, "+water", Color(0.5, 0.8, 1))
 		"interact":
 			interact()
-		"inventory":
+		"inventory", "stats":
 			inventory.toggle()
 		"wardrobe":
 			wardrobe.toggle()
 		"stocks":
 			stocks.toggle()
 		"map":
-			if inside == "":
-				god_view = not god_view
-				bump("map", true)
-				zoom_tw = create_tween()
-				zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
+			toggle_map()
 		"hot_1", "hot_2", "hot_3", "hot_4":  # hotbar on the street; menu choice in shops, subway, elevators, gates
 			on_number(int(Keys.action_of(event).right(1)) - 1)
+
+## M: god's-eye map with its key (street only).
+func toggle_map() -> void:
+	if inside != "":
+		return
+	god_view = not god_view
+	bump("map", true)
+	zoom_tw = create_tween()
+	zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
 
 func sun() -> float:
 	return clampf(sin((tod - 0.25) * TAU) * 1.5 + 0.6, 0.0, 1.0)
@@ -464,7 +461,7 @@ func respawn() -> void:
 	name_edit.hide()
 	player.respawn()
 	set_inside("")
-	get_tree().paused = stat_panel.visible
+	get_tree().paused = false
 
 ## New game: wipe the dog's progress (volume survives) and rebuild the scene.
 func restart() -> void:
@@ -475,15 +472,14 @@ func restart() -> void:
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
-## Level-up picker: stays up (game paused) until every stat point is spent.
+## Stat points never pause the game: they wait in the bag's STATS panel (corner box shows +N).
 func show_stats() -> void:
-	stat_panel.visible = player.points > 0
-	get_tree().paused = stat_panel.visible or death_panel.visible
-	stat_head.text = "LEVEL UP!   %d stat point%s" % [player.points, "" if player.points == 1 else "s"]
-	for i in stat_buttons.size():
-		stat_buttons[i].text = "[%d]  %s   (x%d)" % [i + 1, player.STATS[i][1], player.get(player.STATS[i][0])]
+	if inventory.is_open():
+		inventory.refresh.call_deferred()  # a + button may be the caller; free it next frame
 
 func pick_stat(i: int) -> void:
+	if player.points <= 0:
+		return
 	player.spend(i)
 	sfx("pickup")
 	show_stats()

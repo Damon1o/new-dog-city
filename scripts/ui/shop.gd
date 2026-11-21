@@ -106,7 +106,7 @@ func refresh() -> void:
 		r.icon.texture = g.tex.get(icon_key) if icon_key != "" else null
 		r.name.text = "[%d]  %s   %s" % [i + 1, info.name, info.effect]
 		r.price.text = ("[s]%d[/s] [color=#8f8]%d[/color] treats" % [full, now]) if now < full else "%d treats" % now
-		r.owned.text = "own %d" % int(g.player.get(item)) if item in ["purina", "water"] else ""
+		r.owned.text = "own %d" % int(g.player.get(item)) if item in ["purina", "water"] else ("owned" if item in g.player.armor_owned else "")
 		r.row.modulate = Color.WHITE if g.player.treats >= now else Color(0.55, 0.55, 0.55)
 	wallet.text = "Wallet: %d treats   %d bones        [1-%d] buy x1   Shift + number: x5" % [
 		g.player.treats, eco.bones, st.size()]
@@ -123,8 +123,11 @@ func buy(n: int, qty := 1) -> int:
 	if n < 0 or n >= stock().size():
 		return 0
 	var item: String = stock()[n][0]
-	if item == "collar":
+	if item == "collar" or Items.ARMOR.has(item):
 		qty = 1
+	if item in g.player.armor_owned:
+		g.show_msg("You already own that - wear it from the bag [%s]" % g.Keys.label("inventory"))
+		return 0
 	var each := price_of(n)
 	var total := each * qty
 	if not g.economy.spend_treats(total):
@@ -136,7 +139,11 @@ func buy(n: int, qty := 1) -> int:
 		g.name_edit.text = g.player.collar
 		g.name_edit.show()
 		g.name_edit.grab_focus()
-	elif item in ["purina", "water"]:  # carried; Q / E use them later
+	elif Items.ARMOR.has(item):
+		g.player.armor_owned.append(item)
+		g.player.armor = item  # wear it right away; swap in the bag's Armor slot
+		g.show_msg("Wearing %s  (-%d%% damage)" % [Items.ARMOR[item][0], roundi(Items.ARMOR[item][1] * 100)])
+	elif item in ["purina", "water"]:  # carried; hotbar keys 1-4 use them later
 		g.player.set(item, g.player.get(item) + qty)
 		g.show_msg("Bought %s%s" % [item, " x%d" % qty if qty > 1 else ""])
 	else:  # eaten / drunk on the spot

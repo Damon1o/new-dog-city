@@ -3,7 +3,7 @@ extends RefCounted
 ## so older saves load as-is.
 
 const KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst",
-	"points", "stat_hp", "stat_atk", "stat_spd"]
+	"points", "stat_hp", "stat_atk", "stat_spd", "armor", "armor_owned"]
 const VERSION := 2
 ## Schema v2 keys ("section/key" -> default). Keys no system owns yet round-trip through
 ## game.save_extra; "story/*" keys belong to the Story autoload (Story.to_save / from_save).
@@ -30,6 +30,7 @@ static func write(g: Node) -> void:
 	cfg.set_value("world", "seen", g.landmarks.filter(func(l): return l.seen).map(func(l): return l.name))
 	cfg.set_value("ui", "volume", g.volume.value)
 	cfg.set_value("meta", "version", VERSION)
+	cfg.set_value("dog", "stats_v", 2)
 	for bus in VOLS:
 		cfg.set_value("ui", VOLS[bus], g.vols[bus].value)
 	var owned: Dictionary = Story.to_save()
@@ -50,6 +51,13 @@ static func read(g: Node) -> void:
 		player.set(key, cfg.get_value("dog", key, player.get(key)))
 	if not cfg.has_section_key("dog", "points"):
 		player.points = player.level - 1  # save from before stat points: pay them out now
+	if not cfg.has_section_key("dog", "stats_v"):  # 1-point levels: refund as 3 smaller points per level
+		player.points = (player.level - 1) * player.XP.POINTS_PER_LEVEL
+		for st: Array in player.STATS:
+			player.set(st[0], 0)
+	if not player.Items.ARMOR.has(player.armor):
+		player.armor = ""
+	player.armor_owned = player.armor_owned.filter(func(a): return player.Items.ARMOR.has(a))
 	g.economy.bones = maxi(int(cfg.get_value("dog", "bones", 0)), 0)
 	player.skin = clampi(player.skin, 0, player.BREEDS.size() - 1)
 	player.level = clampi(player.level, 1, 100)

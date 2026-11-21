@@ -126,13 +126,36 @@ func _initialize() -> void:
 	game.save_extra.erase("ui/reduce_motion")
 	fb_story.reset()
 
-	# level-up: one stat point, game waits for the pick
+	# level-up: three stat points, no popup, game keeps running; spent from the bag's STATS panel
 	var hp_cap: float = player.max_hp
 	player.add_xp(player.xp_needed())
-	assert(player.points == 1 and paused and game.stat_panel.visible, "level-up opens the stat picker")
+	assert(player.points == 3 and not paused, "level-up gives 3 points and never pauses")
 	game.pick_stat(0)
-	assert(player.points == 0 and not paused and not game.stat_panel.visible)
-	assert(player.max_hp == hp_cap + 12.0, "+10 from the point, +2 from the level")
+	assert(player.points == 2 and player.max_hp == hp_cap + 5.0, "+3 from the point, +2 from the level")
+	game.inventory.toggle()
+	assert(game.inventory.stats_box.get_child_count() > 3, "bag shows the STATS panel")
+	game.inventory.toggle()
+	while player.points > 0:
+		game.pick_stat(1)
+	game.pick_stat(1)  # no points: no-op
+	assert(player.stat_atk == 2)
+	# armor: buying wears it, hits are cut, starving ticks are not
+	player.armor_owned = ["vest"]
+	player.armor = "vest"
+	var hp0: float = player.hp
+	player.take_damage(10.0)
+	assert(is_equal_approx(hp0 - player.hp, 8.8), "vest cuts 12% of a hit")
+	player.hp = player.max_hp
+	player.armor = ""
+	player.armor_owned = []
+	# keys: E bag, K stats, no Q / E quick use (hotbar 1-4 does that)
+	var keys: GDScript = load("res://scripts/systems/keys.gd")
+	assert(keys.keys_of("inventory") == [KEY_E] and not keys.DEFAULTS.has("purina") and not keys.DEFAULTS.has("water"))
+	keys.apply({"inventory": [KEY_I], "water": [KEY_E]})  # old save layout migrates to E
+	assert(keys.keys_of("inventory") == [KEY_E], "old I / E layout moves the bag to E")
+	keys.apply({})
+	# loading card on doors; corner boxes exist; map key only on the big map
+	assert(game.ui.corner.size() == 6 and game.ui.corner.has("stats"))
 
 	# dash (M1-3): 200-240 px burst, no damage mid-dash, cooldown + stamina cost
 	player.position = Vector2(700, 64)  # top road, open to the right
@@ -326,6 +349,7 @@ func _initialize() -> void:
 	var tall: Dictionary = game.doors.filter(func(d): return d.template in ["apartment", "office"] and d.floors >= 3)[0]
 	assert(game.doors.filter(func(d): return d.floors == 6).size() == 2, "both landmarks have 6 floors")
 	game.interior.enter(tall)
+	assert(game.ui.loading.visible, "door shows a loading card")
 	player.position = game.interior.spots.elevator
 	await frames(1)
 	assert(game.ctx == "elevator", "elevator menu at the elevator spot")
@@ -381,12 +405,12 @@ func _initialize() -> void:
 	# UI overhaul: inventory opens / freezes / closes; hotbar binds and uses a slot; long menus fit
 	assert(game.hud.theme != null, "HUD theme set")
 	game.inventory.toggle()
-	assert(game.inventory.is_open() and player.frozen, "I opens the inventory")
+	assert(game.inventory.is_open() and player.frozen, "E opens the inventory")
 	assert(game.inventory.root.get_child_count() == 4 and game.inventory.ground.get_child_count() == 16
 		and game.inventory.bag.get_child_count() == 25, "ground / equipment / inventory panels (+ hidden album)")
 	game.inventory.bind("water", 3)
 	game.inventory.toggle()
-	assert(not game.inventory.is_open() and not player.frozen, "I closes it")
+	assert(not game.inventory.is_open() and not player.frozen, "E closes it")
 	assert(game.inventory.hotbar()[3] == "water" and game.inventory.hotbar()[1] == "", "bind moves water to slot 4")
 	player.water = 1
 	player.thirst = 10.0
@@ -513,7 +537,11 @@ func _initialize() -> void:
 	var dealt: float = 1000.0 - target.hp
 	assert(is_equal_approx(dealt, player.attack_damage() * 2.0) or is_equal_approx(dealt, player.attack_damage() * 3.5),
 		"pounce lands 2x bite (x1.75 on crit), got %f" % dealt)
-	player.stat_atk = 950  # 5% + 95% = always crit
+	player.stat_atk = 0
+	assert(is_equal_approx(player.crit_chance(), 0.05), "base crit 5%")
+	player.stat_atk = 30
+	assert(is_equal_approx(player.crit_chance(), 0.06), "+1% crit per 30 stat_atk")
+	player.stat_atk = 2850  # 5% + 95% = always crit
 	assert(player.roll_crit(), "crit chance grows with stat_atk")
 	player.stat_atk = 0
 	assert(target.state == target.State.STUN, "pounce stuns")
@@ -608,7 +636,7 @@ func _initialize() -> void:
 		total += XP.needed(lv)
 	assert(total == 31185, "sum of xp_needed 1..99")
 	assert(player.xp_needed() == XP.needed(player.level))
-	assert(XP.points_for(9) == 1 and XP.points_for(10) == 2)
+	assert(XP.points_for(9) == 3 and XP.points_for(10) == 3)
 	var low := Node2D.new()  # no `level` property yet (M1-1): treated as level 1
 	assert(XP.scaled(100, 6, 0, low) == 50 and XP.scaled(100, 5, 0, low) == 100, "low enemy gives 50%")
 	low.free()
