@@ -254,7 +254,7 @@ func build_subway() -> void:
 	g.train.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	g.train.region_enabled = true
 	g.train.region_rect = Rect2(0, 0, g.tex.train.get_width() * 4, g.tex.train.get_height())  # 4 cars
-	g.train.scale = Vector2(2.5, 2.5)
+	g.train.scale = Vector2(1.25, 1.25)  # 2x-res car art (tools/gen_subway.py)
 	g.train.position = O + Vector2(-600, 372)
 	room.add_child(g.train)
 	g.train_t = g.TRAIN_EVERY
