@@ -145,8 +145,11 @@ func _initialize() -> void:
 	var hp0: float = player.hp
 	player.take_damage(10.0)
 	assert(is_equal_approx(hp0 - player.hp, 8.8), "vest cuts 12% of a hit")
+	var vest_art: Texture2D = load("res://scripts/data/wardrobe.gd").icon("vest")
+	assert(player.sprite.get_node("Gear").get_children().any(func(s): return s.texture == vest_art), "worn vest drawn on the dog")
 	player.hp = player.max_hp
 	player.armor = ""
+	assert(not player.sprite.get_node("Gear").get_children().any(func(s): return s.texture == vest_art), "vest off the dog")
 	player.armor_owned = []
 	# keys: E bag, K stats, no Q / E quick use (hotbar 1-4 does that)
 	var keys: GDScript = load("res://scripts/systems/keys.gd")
@@ -422,8 +425,8 @@ func _initialize() -> void:
 	# wardrobe (M4-11): B opens it, buy + equip the bodega cap, locked items stay locked, hat survives save / load
 	var wr: Node = game.wardrobe
 	wr.toggle()
-	assert(wr.is_open() and player.frozen and wr.tabs.get_child_count() == 4, "B opens the wardrobe")
-	assert(wr.tabs.get_child(0).get_child_count() == player.BREEDS.size(), "one skin per breed")
+	assert(wr.is_open() and player.frozen and wr.tabs.get_child_count() == 3, "B opens the wardrobe (no skin tab)")
+	assert(not wr.Wardrobe.SLOTS.has("skin") and not game.Keys.DEFAULTS.has("breed"), "no breed swapping")
 	player.treats = 50
 	wr.pick("bodega_cap")
 	wr.press()

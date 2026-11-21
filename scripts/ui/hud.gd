@@ -210,19 +210,12 @@ func build_hud() -> void:
 	quests.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 10)
 	quests.offset_top = g.mini.size.y + 18
 
-	# top-centre: level-up g.banner, breed g.card
+	# top-centre: level-up g.banner
 	g.banner = hud_label(g.hud, 44, Color(1, 0.9, 0.3))
 	g.banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	g.banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	g.banner.offset_top = 150
 	g.banner.modulate.a = 0.0
-	g.card = panel()
-	g.card_art = Control.new()
-	g.card_art.custom_minimum_size = Vector2(280, 108)
-	g.card_art.draw.connect(draw_card)
-	g.card.add_child(g.card_art)
-	g.card.hide()
-	dock(g.card, false, 14)
 	g.boss_box = panel()
 	var bv := VBoxContainer.new()
 	g.boss_box.add_child(bv)
@@ -439,8 +432,6 @@ func update_hud(delta: float) -> void:
 	if g.player.sprinting:
 		g.info.text += "   %d mph" % int(g.player.velocity.length() / g.player.PX_PER_MPH)
 	g.clock.queue_redraw()
-	g.card_t -= delta
-	g.card.visible = g.card_t > 0.0 and g.boss == null  # g.boss bar uses the same spot
 	g.boss_box.visible = g.boss != null
 	if g.boss:
 		set_bar("boss", g.boss.hp / g.boss.max_hp, delta, "%d / %d" % [ceili(g.boss.hp), int(g.boss.max_hp)])
@@ -534,31 +525,6 @@ func draw_clock() -> void:
 		horizon.append(c + Vector2.RIGHT.rotated(PI * i / 12.0) * r)
 	g.clock.draw_colored_polygon(horizon, Color(0.12, 0.14, 0.12))
 	g.clock.draw_arc(c, r, 0, TAU, 24, Color(1, 1, 1, 0.6), 1.0)
-
-## Breed g.card: sprite, name, stat g.bars with a tick + delta against the previous breed.
-func draw_card() -> void:
-	var b: Dictionary = g.player.breed()
-	var old: Dictionary = g.player.BREEDS[g.prev_skin]
-	var font := ThemeDB.fallback_font
-	var t: Texture2D = g.player.sprite.texture
-	var frame := Vector2(t.get_width() / 2.0, t.get_height())
-	g.card_art.draw_texture_rect_region(t, Rect2(4, 14, 64, 64 * frame.y / frame.x), Rect2(Vector2.ZERO, frame))
-	g.card_art.draw_string(font, Vector2(84, 18), str(b.name), HORIZONTAL_ALIGNMENT_LEFT, -1, 18)
-	var y := 32.0
-	for stat in [["mph", "Speed"], ["hp", "HP"], ["atk", "Bite"]]:
-		var k: String = stat[0]
-		var top: float = g.player.BREEDS.map(func(x): return x[k]).max()
-		var v: float = b[k]
-		var was: float = old[k]
-		g.card_art.draw_string(font, Vector2(84, y + 10), "%s %d" % [stat[1], int(v)], HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
-		g.card_art.draw_rect(Rect2(150, y, 90, 10), Color(0, 0, 0, 0.55))
-		g.card_art.draw_rect(Rect2(150, y, 90 * v / top, 10), Color(0.6, 1, 0.7))
-		g.card_art.draw_line(Vector2(150 + 90 * was / top, y - 2), Vector2(150 + 90 * was / top, y + 12), Color.WHITE, 2.0)
-		if v != was:
-			g.card_art.draw_string(font, Vector2(246, y + 10), "%+d" % int(v - was), HORIZONTAL_ALIGNMENT_LEFT, -1, 12,
-				Color(0.5, 1, 0.5) if v > was else Color(1, 0.45, 0.45))
-		y += 20.0
-	g.card_art.draw_string(font, Vector2(84, 104), "[Tab] next breed   | = previous", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.6))
 
 func draw_minimap() -> void:
 	var font := ThemeDB.fallback_font

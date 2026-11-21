@@ -56,7 +56,11 @@ var skin := 0
 var purina := 0
 var water := 0
 var collar := ""  # ideas.md: Dog Collar [Name]
-var armor := ""  # worn armor id (data/items.gd ARMOR), "" = none
+var armor := "":  # worn armor id (data/items.gd ARMOR), "" = none; drawn on the dog
+	set(v):
+		armor = v
+		if sprite:
+			apply_skin()
 var armor_owned: Array = []
 
 var spawn_point := Vector2.ZERO
@@ -320,15 +324,9 @@ func use_water() -> bool:
 	drink(60.0)
 	return true
 
-func cycle_skin() -> void:
-	var ratio := hp / max_hp
-	skin = (skin + 1) % BREEDS.size()
-	hp = max_hp * ratio
-	apply_skin()
-
 func apply_skin() -> void:
 	sprite.texture = load("res://assets/dog_%s.png" % breed().file)
 	sprite.scale = Vector2.ONE * float(breed().scale)
-	var eq := Wardrobe.worn(get_parent().get("save_extra"), collar)  # scripts/data/wardrobe.gd
+	var eq := Wardrobe.worn(get_parent().get("save_extra"), collar, armor)  # scripts/data/wardrobe.gd
 	name_tag.text = collar if eq.get("collar", "name") == "name" else ""
 	Wardrobe.dress(sprite, breed().file, eq)

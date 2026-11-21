@@ -1,6 +1,6 @@
 extends Node
-## Wardrobe (B), spec 11: live dog preview on the left (turns every 2 s); tabs Skin / Collar /
-## Hat / Outfit on the right with a grid of owned, buyable (price) and locked (hint) items,
+## Wardrobe (B), spec 11: live dog preview on the left (turns every 2 s); tabs Collar / Hat /
+## Outfit on the right with a grid of owned, buyable (price) and locked (hint) items,
 ## one Equip / Buy button, treats and bones. Saves as save_extra "wardrobe/owned" / "wardrobe/equipped".
 ## Reuses the inventory's cell() / on_click(). ponytail: item bonuses (spec 05) not applied yet,
 ## every unlockable is locked until its source (Top Dog, trader, cats) exists.
@@ -16,7 +16,7 @@ var dog: Sprite2D  # preview
 var info: Label
 var wallet: Label
 var button: Button
-var sel := ""  # selected item id, or "skin:<i>"
+var sel := ""  # selected item id
 var turn_t := 0.0
 
 func build() -> void:
@@ -92,19 +92,15 @@ func equipped() -> Dictionary:
 	return g.save_extra.get("wardrobe/equipped", Save.V2["wardrobe/equipped"].duplicate())
 
 func owns(id: String) -> bool:
-	if id.begins_with("skin:"):
-		return true  # every breed is owned (spec 05)
 	if id == "name":
 		return g.player.collar != ""  # bought at the bodega
 	return Wardrobe.ITEMS[id].get("start", false) or id in owned_list()
 
 func is_worn(id: String) -> bool:
-	if id.begins_with("skin:"):
-		return int(id.get_slice(":", 1)) == g.player.skin
 	return equipped().get(Wardrobe.ITEMS[id].slot, "") == id
 
 func price(id: String) -> Array:
-	return [] if id.begins_with("skin:") else Wardrobe.ITEMS[id].get("cost", [])
+	return Wardrobe.ITEMS[id].get("cost", [])
 
 func can_pay(cost: Array) -> bool:
 	return (g.player.treats if cost[1] == "treats" else g.economy.bones) >= cost[0]
@@ -126,18 +122,11 @@ func press() -> void:
 	equip(sel)
 
 func equip(id: String) -> void:
-	var p: Node = g.player
-	if id.begins_with("skin:"):
-		g.prev_skin = p.skin
-		var ratio: float = p.hp / p.max_hp
-		p.skin = int(id.get_slice(":", 1))
-		p.hp = p.max_hp * ratio
-	else:
-		var eq := equipped().duplicate()
-		var slot: String = Wardrobe.ITEMS[id].slot
-		eq[slot] = "" if eq.get(slot, "") == id else id
-		g.save_extra["wardrobe/equipped"] = eq
-	p.apply_skin()
+	var eq := equipped().duplicate()
+	var slot: String = Wardrobe.ITEMS[id].slot
+	eq[slot] = "" if eq.get(slot, "") == id else id
+	g.save_extra["wardrobe/equipped"] = eq
+	g.player.apply_skin()
 	if root.visible:
 		refresh()
 
@@ -146,19 +135,14 @@ func equip(id: String) -> void:
 func refresh() -> void:
 	var p: Node = g.player
 	dog.texture = p.sprite.texture
-	Wardrobe.dress(dog, p.breed().file, Wardrobe.worn(g.save_extra, p.collar))
+	Wardrobe.dress(dog, p.breed().file, Wardrobe.worn(g.save_extra, p.collar, p.armor))
 	for slot: String in Wardrobe.SLOTS:
 		var grid: GridContainer = tabs.get_node(Wardrobe.SLOTS[slot])
 		for ch in grid.get_children():
 			ch.free()
-		var ids: Array = []
-		if slot == "skin":
-			for i in p.BREEDS.size():
-				ids.append("skin:%d" % i)
-		else:
-			ids = Wardrobe.ITEMS.keys().filter(func(id): return Wardrobe.ITEMS[id].slot == slot)
+		var ids: Array = Wardrobe.ITEMS.keys().filter(func(id): return Wardrobe.ITEMS[id].slot == slot)
 		for id: String in ids:
-			var cell: PanelContainer = g.inventory.cell(grid, icon(id), tag(id), title(id))
+			var cell: PanelContainer = g.inventory.cell(grid, Wardrobe.icon(id), tag(id), title(id))
 			if tag(id) == "?":
 				cell.modulate = Color(1, 1, 1, 0.45)  # locked
 			g.inventory.on_click(cell, pick.bind(id))
@@ -169,7 +153,7 @@ func refresh() -> void:
 		var cost := price(sel)
 		button.disabled = not owns(sel) and (cost.is_empty() or not can_pay(cost))
 		if owns(sel):
-			button.text = "Unequip" if is_worn(sel) and not sel.begins_with("skin:") else "Equip"
+			button.text = "Unequip" if is_worn(sel) else "Equip"
 		else:
 			button.text = "Locked" if cost.is_empty() else "Buy (%d %s)" % cost
 		info.text = title(sel) + ("\nLocked: " + Wardrobe.ITEMS[sel].hint if tag(sel) == "?" else "")
@@ -189,13 +173,4 @@ func pick(id: String) -> void:
 	refresh()
 
 func title(id: String) -> String:
-	return str(g.player.BREEDS[int(id.get_slice(":", 1))].name) if id.begins_with("skin:") else str(Wardrobe.ITEMS[id].name)
-
-func icon(id: String) -> Texture2D:
-	if not id.begins_with("skin:"):
-		return Wardrobe.icon(id)
-	var t: Texture2D = load("res://assets/dog_%s.png" % g.player.BREEDS[int(id.get_slice(":", 1))].file)
-	var frame := AtlasTexture.new()
-	frame.atlas = t
-	frame.region = Rect2(0, 0, t.get_width() / 2.0, t.get_height())
-	return frame
+	return str(Wardrobe.ITEMS[id].name)

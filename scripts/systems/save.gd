@@ -15,7 +15,7 @@ const V2 := {
 	"cats/points": {}, "cats/today": {},
 	"trader/visit": {}, "trader/hinted": [],
 	"territory/markers": [], "territory/rep": {},
-	"wardrobe/owned": [], "wardrobe/equipped": {"skin": 0, "collar": "name", "hat": "", "overlay": ""},
+	"wardrobe/owned": [], "wardrobe/equipped": {"collar": "name", "hat": "", "overlay": ""},
 	"stocks/prices": {}, "stocks/history": {}, "stocks/held": {},
 	"ui/reduce_motion": false, "ui/large_text": false, "ui/hotbar": ["purina", "water", "", ""], "ui/keys": {},
 }
