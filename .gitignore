@@ -1,6 +1,9 @@
 .godot/
 
-# Web export output
+# Export output (build/ holds a .gdignore so the editor skips it)
+/build/*
+!/build/.gdignore
 /index.*
 /Archive.zip
+*.zip
 .claude/
