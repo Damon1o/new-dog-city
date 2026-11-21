@@ -187,12 +187,12 @@ func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := 
 	g.building_rects.append(Rect2(base - Vector2(size.x / 2.0, foot_size.y), foot_size))
 
 func add_tree(pos: Vector2) -> void:
-	add_prop(g.tex.tree, pos, 2.5)
+	add_prop(g.tex.tree, pos, 1.25)  # textures are 2x res (tools/gen_props.py)
 	add_static_box(pos - Vector2(0, 5), Vector2(14, 10))
 	g.trees.append(pos)
 
 func add_can(pos: Vector2) -> void:
-	add_prop(g.tex.trashcan, pos, 2.0)
+	add_prop(g.tex.trashcan, pos, 1.0)
 	add_static_box(pos - Vector2(0, 6), Vector2(20, 12))
 	g.cans.append(pos)
 	var rac: Node2D = g.RaccoonScript.new()
@@ -220,7 +220,7 @@ func build_block(b: Vector2i) -> void:
 			dp.setup(g, dog_park, id)
 		if Rect2(o, g.BLOCK).has_point(g.burrow):
 			add_door(g.burrow, "burrow", b, 0)
-		add_prop(g.tex.fountain, c, 2.5)
+		add_prop(g.tex.fountain, c, 1.25)
 		add_static_box(c - Vector2(0, 20), Vector2(90, 36))
 		g.water_spots.append(c + Vector2(0, 6))
 		for i in 8:
@@ -229,7 +229,7 @@ func build_block(b: Vector2i) -> void:
 				add_tree(p)
 	elif g.LANDMARKS.has(b):
 		var base := o + Vector2(256, 372)
-		add_building(g.tex[g.LANDMARKS[b][0]], base, 2.5, 0.45)
+		add_building(g.tex[g.LANDMARKS[b][0]], base, 1.25, 0.45)
 		g.landmarks.append({"pos": base, "name": g.LANDMARKS[b][1], "seen": false})
 		add_door(base + Vector2(0, 18), "office", b, 0, 6, g.LANDMARKS[b][1])
 		add_tree(o + Vector2(60, 360))
@@ -239,10 +239,10 @@ func build_block(b: Vector2i) -> void:
 		add_door(o + Vector2(256, 282), "airport", b, 0, 1, "JFK Airport")
 	elif b in g.BODEGAS:
 		var base := o + Vector2(256, 240)
-		add_building(g.tex.bodega, base, 2.0, 0.6)
+		add_building(g.tex.bodega, base, 1.0, 0.6)
 		g.bodega_doors.append(base + Vector2(54, 24))
 		add_door(base + Vector2(54, 24), "bodega", b, 0)
-		add_prop(g.tex.water_bowl, base + Vector2(-70, 34), 2.5)
+		add_prop(g.tex.water_bowl, base + Vector2(-70, 34), 1.25)
 		g.water_spots.append(base + Vector2(-70, 30))
 		add_can(o + Vector2(450, 250))
 		add_tree(o + Vector2(60, 340))
@@ -263,10 +263,10 @@ func build_block(b: Vector2i) -> void:
 			add_can(o + Vector2(randf_range(340, 470), randf_range(285, 360)))
 		if g.STATIONS.has(b):
 			var pos := o + Vector2(256, 340)
-			add_prop(g.tex.subway, pos, 1.5)
+			add_prop(g.tex.subway, pos, 0.75)
 			g.stations.append({"pos": pos, "name": g.STATIONS[b], "door": add_door(pos, "subway", b, 3, 1, g.STATIONS[b])})
 		elif randf() < 0.5:
-			add_prop(g.tex.hydrant, o + Vector2(256, 300), 2.0)
+			add_prop(g.tex.hydrant, o + Vector2(256, 300), 1.0)
 			g.water_spots.append(o + Vector2(256, 300))
 		else:
 			add_tree(o + Vector2(256, 330))
@@ -286,7 +286,7 @@ func add_manhole(pos: Vector2) -> void:
 	var s := Sprite2D.new()
 	s.texture = g.tex.manhole
 	s.position = pos
-	s.scale = Vector2(1.5, 1.5)
+	s.scale = Vector2(0.75, 0.75)
 	s.z_index = -5
 	holder().add_child(s)
 	var p := CPUParticles2D.new()
