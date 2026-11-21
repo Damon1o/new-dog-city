@@ -62,6 +62,8 @@ func setup(p_cfg: Dictionary, p_home: Vector2, tex: Texture2D, p_game: Node2D) -
 	add_to_group("boss")
 
 func _process(delta: float) -> void:
+	if game.dialog.playing():  # boss intro / outro lines: everyone holds still
+		return
 	bite_cd = maxf(bite_cd - delta, 0.0)
 	update_shots(delta)
 	if not minions.is_empty():
@@ -117,6 +119,8 @@ func _process(delta: float) -> void:
 		State.CHARGE:
 			t -= delta
 			position += charge_dir * speed * 3.5 * delta
+			if Engine.get_process_frames() % 3 == 0:  # dust trail
+				game.poof(position, Color(0.6, 0.55, 0.5), 5, 60.0)
 			if t <= 0.0:
 				state = State.CHASE
 		State.SLAM:  # stands still while the ring fills, then everything inside gets hit
@@ -153,6 +157,9 @@ func wake() -> void:
 	state = State.CHASE
 	special_cd = 2.0
 	game.on_boss_woke(self)
+	game.poof(position, cfg.tint, 24, 220.0)
+	if cfg.has("intro") and not Story.has(cfg.intro):
+		game.dialog.play(cfg.intro)
 	if cfg.has("phases"):
 		game.boss_name.text = "%s   Lv %d   %s" % [cfg.name, level, pips()]
 
@@ -333,6 +340,7 @@ func hurt(dmg: float, from: Vector2, crit := false) -> void:
 		sprite.modulate = Color(1, 0.4, 0.4)
 		create_tween().tween_property(sprite, "modulate", Color(cfg.tint), 0.2)
 	game.float_text(position, str(int(dmg)), Color.WHITE, crit)
+	game.poof(position.move_toward(from, 30.0), Color(1, 0.85, 0.4) if crit else cfg.tint, 10, 160.0)  # hit sparks
 	if hp <= 0.0:
 		state = State.DEAD
 		t = RESPAWN

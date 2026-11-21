@@ -521,8 +521,10 @@ func on_boss_beaten(b: Node2D) -> void:
 	var got := XP.award(self, b.cfg.xp, b)
 	show_banner("%s DEFEATED" % str(b.cfg.name).to_upper())
 	show_msg("+%d treats   +%d XP" % [b.cfg.treats, got])
-	poof(b.position, b.cfg.tint)
+	poof(b.position, b.cfg.tint, 40, 240.0)
 	sfx("levelup")
+	if b.cfg.has("outro") and not Story.has(b.cfg.outro):
+		dialog.play(b.cfg.outro)
 
 func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	sfx("bark")
@@ -575,7 +577,8 @@ func on_raccoon_beaten(rac: Node2D) -> void:
 func on_hedgehog_beaten(at: Vector2) -> void:
 	show_banner("BOSS HEDGEHOG DEFEATED")
 	sfx("levelup")
-	poof(at, Color(0.45, 0.3, 0.18))
+	poof(at, Color(0.45, 0.3, 0.18), 50, 280.0)
+	poof(at, Color(1, 0.85, 0.4), 30, 200.0)
 	player.treats += 50
 	float_text(at, "+50 treats", Color(1, 0.85, 0.5))
 	show_msg("The den is yours. The door leads back to the street.")

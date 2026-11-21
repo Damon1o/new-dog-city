@@ -72,6 +72,46 @@ const CUTSCENES := {
 		{"say": "Byte", "text": "The HQ. Sam's work. That's the next scent."},
 		{"flag": "ch1_boss"},
 	],
+	"cs_hedgehog_pre": [
+		{"say": "Boss Hedgehog", "text": "Who's sniffing around MY den?"},
+		{"say": "Byte", "text": "I'm looking for Sam. Hoodie, laptop, smells like coffee."},
+		{"say": "Boss Hedgehog", "text": "Nobody leaves the den, pup. Not with treats. Not with fur."},
+		{"say": "Boss Hedgehog", "text": "Hoglets! Dinner's here!"},
+		{"flag": "cs_hedgehog_pre"},
+	],
+	"cs_hedgehog_post": [
+		{"say": "Boss Hedgehog", "text": "Okay... okay! The den is yours. Keep the quills as a souvenir."},
+		{"say": "Byte", "text": "Just the treats, thanks."},
+		{"flag": "cs_hedgehog_post"},
+	],
+	# park bosses (data/bosses.gd `intro` / `outro`): once per save, the flag is the id
+	"cs_raccoon_pre": [
+		{"say": "King of Raccoons", "text": "Kneel, mutt. Every trash can in this park bows to me."},
+		{"say": "Byte", "text": "I only bow for belly rubs."},
+		{"flag": "cs_raccoon_pre"},
+	],
+	"cs_raccoon_post": [
+		{"say": "King of Raccoons", "text": "My crown... my beautiful lid crown..."},
+		{"flag": "cs_raccoon_post"},
+	],
+	"cs_pigeon_pre": [
+		{"say": "The Pideon Queen", "text": "Coo-COO! My flock will peck you down to crumbs!"},
+		{"say": "Byte", "text": "I've chased a hundred of your pigeons. Never caught one. Today's the day."},
+		{"flag": "cs_pigeon_pre"},
+	],
+	"cs_pigeon_post": [
+		{"say": "The Pideon Queen", "text": "The flock... flies... home..."},
+		{"flag": "cs_pigeon_post"},
+	],
+	"cs_rat_pre": [
+		{"say": "The Rat Meister", "text": "Squeak! The tunnels are mine, and so is every crumb in them!"},
+		{"say": "Byte", "text": "Even Sam's bagel crumbs? Then we have a problem."},
+		{"flag": "cs_rat_pre"},
+	],
+	"cs_rat_post": [
+		{"say": "The Rat Meister", "text": "Back... to the sewers... I go..."},
+		{"flag": "cs_rat_post"},
+	],
 	"cs_ch1_clue": [
 		{"say": "Byte", "text": "Sam's desk. The laptop's gone, but the sticker's here."},
 		{"say": "Byte", "text": "Someone scrawled on it. \"SF\"."},
