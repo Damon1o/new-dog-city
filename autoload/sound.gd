@@ -65,7 +65,33 @@ func _ready() -> void:
 			AudioServer.set_bus_send(i, "Master")
 	for n in SFX_NAMES:
 		sounds[n] = load("res://assets/sfx/%s.wav" % n)
+	sounds["ding"] = sounds["pickup"]  # ponytail: elevator ding = pickup pitched up; own synth later
+	sounds["pigeons_scatter"] = sounds["pickup"]  # ponytail: wing flaps = pickup blip until spec 12 gives it a wav
 	sounds["bark_scare"] = sounds["bark"]  # ponytail: pitched-down bark (lower, longer); swap for its own synth/wav later
+	# M4-4 animal control: one-shot synths off the music synth. ponytail: siren is one sweep, not a loop on the van
+	var shots := [["whistle", {"bpm": 400, "root": 88, "wave": "sine", "lead": [0, 3, 0, 3, 0, 3]}],
+			["siren", {"bpm": 90, "root": 72, "wave": "saw", "lead": [0, 1, 3, 5, 7, 5, 3, 1]}],
+			["rat_squeak", {"bpm": 700, "root": 93, "wave": "sine", "lead": [0, 5, 2]}]]
+	# M3-2 foes, one root per type: yowl = saw pitch bend; hiss = dense noise hats over a short squeal.
+	# ponytail: the hiss "filter" is burst rate + squeal pitch, not a real filter; real one if they sound alike
+	for c: Array in [["cat_%s_tabby", 72], ["cat_%s_tom", 60], ["cat_%s_sphynx", 79], ["cat_%s_calico", 69],
+			["cat_%s_black", 65], ["possum_%s", 55]]:
+		shots.append([c[0] % "yowl", {"bpm": 240 + c[1], "root": c[1], "wave": "saw", "decay": 0.3, "lead": [0, 2, 5, 7, 8, 7, 5, 2, -3]}])
+		shots.append([c[0] % "hiss", {"bpm": 3000 - c[1] * 20, "root": c[1] + 30, "wave": "sq", "decay": 0.01, "hats": 6.0,
+			"lead": [0, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R]}])
+	# M3-5 footsteps: one noise burst (hats) over a short thud; wave/pitch/noise tell surfaces apart
+	for st: Array in [["concrete", "sq", 45, 3.0], ["grass", "tri", 40, 1.5], ["puddle", "sine", 76, 2.5],
+			["snow", "tri", 36, 4.0], ["wood", "tri", 52, 0.5]]:
+		shots.append(["step_" + st[0], {"bpm": 400, "root": st[2], "wave": st[1], "decay": 0.03, "hats": st[3], "lead": [0]}])
+	for s: Array in shots:
+		var w := _synth(s[1].merged({"decay": 0.5, "hats": 0.0, "swing": 0.0, "bass": []}))
+		w.loop_mode = AudioStreamWAV.LOOP_DISABLED
+		sounds[s[0]] = w
+	# M3-5 ambience loops (scripts/systems/footsteps.gd plays them): low traffic hum + far-off honk, night crickets
+	sounds["amb_city"] = _synth({"bpm": 30, "root": 57, "wave": "saw", "decay": 1.5, "hats": 0.3, "swing": 0.0,
+		"lead": [-24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24], "bass": [R, R, R, 31, R, R, R, R]})
+	sounds["amb_night"] = _synth({"bpm": 240, "root": 96, "wave": "sine", "decay": 0.02, "hats": 0.0, "swing": 0.0, "bass": [],
+		"lead": [0, 0, R, R, R, R, R, R, 0, 0, 0, R, R, R, R, R, R, R, R, R, 0, 0, R, R, R, R, R, R, R, R, R, R]})
 	for i in 2:
 		var p := AudioStreamPlayer.new()
 		p.bus = "Music"
@@ -77,7 +103,7 @@ func sfx(sound: String) -> void:
 	var p := AudioStreamPlayer.new()
 	p.stream = sounds[sound]
 	p.bus = "SFX"
-	p.pitch_scale = randf_range(0.92, 1.08) * (0.7 if sound == "bark_scare" else 1.0)
+	p.pitch_scale = randf_range(0.92, 1.08) * (0.7 if sound == "bark_scare" else 1.5 if sound == "ding" else 1.0)
 	add_child(p)
 	p.play()
 	p.finished.connect(p.queue_free)
