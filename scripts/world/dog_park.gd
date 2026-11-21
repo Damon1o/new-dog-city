@@ -40,6 +40,7 @@ func setup(p_g: Node2D, r: Rect2, city_id: String) -> void:
 	g = p_g
 	rect = r
 	z_index = -9  # flat on the grass, over the ground layer
+	add_to_group("dog_park")  # scripts/systems/scent.gd sniffs out Biscuit's ball
 	for i in DOGS.get(city_id, []).size():
 		var d: Array = DOGS[city_id][i]
 		var n: Node2D = NPC.new()
@@ -57,7 +58,7 @@ func lines_for(line: String) -> Array:
 	var i := step(line)
 	match [line, i]:
 		["Biscuit", 1]:
-			var p: Vector2 = g.city.block_origin(g.PARKS[4]) + Vector2(80, 330)  # ponytail: GPS stands in for the sniff trail (M5-3)
+			var p: Vector2 = g.city.block_origin(g.PARKS[4]) + Vector2(80, 330)  # the scent trail (V) leads here too
 			ball = p
 			g.waypoint = {"pos": p, "text": "Biscuit's ball", "color": Color(0.9, 0.9, 0.3)}
 		["Duchess", 2]:

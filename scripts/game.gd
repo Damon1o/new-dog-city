@@ -190,6 +190,7 @@ func _ready() -> void:
 	hq = preload("res://scripts/world/hq_floor.gd").new()  # M5-4
 	hq.g = self
 	add_child(hq)
+	add_child(preload("res://scripts/systems/scent.gd").new())  # M5-3 scent trail (V), node "Scent"
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10

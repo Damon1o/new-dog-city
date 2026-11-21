@@ -34,6 +34,11 @@ func build(city_id: String) -> void:
 	build_bounds()
 	build_blocks()
 	place_manholes()
+	for d: Dictionary in g.doors:  # story spots for Story.target() (scent trail, M5-3)
+		if d.template in ["nyse", "hq"]:
+			Story.spots["nyse" if d.template == "nyse" else "hq_" + id] = d.pos
+	if g.bodega_doors:  # ponytail: Sam's bodega = the first one built until M5-8 picks one
+		Story.spots["bodega"] = g.bodega_doors[0]
 	for l in g.landmarks:
 		l.seen = l.name in seen
 	g.ground.queue_redraw()
