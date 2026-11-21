@@ -3,7 +3,7 @@ extends RefCounted
 ## so older saves load as-is.
 
 const KEYS := ["level", "xp", "treats", "skin", "purina", "water", "collar", "hunger", "thirst",
-	"points", "stat_hp", "stat_atk", "stat_spd", "armor", "armor_owned"]
+	"points", "stat_hp", "stat_atk", "stat_spd", "armor", "armor_owned", "bag"]
 const VERSION := 2
 ## Schema v2 keys ("section/key" -> default). Keys no system owns yet round-trip through
 ## game.save_extra; "story/*" keys belong to the Story autoload (Story.to_save / from_save).

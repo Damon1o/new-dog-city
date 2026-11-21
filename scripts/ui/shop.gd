@@ -106,7 +106,7 @@ func refresh() -> void:
 		r.icon.texture = g.tex.get(icon_key) if icon_key != "" else null
 		r.name.text = "[%d]  %s   %s" % [i + 1, info.name, info.effect]
 		r.price.text = ("[s]%d[/s] [color=#8f8]%d[/color] treats" % [full, now]) if now < full else "%d treats" % now
-		r.owned.text = "own %d" % int(g.player.get(item)) if item in ["purina", "water"] else ("owned" if item in g.player.armor_owned else "")
+		r.owned.text = "own %d" % g.inventory.count(item) if item in Items.CARRY else ("owned" if item in g.player.armor_owned else "")
 		r.row.modulate = Color.WHITE if g.player.treats >= now else Color(0.55, 0.55, 0.55)
 	wallet.text = "Wallet: %d treats   %d bones        [1-%d] buy x1   Shift + number: x5" % [
 		g.player.treats, eco.bones, st.size()]
@@ -143,13 +143,9 @@ func buy(n: int, qty := 1) -> int:
 		g.player.armor_owned.append(item)
 		g.player.armor = item  # wear it right away; swap in the bag's Armor slot
 		g.show_msg("Wearing %s  (-%d%% damage)" % [Items.ARMOR[item][0], roundi(Items.ARMOR[item][1] * 100)])
-	elif item in ["purina", "water"]:  # carried; hotbar keys 1-4 use them later
-		g.player.set(item, g.player.get(item) + qty)
-		g.show_msg("Bought %s%s" % [item, " x%d" % qty if qty > 1 else ""])
-	else:  # eaten / drunk on the spot
-		for i in qty:
-			g.player.consume(item)
-		g.show_msg("Ate %s" % Items.ITEM_INFO[item].name)
+	else:  # carried in the bag; drag onto the hotbar, keys 1-4 use it
+		g.inventory.add(item, qty)
+		g.show_msg("Bought %s%s - in your bag [%s]" % [Items.ITEM_INFO[item].name, " x%d" % qty if qty > 1 else "", g.Keys.label("inventory")])
 	g.bump("bought")
 	g.save_game()
 	return qty

@@ -58,6 +58,7 @@ var water := 0
 var collar := ""  # ideas.md: Dog Collar [Name]
 var armor := ""  # worn armor id (data/items.gd ARMOR), "" = none
 var armor_owned: Array = []
+var bag := {}  # carried shop food / drinks beyond purina + water: id -> count
 
 var spawn_point := Vector2.ZERO
 var frozen := false  # true while typing the collar name
