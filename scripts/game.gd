@@ -499,9 +499,11 @@ func on_car_hit(_car: Node2D) -> void:
 		death_cause = "You blacked out."
 		float_text(player.position, "HONK!", Color(1, 0.9, 0.3))
 
+## Save & Quit (pause menu, death screen): save, then back to the home screen.
 func quit_game() -> void:
 	save_game()
-	get_tree().quit()
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/Home.tscn")
 
 func on_boss_woke(b: Node2D) -> void:
 	boss = b
