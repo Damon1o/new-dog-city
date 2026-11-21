@@ -133,6 +133,7 @@ func enter(d: Dictionary) -> void:
 		"subway":
 			g.station_i = maxi(g.stations.map(func(s): return s.pos).find(d.pos), 0)
 			g.station_sign.text = g.stations[g.station_i].name
+			g.subway.spawn_rats()
 		"burrow":
 			g.hedgehog.start()
 			g.bump("burrow", true)

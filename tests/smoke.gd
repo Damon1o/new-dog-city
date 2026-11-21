@@ -612,6 +612,7 @@ func _initialize() -> void:
 	player.hp = player.max_hp
 	game.interior.enter(game.stations[0].door)
 	assert(game.inside == "subway" and game.station_i == 0)
+	assert(game.subway.rats.size() >= 4 and game.subway.rats.all(func(r): return r.is_in_group("foe")), "rats in the subway")
 	var rides: int = game.stat("rides")
 	player.position = game.interior.O + Vector2(576, 200)
 	game.travel(1)
@@ -623,6 +624,7 @@ func _initialize() -> void:
 		if game.station_i == 1 and not player.frozen:
 			break
 	assert(game.station_i == 1 and game.inside == "subway", "rode the train to station 2")
+	assert(game.subway.rats.filter(func(r): return is_instance_valid(r)).size() >= 4, "fresh rats at the new station")
 	assert(game.interior.door == game.stations[1].door and game.stat("rides") == rides + 1)
 	assert(not player.dead and player.position.y < game.interior.O.y + 320, "stepped off onto the platform")
 	game.set_inside("", game.stations[1].pos)
