@@ -586,6 +586,25 @@ func _initialize() -> void:
 		while player.points > 0:  # boss XP levels the dog; spend so the game unpauses
 			game.pick_stat(1)
 
+	# subway ride: pick a stop, wait for the train, ride it, step off at the new station
+	player.hp = player.max_hp
+	game.interior.enter(game.stations[0].door)
+	assert(game.inside == "subway" and game.station_i == 0)
+	var rides: int = game.stat("rides")
+	player.position = game.interior.O + Vector2(576, 200)
+	game.travel(1)
+	await frames(30)
+	assert(game.station_i == 0 and not player.frozen, "no train yet: the dog waits on the platform")
+	game.train_t = 0.1
+	for i in 900:
+		await frames(1)
+		if game.station_i == 1 and not player.frozen:
+			break
+	assert(game.station_i == 1 and game.inside == "subway", "rode the train to station 2")
+	assert(game.interior.door == game.stations[1].door and game.stat("rides") == rides + 1)
+	assert(not player.dead and player.position.y < game.interior.O.y + 320, "stepped off onto the platform")
+	game.set_inside("", game.stations[1].pos)
+
 	# subway: stand on the tracks, wait for the train
 	player.hp = player.max_hp
 	player.treats = 10
