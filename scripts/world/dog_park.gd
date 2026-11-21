@@ -8,9 +8,9 @@ const REGEN := 5.0
 const RACE_TIME := 60.0
 const TALK_DIST := 50.0
 const GATE := 96.0  # gap in the middle of each fence side
-# spec 07 dogs per city: [name (= its quest line), coat]. ponytail: NYC only until SF / Tokyo / Shenzhen exist.
-const DOGS := {"nyc": [["Biscuit", Color(0.85, 0.6, 0.3)], ["Duchess", Color(0.95, 0.92, 0.95)],
-	["Old Rex", Color(0.45, 0.32, 0.2)]]}
+# spec 07 dogs per city: [name (= its quest line), breed art (assets/dog_<breed>.png), player.gd BREEDS scale].
+# ponytail: NYC only until SF / Tokyo / Shenzhen exist.
+const DOGS := {"nyc": [["Biscuit", "chihuahua", 2.0], ["Duchess", "husky", 3.0], ["Old Rex", "mastiff", 3.6]]}
 # What each dog says at quest steps 1..3 of its line, then once the line is done.
 const LINES := {
 	"Biscuit": ["My ball rolled off into another park! Follow your GPS and sniff it out?",
@@ -44,7 +44,7 @@ func setup(p_g: Node2D, r: Rect2, city_id: String) -> void:
 	for i in DOGS.get(city_id, []).size():
 		var d: Array = DOGS[city_id][i]
 		var n: Node2D = NPC.new()
-		n.setup(g, d[0], d[1], r.grow(-70), r.position + Vector2(110 + i * 140, 90))
+		n.setup(g, d[0], d[1], d[2], r.grow(-70), r.position + Vector2(110 + i * 140, 90))
 		n.on_talk = lines_for.bind(d[0])
 		get_parent().add_child(n)
 		dogs[d[0]] = n
