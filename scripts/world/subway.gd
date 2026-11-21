@@ -4,6 +4,9 @@ extends Node
 
 var g: Node2D
 
+const Cat := preload("res://scripts/enemies/cat.gd")
+const RAT_PACKS := [Vector2(990, 220), Vector2(90, 390)]  # room-local: far platform end, left tunnel mouth
+
 const STOP_X := 576.0      # room-local x the train's centre stops at (the map board)
 const DWELL := 4.0         # seconds the doors stay open
 const RIDE_Y := 380.0      # dog's room-local y aboard (just below the train's centre: y-sorts on top)
@@ -12,6 +15,21 @@ const PLATFORM_Y := 290.0  # where the dog steps off, behind the yellow line
 var ride_to := -1   # station picked at the map board, waiting for the train
 var riding := false
 var last_x := 0.0   # train x last frame: only a moving train flings dogs
+var rats: Array = []  # this station's rats (children of the room, so leaving frees them)
+
+## A few rats per pack. Level from the station's street spot: the room itself sits far off the map.
+func spawn_rats() -> void:
+	for r in rats:
+		if is_instance_valid(r):
+			r.queue_free()
+	rats.clear()
+	for spot: Vector2 in RAT_PACKS:
+		for i in randi_range(2, 4):
+			var r: Node2D = Cat.new()
+			g.interior.room.add_child(r)
+			r.setup("rat", g.stations[g.station_i].pos, g)
+			r.position = g.interior.O + spot + Vector2(randf_range(-40, 40), randf_range(-25, 25))
+			rats.append(r)
 
 ## Map board pick: wait on the platform for the next train.
 func travel(n: int) -> void:
@@ -33,6 +51,12 @@ func update_train(delta: float) -> void:
 	if moving and not riding and not g.player.dead and g.player.position.y > g.interior.O.y + 322 \
 			and absf(g.player.position.x - g.train.position.x) < g.TRAIN_HALF + 10.0:
 		train_hit()
+	if moving:  # rats on the tracks get flattened too
+		for r in rats:
+			if is_instance_valid(r) and not r.is_queued_for_deletion() and r.position.y > g.interior.O.y + 322 \
+					and absf(r.position.x - g.train.position.x) < g.TRAIN_HALF:
+				g.poof(r.position, r.cfg.tint)
+				r.queue_free()
 	if busy() or g.player.dead:
 		return  # a train is in, or the death screen is up: the schedule waits
 	var before = g.train_t
@@ -87,6 +111,7 @@ func next_station(off: float) -> void:
 		g.train_tw.kill()
 	g.station_i = n
 	g.station_sign.text = g.stations[n].name
+	spawn_rats()
 	g.interior.door = g.stations[n].door  # the stairs now lead up to this station
 	g.return_pos = g.stations[n].pos
 	g.bump("rides")
