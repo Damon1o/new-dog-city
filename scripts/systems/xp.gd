@@ -7,9 +7,10 @@ const HQ_LEVEL := {"nyc": 20, "sf": 40, "tokyo": 60, "shenzhen": 80, "tower": 10
 static func needed(level: int) -> int:
 	return 15 + level * 6
 
-## Stat points earned on reaching `level`: one, plus a bonus every 10 levels.
-static func points_for(level: int) -> int:
-	return 2 if level % 10 == 0 else 1
+## Stat points earned on reaching `level`: three (each point is worth a third of the old one).
+const POINTS_PER_LEVEL := 3
+static func points_for(_level: int) -> int:
+	return POINTS_PER_LEVEL
 
 ## XP after rules. `src` is the enemy/prey the XP came from (null for quests, sights).
 static func scaled(amount: int, player_level: int, hq_level: int, src: Object = null) -> int:
