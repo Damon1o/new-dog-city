@@ -1,11 +1,13 @@
 extends Control
-## Home screen (spec 11 "Home"): the launch scene. Continue / New Story / Free Roam /
-## Wardrobe / Album / Settings / Quit over a slowly panning NYC street.
+## Home screen (spec 11 "Home"): the launch scene. Title + menu column on the left, a card
+## for your saved dog on the right, over a slowly panning NYC street. Save & Quit lands here.
 
 const GAME_SCENE := "res://scenes/Main.tscn"
 const Save := preload("res://scripts/systems/save.gd")
 const Look := preload("res://scripts/ui/theme.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
+const Player := preload("res://scripts/player.gd")
+const GOLD := Color(1, 0.85, 0.3)
 const TILE := 64.0
 const STEP := Vector2(7, 5) * TILE  # one block + one road, same rhythm as the city
 
@@ -23,6 +25,12 @@ var reduce_motion: CheckBox
 var large_text: CheckBox
 var free_roam: Button
 var wardrobe_btn: Button
+var new_btn: Button
+var layout: Control
+var dog_pic: TextureRect
+var dog_name: Label
+var dog_stats: Label
+var bob := 0.0
 
 ## A save counts once it has a dog: restart() leaves a "ui"-only file (volumes), which is no save.
 static func has_save(path: String) -> bool:
@@ -32,6 +40,8 @@ static func has_save(path: String) -> bool:
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = Look.make()
+	Sound.music("", Sound.BOSS)  # back from Save & Quit mid-fight or mid-cutscene
+	Sound.music("", Sound.CUTSCENE)
 	Sound.music("home_theme")
 	for n in ["road", "sidewalk", "building_a", "building_b", "building_c", "bodega", "tree", "hydrant"]:
 		tex[n] = load("res://assets/%s.png" % n)
@@ -40,37 +50,96 @@ func _ready() -> void:
 	bg.draw.connect(draw_street)
 	add_child(bg)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.62)
+	# shade: dark on the left where the menu sits, lighter on the right so the street shows
+	var shade := TextureRect.new()
+	var grad := GradientTexture2D.new()
+	grad.gradient = Gradient.new()
+	grad.gradient.set_color(0, Color(0.02, 0.03, 0.06, 0.92))
+	grad.gradient.set_color(1, Color(0.02, 0.03, 0.06, 0.35))
+	grad.fill_to = Vector2(1, 0)
+	shade.texture = grad
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(shade)
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
-	var center := CenterContainer.new()
-	add_child(center)
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var cfg := ConfigFile.new()
 	cfg.load(save_path)
 	Keys.apply(cfg.get_value("ui", "keys", {}))  # the controls list shows your bindings
-	menu = VBoxContainer.new()
-	menu.add_theme_constant_override("separation", 8)
-	var menu_panel := panel()
-	menu_panel.add_child(menu)
-	center.add_child(menu_panel)
-	menu.visibility_changed.connect(func(): menu_panel.visible = menu.visible)
-	label(menu, 56, Color(1, 0.85, 0.3)).text = "New Dog City"
-	label(menu, 22, Look.ACCENT.lightened(0.35)).text = "Lost Packet"
+
+	var margin := MarginContainer.new()
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 72 if side in ["left", "right"] else 56)
+	add_child(margin)
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 48)
+	margin.add_child(row)
+	layout = row
+
+	# left: title, accent bar, menu, footer hint
+	var left := VBoxContainer.new()
+	left.alignment = BoxContainer.ALIGNMENT_CENTER
+	left.add_theme_constant_override("separation", 6)
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(left)
+	var title := label(left, 64, GOLD)
+	title.text = "NEW DOG CITY"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	title.add_theme_constant_override("outline_size", 10)
+	var sub := label(left, 20, Look.ACCENT.lightened(0.4))
+	sub.text = "LOST PACKET"
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	var bar := ColorRect.new()
+	bar.color = GOLD
+	bar.custom_minimum_size = Vector2(120, 4)
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	left.add_child(bar)
 	var gap := Control.new()
-	gap.custom_minimum_size.y = 16
-	menu.add_child(gap)
+	gap.custom_minimum_size.y = 18
+	left.add_child(gap)
+	menu = VBoxContainer.new()
+	menu.add_theme_constant_override("separation", 6)
+	menu.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	left.add_child(menu)
+	menu.visibility_changed.connect(func(): layout.visible = menu.visible)
 	continue_btn = button("Continue", start_game)
-	button("New Story", new_story)
+	continue_btn.add_theme_stylebox_override("normal", Look.box(Look.ACCENT.darkened(0.25), 8, Look.ACCENT, 8))
+	new_btn = button("New Story", new_story)
 	# spec open question 4: Free Roam opens once the story reaches ch1_clue.
 	free_roam = button("Free Roam", start_game)
 	wardrobe_btn = button("Wardrobe", open_in_game.bind("wardrobe"))
 	button("Album", open_in_game.bind("album"))  # M5-5: the inventory's album tab, in game
 	button("Settings", open_settings)
 	button("Quit", get_tree().quit).visible = not OS.has_feature("web")
+	var hint := label(left, 12, Look.DIM)
+	hint.text = "Arrows + Enter to choose  ·  Esc to go back"
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hint.custom_minimum_size.y = 40
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+
+	# right: your dog
+	var card := panel()
+	card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	card.size_flags_horizontal = Control.SIZE_SHRINK_END
+	row.add_child(card)
+	var cv0 := VBoxContainer.new()
+	cv0.add_theme_constant_override("separation", 8)
+	card.add_child(cv0)
+	label(cv0, 13, Look.DIM).text = "YOUR DOG"
+	dog_pic = TextureRect.new()
+	dog_pic.custom_minimum_size = Vector2(240, 200)
+	dog_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	dog_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	dog_pic.pivot_offset = Vector2(120, 200)
+	cv0.add_child(dog_pic)
+	dog_name = label(cv0, 22, GOLD)
+	dog_stats = label(cv0, 14, Look.TEXT)
+
+	var center := CenterContainer.new()
+	add_child(center)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	confirm_panel = panel()
 	var cv := VBoxContainer.new()
@@ -134,6 +203,8 @@ func _process(delta: float) -> void:
 	if not reduce_motion.button_pressed:
 		pan += delta * 18.0
 		bg.queue_redraw()
+		bob += delta
+		dog_pic.scale = Vector2(1.0, 1.0 + sin(bob * 3.0) * 0.025)  # breathing
 
 func _unhandled_input(e: InputEvent) -> void:
 	if e.is_action_pressed("ui_cancel") and not menu.visible:
@@ -174,10 +245,32 @@ func show_menu() -> void:
 	menu.visible = true
 	confirm_panel.visible = false
 	settings_panel.visible = false
-	(continue_btn if continue_btn.visible else menu.get_child(4)).grab_focus.call_deferred()
+	show_dog(cfg)
+	(continue_btn if continue_btn.visible else new_btn).grab_focus.call_deferred()
 	if not reduce_motion.button_pressed:
 		menu.modulate.a = 0.0
 		menu.create_tween().tween_property(menu, "modulate:a", 1.0, 0.25)
+
+## The card on the right: the saved dog's breed sprite and a few numbers, or a nudge to start.
+func show_dog(cfg: ConfigFile) -> void:
+	var skin: int = clampi(cfg.get_value("dog", "skin", 1), 0, Player.BREEDS.size() - 1)
+	var b: Dictionary = Player.BREEDS[skin]
+	var sheet: Texture2D = load("res://assets/dog_%s.png" % b.file)
+	var frame := AtlasTexture.new()  # the sheet is two walk frames side by side; show the first
+	frame.atlas = sheet
+	frame.region = Rect2(0, 0, sheet.get_width() / 2.0, sheet.get_height())
+	dog_pic.texture = frame
+	if not continue_btn.visible:
+		dog_pic.modulate = Color(0.25, 0.28, 0.38)  # silhouette: no dog yet
+		dog_name.text = "No dog yet"
+		dog_stats.text = "Start a New Story
+to adopt one."
+		return
+	dog_pic.modulate = Color.WHITE
+	var collar: String = cfg.get_value("dog", "collar", "")
+	dog_name.text = ("%s the %s" % [collar, b.name]) if collar != "" else str(b.name)
+	dog_stats.text = "Level %d   ·   %d bones   ·   %d treats" % [
+		cfg.get_value("dog", "level", 1), cfg.get_value("dog", "bones", 0), cfg.get_value("dog", "treats", 0)]
 
 func start_game() -> void:
 	get_tree().change_scene_to_file(GAME_SCENE)
@@ -246,6 +339,8 @@ func button(text: String, on_press: Callable, parent: Node = null) -> Button:
 	b.text = text
 	b.custom_minimum_size = Vector2(260, 38)
 	b.pressed.connect(on_press)
+	if not parent:
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT  # the home menu reads as a left column
 	(parent if parent else menu).add_child(b)
 	return b
 
