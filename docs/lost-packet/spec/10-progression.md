@@ -15,7 +15,7 @@ Total XP to reach 100 today: 51,480.
   level 70 is not the fastest path.
 - Catch-up: if Byte is more than 10 levels below the current city's HQ level,
   all XP +25%.
-- Death keeps XP and level (existing treat halving stays). Boss Hedgehog's
+- Death keeps XP and level (existing treat halving stays). Daven the Hedgehog's
   10-level loss is removed.
 
 ### Pacing targets (tuned with the sim in task M1-6)

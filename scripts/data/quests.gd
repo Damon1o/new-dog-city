@@ -30,7 +30,7 @@ const QUESTS := {
 		["Buy something at a bodega", "bought", 1, 5, 30],
 		["Reach level 12", "level", 12, 25, 0],
 		["Enter the hedgehog burrow in\nthe south-east park", "burrow", 1, 0, 50],
-		["Defeat the Boss Hedgehog", "boss", 1, 100, 500],
+		["Defeat Daven the Hedgehog", "boss", 1, 100, 500],
 	],
 	# Dog park dogs (spec 07). Optional columns: bones, wardrobe item. Step 0 = talk to the dog.
 	"Biscuit": [

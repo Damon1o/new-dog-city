@@ -73,14 +73,14 @@ const CUTSCENES := {
 		{"flag": "ch1_boss"},
 	],
 	"cs_hedgehog_pre": [
-		{"say": "Boss Hedgehog", "text": "Who's sniffing around MY den?"},
+		{"say": "Daven the Hedgehog", "text": "Who's sniffing around MY den?"},
 		{"say": "Byte", "text": "I'm looking for Sam. Hoodie, laptop, smells like coffee."},
-		{"say": "Boss Hedgehog", "text": "Nobody leaves the den, pup. Not with treats. Not with fur."},
-		{"say": "Boss Hedgehog", "text": "Hoglets! Dinner's here!"},
+		{"say": "Daven the Hedgehog", "text": "Nobody leaves the den, pup. Not with treats. Not with fur."},
+		{"say": "Daven the Hedgehog", "text": "Hoglets! Dinner's here!"},
 		{"flag": "cs_hedgehog_pre"},
 	],
 	"cs_hedgehog_post": [
-		{"say": "Boss Hedgehog", "text": "Okay... okay! The den is yours. Keep the quills as a souvenir."},
+		{"say": "Daven the Hedgehog", "text": "Okay... okay! The den is yours. Keep the quills as a souvenir."},
 		{"say": "Byte", "text": "Just the treats, thanks."},
 		{"flag": "cs_hedgehog_post"},
 	],

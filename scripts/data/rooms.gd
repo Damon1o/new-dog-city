@@ -38,7 +38,7 @@ const ROOMS := {
 			[Rect2(0, 0, 960, 96), "station_wall", Color(0.5, 0.35, 0.25)], [Rect2(440, 616, 80, 24), Color(0.1, 0.07, 0.05)]],
 		"props": [],
 		"spots": {"exit": Vector2(480, 624), "start": Vector2(480, 572)},
-		"door": ["HEDGEHOG BURROW   final boss, 3 waves", "[F]  Challenge the Boss Hedgehog  (it keeps treats over 20 if you fall)"],
+		"door": ["HEDGEHOG BURROW   final boss, 3 waves", "[F]  Challenge Daven the Hedgehog  (it keeps treats over 20 if you fall)"],
 		"exit": ["HEDGEHOG DEN", "[F]  Back to the street"],
 	},
 	"apartment": {

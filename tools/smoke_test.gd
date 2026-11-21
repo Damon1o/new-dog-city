@@ -1,5 +1,5 @@
 extends SceneTree
-## Smoke test for quests + Boss Hedgehog. Uses its own save file, never the real one.
+## Smoke test for quests + Daven the Hedgehog. Uses its own save file, never the real one.
 ##   godot --headless --path . -s tools/smoke_test.gd
 
 var SAVE := "user://smoke_test_%d.cfg" % OS.get_process_id()  # per run: parallel worktrees share user://

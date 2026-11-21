@@ -150,7 +150,7 @@ func draw_sketch() -> void:
 ## Byte's own sprite (first frame of the sheet); others get the cat art (Mango, Fat Cat, the
 ## bodega cats and the HQ receptionist are all cats). Steps with a "face" callable skip this.
 func face(who: String) -> Texture2D:
-	if who in ["Sam", "Boss Hedgehog"]:
+	if who in ["Sam", "Daven the Hedgehog"]:
 		return null  # Sam is drawn in code (scripts/world/flashback.gd), no texture to show
 	for b: Dictionary in BOSSES:
 		if b.name == who:

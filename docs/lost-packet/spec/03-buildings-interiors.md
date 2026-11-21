@@ -55,7 +55,7 @@ and `interact()` has one `match` arm per door type. That does not scale to
 | hq_floor | each HQ | 960 x 640 | Loads a puzzle (`04-hq-puzzles.md`) |
 | flashback_room | all | 640 x 384 | Sepia tint, scripted props |
 | subway_platform | all | 1152 x 448 | Existing subway room; sprite set swaps per city |
-| burrow | NYC | 960 x 640 | Existing Boss Hedgehog den |
+| burrow | NYC | 960 x 640 | Existing Daven the Hedgehog den |
 
 Landmark buildings (Empire State, Chrysler) use `office_lobby` with 6 floors
 and a rooftop view (camera zooms out; landmark counts as "seen").

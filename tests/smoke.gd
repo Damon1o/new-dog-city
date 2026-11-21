@@ -657,7 +657,7 @@ func _initialize() -> void:
 	low.free()
 	assert(XP.scaled(100, 9, 20) == 125 and XP.scaled(100, 10, 20) == 100, "catch-up +25% below HQ-10")
 
-	# Boss Hedgehog loss keeps level and XP, keeps at most 20 treats
+	# Daven the Hedgehog loss keeps level and XP, keeps at most 20 treats
 	var lv_before: int = player.level
 	var xp_before: int = player.xp
 	game.set_inside("boss")
