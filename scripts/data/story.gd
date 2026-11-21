@@ -28,12 +28,12 @@ const FLASHBACKS := {
 		["shelf", Vector2(150, 140), 2.0, "Byte", "Squeaky toys, floor to ceiling. Sam said pick one. I picked three."],
 	]},
 	"fb_nyc_2": {"music": "piano_nyc", "sam": Vector2(330, 240), "props": [
-		["tree", Vector2(160, 220), 2.0, "Byte", "Cold white stuff falling out of the sky! I bit it. It vanished."],
-		["hydrant", Vector2(480, 230), 2.0, "Sam", "Your first snow! Hold still, I want a picture of this."],
+		["tree", Vector2(160, 220), 1.0, "Byte", "Cold white stuff falling out of the sky! I bit it. It vanished."],
+		["hydrant", Vector2(480, 230), 1.0, "Sam", "Your first snow! Hold still, I want a picture of this."],
 	]},
 	"fb_nyc_3": {"music": "piano_nyc", "sam": Vector2(470, 260), "props": [
 		["shelf", Vector2(150, 140), 2.0, "Byte", "Rows of cages. Everybody barking. Nobody ever looked at me."],
-		["water_bowl", Vector2(200, 290), 2.5, "Byte", "My bowl, empty like always. Then footsteps stopped right here."],
+		["water_bowl", Vector2(200, 290), 1.25, "Byte", "My bowl, empty like always. Then footsteps stopped right here."],
 		["counter", Vector2(470, 200), 2.0, "Sam", "That one. The scruffy one in the back. He's coming home with me."],
 	]},
 }
