@@ -601,7 +601,7 @@ func _initialize() -> void:
 		var treats: int = player.treats
 		b.hurt(1e9, player.position)
 		assert(game.boss == null and not b.visible, "boss beaten")
-		assert(root.get_node("Sound").current == "nyc_jazz", "city music back after the boss")
+		assert(root.get_node("Sound").current == ("park" if game.in_park else "nyc_jazz"), "city music back after the boss")
 		assert(game.dialog.id == b.cfg.outro, "boss outro plays")
 		game.dialog.skip()
 		assert(player.treats >= treats + b.cfg.treats)  # quests may pay extra on the level-up
@@ -755,6 +755,20 @@ func _initialize() -> void:
 	sound.night = false
 	for t: String in sound.TRACKS:  # every placeholder loop builds
 		assert(sound.stream(t).data.size() > 0, t)
+	for t: String in sound.FILES:  # every recording imports and loops
+		var rec: AudioStream = sound.stream(t)
+		assert(rec != null and rec.loop, t)
+	assert(sound.sounds["amb_rain"].loop, "rain ambience loops")
+	game.set_inside("")
+	player.position = game.parks[0].get_center()
+	var was_paused := paused
+	paused = false  # game._process runs the park check
+	await frames(2)
+	paused = was_paused
+	assert(game.in_park and sound.current == "park", "parks play the park theme")
+	game.set_inside("boss")
+	assert(sound.current == "hedgehog_battle_1", "hedgehog den plays battle 1")
+	game.set_inside("")
 
 	# save v2: a v1-shaped file loads with defaults; a fully filled v2 save round-trips
 	var Save: GDScript = load("res://scripts/systems/save.gd")
