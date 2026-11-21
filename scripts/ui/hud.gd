@@ -2,7 +2,9 @@ extends Node
 const Look := preload("res://scripts/ui/theme.gd")
 const Items := preload("res://scripts/data/items.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
-var buff_row: HBoxContainer  # food / drink buff chips above the ability bar
+var buff_row: HBoxContainer  # food / drink buff chips, bottom centre
+var portrait: Control  # diamond dog portrait, top-left
+var bones_label: Label
 ## HUD: building and per-frame updates (moved from game.gd). Widget vars stay on
 ## game so save, tests and actors keep reading them there.
 
@@ -51,6 +53,7 @@ func make_icon(kind: String, color: Color) -> Control:
 	return c
 
 func draw_icon(c: Control, kind: String, color: Color) -> void:
+	c.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * minf(c.size.x, c.size.y) / 14.0)  # shapes are in a 14 px box
 	match kind:
 		"hp":  # heart
 			c.draw_circle(Vector2(4, 5), 3.5, color)
@@ -69,22 +72,47 @@ func draw_icon(c: Control, kind: String, color: Color) -> void:
 		"xp":  # gem
 			c.draw_colored_polygon(PackedVector2Array([Vector2(7, 0), Vector2(14, 7), Vector2(7, 14), Vector2(0, 7)]), color)
 
-func make_bar(parent: Control, key: String, color: Color) -> void:
+## Slanted bar. `size` is the drawn bar; `pips` > 0 splits it into segments (stamina).
+func make_bar(parent: Control, key: String, color: Color, size := Vector2(190, 13), icon := true, pips := 0) -> void:
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(row)
-	row.add_child(make_icon(key, color))
+	if icon:
+		row.add_child(make_icon(key, color))
 	var b := Control.new()
-	b.custom_minimum_size = Vector2(190, 13)
+	b.custom_minimum_size = size + Vector2(4, 4)  # room for the dark frame
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.draw.connect(draw_bar.bind(key))
 	row.add_child(b)
-	g.bars[key] = {"ctl": b, "color": color, "v": 1.0, "ghost": 1.0, "text": ""}
+	g.bars[key] = {"ctl": b, "color": color, "v": 1.0, "ghost": -1.0, "text": "", "pips": pips}
+
+## Parallelogram leaning right, filled `f` of the way from the left. Skew scales with height so
+## a grown copy (the frame) stays parallel.
+static func slant_poly(r: Rect2, f: float) -> PackedVector2Array:
+	var k := r.size.y * 0.75
+	var l := (r.size.x - k) * f
+	var p := r.position
+	return PackedVector2Array([p + Vector2(k, 0), p + Vector2(k + l, 0), p + Vector2(l, r.size.y), p + Vector2(0, r.size.y)])
+
+## Framed slanted bar: black frame, dark track, crimson damage trail, fill with a light sheen on top.
+func draw_slant(ci: CanvasItem, r: Rect2, v: float, ghost: float, col: Color) -> void:
+	ci.draw_colored_polygon(slant_poly(r.grow(2), 1.0), Color(0.03, 0.03, 0.05, 0.92))
+	ci.draw_colored_polygon(slant_poly(r, 1.0), Color(0.17, 0.14, 0.15, 0.92))
+	if ghost > v:
+		ci.draw_colored_polygon(slant_poly(r, ghost), Color(0.85, 0.12, 0.32))
+	if v <= 0.0:
+		return
+	var p := slant_poly(r, v)
+	ci.draw_colored_polygon(p, col.darkened(0.15))
+	ci.draw_colored_polygon(PackedVector2Array([p[0], p[1], p[1].lerp(p[2], 0.45), p[0].lerp(p[3], 0.45)]), col.lightened(0.25))
 
 func set_bar(key: String, frac: float, delta: float, text := "") -> void:
 	var b: Dictionary = g.bars[key]
 	var v := clampf(frac, 0.0, 1.0)
 	var ghost: float = b.ghost
 	b.v = v
-	b.ghost = maxf(v, move_toward(ghost, v, delta * 0.35))  # white trail shows how big the hit was
+	b.ghost = maxf(v, move_toward(ghost, v, delta * 0.35))  # crimson trail shows how big the hit was
 	b.text = text
 	b.ctl.queue_redraw()
 
@@ -93,18 +121,26 @@ func draw_bar(key: String) -> void:
 	var c: Control = b.ctl
 	var col: Color = b.color
 	var v: float = b.v
-	var ghost: float = b.ghost
+	var ghost: float = b.ghost if key in ["hp", "boss"] else 0.0  # damage trail only where hits land
 	var text: String = b.text
 	if key == "stamina" and g.player.winded:
 		col = Color(0.5, 0.5, 0.5)
 	elif key in g.LOW_KEYS and v < g.LOW:
 		col = col.lerp(Color.WHITE, 0.5 + 0.5 * sin(Time.get_ticks_msec() / 90.0))
-	c.draw_rect(Rect2(Vector2.ZERO, c.size), Color(0, 0, 0, 0.55))
-	c.draw_rect(Rect2(0, 0, c.size.x * ghost, c.size.y), Color(1, 1, 1, 0.85))
-	c.draw_rect(Rect2(0, 0, c.size.x * v, c.size.y), col)
+	var r := Rect2(Vector2(2, 2), c.size - Vector2(4, 4))
+	var n: int = b.pips
+	if n > 0:  # segmented: each pip fills in turn
+		var gap := 3.0
+		var w := (r.size.x - gap * (n - 1)) / n
+		for i in n:
+			draw_slant(c, Rect2(r.position + Vector2(i * (w + gap), 0), Vector2(w, r.size.y)), clampf(v * n - i, 0.0, 1.0), 0.0, col)
+	else:
+		draw_slant(c, r, v, ghost, col)
 	if text != "":
-		c.draw_string_outline(ThemeDB.fallback_font, Vector2(0, c.size.y - 2), text, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10, 3, Color.BLACK)
-		c.draw_string(ThemeDB.fallback_font, Vector2(0, c.size.y - 2), text, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10)
+		var fs := clampi(int(r.size.y) - 2, 9, 13)
+		var at := Vector2(0, r.position.y + r.size.y / 2.0 + fs * 0.36)
+		c.draw_string_outline(ThemeDB.fallback_font, at, text, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, fs, 3, Color.BLACK)
+		c.draw_string(ThemeDB.fallback_font, at, text, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, fs)
 
 ## Inventory slot: icon + count label. Returns the label.
 func make_slot(parent: Control, t: Texture2D) -> Label:
@@ -112,11 +148,13 @@ func make_slot(parent: Control, t: Texture2D) -> Label:
 	parent.add_child(box)
 	var icon := TextureRect.new()
 	icon.texture = t
-	icon.custom_minimum_size = Vector2(22, 22)
+	icon.custom_minimum_size = Vector2(28, 28)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	box.add_child(icon)
-	return hud_label(box, 14)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return hud_label(box, 20)
 
 func build_hud() -> void:
 	var layer := CanvasLayer.new()
@@ -164,24 +202,51 @@ func build_hud() -> void:
 	for d in g.doors.filter(func(x): return named.has(x.template)):
 		g.pois.append({"pos": d.pos, "text": named[d.template], "color": Color(0.7, 0.9, 1) if d.template == "airport" else Color(1, 0.55, 0.15)})
 
-	# top-left: stats, inventory, g.clock
-	var stats := panel()
-	stats.position = Vector2(10, 10)
-	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	g.hud.add_child(stats)
+	# top-left, panel-less: diamond portrait + slanted HP / stamina pips / XP, needs frame under it,
+	# then a currency column and the clock.
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 5)
-	stats.add_child(col)
-	g.title = hud_label(col, 18)
-	make_bar(col, "hp", Color(0.85, 0.2, 0.2))
-	make_bar(col, "hunger", Color(0.9, 0.55, 0.15))
-	make_bar(col, "thirst", Color(0.25, 0.55, 0.95))
-	make_bar(col, "stamina", Color(0.9, 0.85, 0.2))
-	make_bar(col, "xp", Color(0.65, 0.4, 0.9))
-	var items := HBoxContainer.new()
-	items.add_theme_constant_override("separation", 12)
+	col.position = Vector2(14, 10)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_theme_constant_override("separation", 6)
+	g.hud.add_child(col)
+	var frame := HBoxContainer.new()
+	frame.add_theme_constant_override("separation", -10)  # bars tuck under the diamond's right point
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(frame)
+	portrait = Control.new()
+	portrait.custom_minimum_size = Vector2(84, 84)
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait.draw.connect(draw_portrait)
+	portrait.z_index = 1  # over the bars' left ends
+	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # crisp pixel-art dog
+	frame.add_child(portrait)
+	var main := VBoxContainer.new()
+	main.add_theme_constant_override("separation", 1)
+	main.alignment = BoxContainer.ALIGNMENT_CENTER
+	main.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(main)
+	g.title = hud_label(main, 15)
+	make_bar(main, "hp", Color(0.2, 0.82, 0.45), Vector2(230, 18), false)
+	make_bar(main, "stamina", Color(0.98, 0.78, 0.3), Vector2(200, 10), false, 5)
+	make_bar(main, "xp", Color(1, 0.45, 0.15), Vector2(150, 5), false)
+	var needs := VBoxContainer.new()  # the small "companion" frame: hunger + thirst
+	needs.add_theme_constant_override("separation", 3)
+	needs.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(needs)
+	make_bar(needs, "hunger", Color(0.95, 0.6, 0.2), Vector2(140, 9))
+	make_bar(needs, "thirst", Color(0.3, 0.65, 1), Vector2(140, 9))
+	var items := VBoxContainer.new()  # currency stack: big outlined numbers, icon on the left
+	items.add_theme_constant_override("separation", 2)
+	items.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(items)
 	g.treat_label = make_slot(items, g.tex.treat)
+	var bone_row := HBoxContainer.new()
+	bone_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	items.add_child(bone_row)
+	var bone := make_icon("hunger", Color(0.95, 0.92, 0.82))
+	bone.custom_minimum_size = Vector2(28, 28)
+	bone_row.add_child(bone)
+	bones_label = hud_label(bone_row, 20)
 	g.slots.purina = make_slot(items, g.tex.purina)
 	g.slots.water = make_slot(items, g.tex.water_bowl)
 	var time_row := HBoxContainer.new()
@@ -235,7 +300,7 @@ func build_hud() -> void:
 
 	# bottom: g.toasts (left), shop / subway g.menu (centre)
 	g.toasts = VBoxContainer.new()
-	dock(g.toasts, true, 12, Control.SIZE_SHRINK_BEGIN)
+	dock(g.toasts, true, 196, Control.SIZE_SHRINK_BEGIN)  # above the ability cluster
 	g.toasts.get_parent().offset_left = 12
 	g.menu = panel()
 	var rows := VBoxContainer.new()
@@ -245,20 +310,27 @@ func build_hud() -> void:
 		g.menu_rows.append(hud_label(rows, 16))
 	g.menu.hide()
 	dock(g.menu, true, 60)
-	# bottom centre: ability bar (spec 11 HUD); locked ones hidden. Cooldown var = "<name>_cd".
-	var abar := HBoxContainer.new()
-	abar.add_theme_constant_override("separation", 10)
-	for a in [["dash", "C", g.player.DASH_CD], ["bark", "R", g.player.BARK_CD], ["pounce", "Spc", g.player.POUNCE_CD]]:
+	# bottom-left: ability cluster (spec 11 HUD) in a diamond - pounce on top, dash left, bark right.
+	# Locked ones hidden. Cooldown var = "<name>_cd".
+	var cluster := Control.new()
+	cluster.custom_minimum_size = Vector2(190, 176)
+	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cluster.draw.connect(draw_cluster.bind(cluster))
+	dock(cluster, true, 8, Control.SIZE_SHRINK_BEGIN)
+	cluster.get_parent().offset_left = 8
+	for a in [["dash", Vector2(0, 76), g.player.DASH_CD], ["bark", Vector2(118, 76), g.player.BARK_CD],
+			["pounce", Vector2(59, 0), g.player.POUNCE_CD]]:
 		var c := Control.new()
-		c.custom_minimum_size = Vector2(44, 52)
+		c.size = Vector2(72, 98)
+		c.position = a[1]
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.draw.connect(draw_ability.bind(a[0]))
-		abar.add_child(c)
-		g.abilities[a[0]] = {"ctl": c, "key": a[1], "max": a[2], "v": 0.0}
-	dock(abar, true, 4)
+		cluster.add_child(c)
+		g.abilities[a[0]] = {"ctl": c, "max": a[2], "v": 0.0}
 	buff_row = HBoxContainer.new()
 	buff_row.add_theme_constant_override("separation", 8)
 	buff_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dock(buff_row, true, 62)
+	dock(buff_row, true, 12)
 	for slot in ["food", "drink"]:
 		var chip := panel(0.8)
 		chip.name = slot
@@ -403,7 +475,8 @@ func show_menu(head: String, rows: Array) -> void:  # rows: [[text, enabled], ..
 			g.menu_rows[i].modulate = Color(0.6, 1, 0.7) if rows[i][1] else Color(0.6, 0.6, 0.6)
 
 func update_hud(delta: float) -> void:
-	g.title.text = "%s   Lv %d" % [g.player.display_name(), g.player.level]
+	g.title.text = g.player.display_name()
+	portrait.queue_redraw()
 	set_bar("hp", g.player.hp / g.player.max_hp, delta, "%d / %d" % [ceili(g.player.hp), int(g.player.max_hp)])
 	set_bar("hunger", g.player.hunger / 100.0, delta)
 	set_bar("thirst", g.player.thirst / 100.0, delta)
@@ -423,16 +496,18 @@ func update_hud(delta: float) -> void:
 	if g.player.treats != g.last_treats:
 		if g.last_treats >= 0:  # pop green on gain, red on spend
 			g.treat_label.modulate = Color(0.5, 1, 0.5) if g.player.treats > g.last_treats else Color(1, 0.45, 0.45)
+			g.treat_label.pivot_offset = g.treat_label.size / 2.0
 			g.treat_label.scale = Vector2.ONE * 1.5
 			var tw := create_tween().set_parallel()
 			tw.tween_property(g.treat_label, "scale", Vector2.ONE, 0.25)
 			tw.tween_property(g.treat_label, "modulate", Color.WHITE, 0.4)
 		g.last_treats = g.player.treats
-		g.treat_label.text = "x%d   %d bones" % [g.player.treats, g.economy.bones]
+		g.treat_label.text = "%d" % g.player.treats
+	bones_label.text = "%d" % g.economy.bones
 	for item in ["purina", "water"]:
 		var n: int = g.player.get(item)
 		var l: Label = g.slots[item]
-		l.text = "x%d" % n  # used from the hotbar (keys 1-4)
+		l.text = "%d" % n  # used from the hotbar (keys 1-4)
 		l.get_parent().modulate.a = 1.0 if n > 0 else 0.4
 	var mins = int(g.tod * 1440.0)
 	g.info.text = "%02d:%02d" % [mins / 60, mins % 60]
@@ -452,29 +527,90 @@ func update_hud(delta: float) -> void:
 		ab.ctl.visible = n != "pounce" or g.player.level >= g.player.POUNCE_LEVEL
 		ab.ctl.queue_redraw()
 
-## Ability slot: round button with its key, name under it, dark sweep for the cooldown left.
+## Ability orb: spiked dark ring, coloured core with an icon, gold rim when ready, dark sweep +
+## seconds while cooling down, key pill under it.
+const AB_COLOR := {"dash": Color(0.25, 0.5, 0.95), "bark": Color(0.6, 0.3, 0.9), "pounce": Color(0.2, 0.75, 0.6)}
+
 func draw_ability(n: String) -> void:
 	var ab: Dictionary = g.abilities[n]
 	var c: Control = ab.ctl
-	var mid := Vector2(c.size.x / 2.0, 20)
+	var mid := Vector2(c.size.x / 2.0, 36)
 	var font := ThemeDB.fallback_font
-	c.draw_circle(mid, 19, Color(0.2, 0.45, 0.8) if ab.v <= 0.0 else Color(0.25, 0.25, 0.3))
-	if ab.v > 0.0:  # clockwise from 12 o'clock; a thick arc avoids polygon triangulation at tiny slices
-		c.draw_arc(mid, 9.5, -PI / 2.0, -PI / 2.0 + TAU * ab.v, 32, Color(0, 0, 0, 0.65), 19.0)
-	c.draw_arc(mid, 19, 0, TAU, 32, Color(1, 1, 1, 0.7), 1.5)
+	var ready: bool = ab.v <= 0.0
+	var core: Color = AB_COLOR[n] if ready else AB_COLOR[n].darkened(0.55)
+	var spikes := PackedVector2Array()  # 8-point star behind the ring
+	for i in 16:
+		spikes.append(mid + Vector2.RIGHT.rotated(TAU * i / 16.0 + PI / 16.0) * (36.0 if i % 2 == 0 else 31.0))
+	c.draw_colored_polygon(spikes, Color(0.05, 0.04, 0.06, 0.95))
+	c.draw_circle(mid, 29, Color(0.16, 0.14, 0.17))
+	c.draw_circle(mid, 25, core)
+	c.draw_circle(mid + Vector2(-6, -7), 12, Color(1, 1, 1, 0.12))  # glassy highlight
+	ab_icon(c, n, mid, Color(1, 1, 1, 0.9 if ready else 0.45))
+	if not ready:  # clockwise from 12 o'clock; a thick arc avoids polygon triangulation at tiny slices
+		c.draw_arc(mid, 12.5, -PI / 2.0, -PI / 2.0 + TAU * ab.v, 32, Color(0, 0, 0, 0.6), 25.0)
+		var secs := "%d" % ceili(float(g.player.get(n + "_cd")))
+		c.draw_string_outline(font, mid + Vector2(-c.size.x / 2.0, 7), secs, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 20, 4, Color.BLACK)
+		c.draw_string(font, mid + Vector2(-c.size.x / 2.0, 7), secs, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 20)
+	var pulse := 0.8 + 0.2 * sin(Time.get_ticks_msec() / 300.0)
+	c.draw_arc(mid, 28, 0, TAU, 40, Color(0.95, 0.72, 0.3, pulse) if ready else Color(0.35, 0.33, 0.38), 3.0 if ready else 2.0)
 	var key: String = Keys.label("bite" if n == "pounce" else n).get_slice(" / ", 0).left(5)  # follows rebinding
-	c.draw_string_outline(font, Vector2(0, 25), key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13, 3, Color.BLACK)
-	c.draw_string(font, Vector2(0, 25), key, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 13)
-	c.draw_string_outline(font, Vector2(0, 51), n, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10, 3, Color.BLACK)
-	c.draw_string(font, Vector2(0, 51), n, HORIZONTAL_ALIGNMENT_CENTER, c.size.x, 10)
+	var w := maxf(font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12, 26)
+	var pill := Rect2(mid.x - w / 2.0, 74, w, 16)
+	var sb := Look.box(Color(0.12, 0.13, 0.18, 0.95), 4, Color(1, 1, 1, 0.35), 0)
+	sb.shadow_size = 0
+	c.draw_style_box(sb, pill)
+	c.draw_string(font, Vector2(pill.position.x, 86), key, HORIZONTAL_ALIGNMENT_CENTER, w, 11, Look.TEXT)
+
+## Simple white glyph per ability, centred on `m`.
+func ab_icon(c: Control, n: String, m: Vector2, col: Color) -> void:
+	match n:
+		"dash":  # speed chevrons
+			for i in 2:
+				var o := m + Vector2(-5 + i * 9, 0)
+				c.draw_polyline(PackedVector2Array([o + Vector2(-5, -9), o + Vector2(4, 0), o + Vector2(-5, 9)]), col, 4.0)
+		"bark":  # mouth + sound waves
+			c.draw_circle(m + Vector2(-7, 0), 4.0, col)
+			for r in [8.0, 14.0]:
+				c.draw_arc(m + Vector2(-7, 0), r, -0.7, 0.7, 10, col, 2.5)
+		"pounce":  # paw
+			c.draw_circle(m + Vector2(0, 5), 6.5, col)
+			for p in [Vector2(-8, -3), Vector2(-3, -9), Vector2(3, -9), Vector2(8, -3)]:
+				c.draw_circle(m + p, 3.0, col)
+
+## Faint "+" hub between the orbs.
+func draw_cluster(c: Control) -> void:
+	var m := Vector2(95, 112)
+	c.draw_rect(Rect2(m - Vector2(10, 3), Vector2(20, 6)), Color(0.4, 0.4, 0.45, 0.8))
+	c.draw_rect(Rect2(m - Vector2(3, 10), Vector2(6, 20)), Color(0.4, 0.4, 0.45, 0.8))
+
+## Dog portrait in a diamond: black frame, crimson gem rim (pulses at low HP), level tag under it.
+func draw_portrait() -> void:
+	var c := portrait
+	var m := c.size / 2.0 + Vector2(0, -4)
+	var gem := Color(0.75, 0.12, 0.3)
+	if g.player.hp / g.player.max_hp < g.LOW:
+		gem = gem.lerp(Color(1, 0.4, 0.4), 0.5 + 0.5 * sin(Time.get_ticks_msec() / 90.0))
+	for ring in [[38.0, Color(0.03, 0.03, 0.05, 0.95)], [34.0, gem], [30.0, Color(0.1, 0.08, 0.11)], [27.0, Color(0.22, 0.2, 0.26)]]:
+		var r: float = ring[0]
+		c.draw_colored_polygon(PackedVector2Array([m + Vector2(0, -r), m + Vector2(r, 0), m + Vector2(0, r), m + Vector2(-r, 0)]), ring[1])
+	var t: Texture2D = g.player.sprite.texture
+	if t:  # first frame of the breed sheet
+		var frame := Vector2(t.get_width() / 2.0, t.get_height())
+		var sz := frame * (34.0 / maxf(frame.x, frame.y))
+		c.draw_texture_rect_region(t, Rect2(m - sz / 2.0, sz), Rect2(Vector2.ZERO, frame))
+	var font := ThemeDB.fallback_font
+	var tag := Rect2(m.x - 14, m.y + 26, 28, 16)
+	var sb := Look.box(Color(0.08, 0.07, 0.1, 0.95), 3, gem, 0)
+	sb.shadow_size = 0
+	c.draw_style_box(sb, tag)
+	c.draw_string(font, Vector2(tag.position.x, tag.position.y + 12), str(g.player.level), HORIZONTAL_ALIGNMENT_CENTER, tag.size.x, 12, Color(1, 0.9, 0.5))
 
 func draw_overlay() -> void:
 	var xf = g.get_canvas_transform()  # world -> screen
 	var font := ThemeDB.fallback_font
 	if g.hedgehog.active:
 		var bar = Rect2((g.overlay.size.x - 360.0) / 2.0, 34.0, 360.0, 14.0)
-		g.overlay.draw_rect(bar.grow(2), Color(0, 0, 0, 0.7))
-		g.overlay.draw_rect(Rect2(bar.position, Vector2(bar.size.x * maxf(g.hedgehog.hp, 0.0) / g.hedgehog.max_hp, bar.size.y)), Color(0.85, 0.3, 0.9))
+		draw_slant(g.overlay, bar, maxf(g.hedgehog.hp, 0.0) / g.hedgehog.max_hp, 0.0, Color(0.85, 0.3, 0.9))
 		g.overlay.draw_string_outline(font, Vector2(bar.position.x, 26.0), "BOSS HEDGEHOG   wave %d / %d" % [g.hedgehog.wave + 1, g.hedgehog.WAVES],
 			HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 14, 4, Color.BLACK)
 		g.overlay.draw_string(font, Vector2(bar.position.x, 26.0), "BOSS HEDGEHOG   wave %d / %d" % [g.hedgehog.wave + 1, g.hedgehog.WAVES],
