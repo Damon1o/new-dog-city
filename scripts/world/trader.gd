@@ -127,7 +127,7 @@ func talk() -> void:
 	if not g.city.id in hinted:
 		g.save_extra["trader/hinted"] = hinted + [g.city.id]
 		line = "Free tip, since I like your face: %s." % Story.objective()
-	g.dialog.play("trader", [{"say": "Pocket", "text": line}])
+	g.dialog.play("trader", [{"say": "Pocket", "text": line, "face": draw_opossum.bind(0.0)}])
 	g.save_game()
 
 func _process(_delta: float) -> void:
@@ -165,15 +165,7 @@ func draw_ping() -> void:
 ## Grey opossum (white face, pink nose and tail) behind a wire shopping cart.
 func draw_body() -> void:
 	var sway := 0.0 if g.save_extra.get("ui/reduce_motion", false) else sin(Time.get_ticks_msec() / 400.0) * 1.5
-	var fur := Color(0.62, 0.6, 0.62)
-	var pink := Color(1, 0.65, 0.7)
-	body.draw_line(Vector2(-14, 4), Vector2(-24, 10 + sway), pink, 2.0)  # tail
-	body.draw_circle(Vector2(-6, 0), 10.0, fur)
-	body.draw_circle(Vector2(4, -10 + sway), 7.0, Color(0.95, 0.95, 0.92))  # face
-	body.draw_circle(Vector2(1, -16 + sway), 2.5, Color(0.2, 0.2, 0.2))   # ears
-	body.draw_circle(Vector2(8, -16 + sway), 2.5, Color(0.2, 0.2, 0.2))
-	body.draw_circle(Vector2(6, -11 + sway), 1.2, Color.BLACK)  # eye
-	body.draw_circle(Vector2(11, -8 + sway), 1.8, pink)  # nose
+	draw_opossum(body, sway)
 	var cart := Rect2(14, -14, 26, 18)
 	body.draw_rect(cart, Color(0.4, 0.4, 0.45, 0.35))
 	body.draw_rect(cart, Color(0.78, 0.8, 0.85), false, 1.5)
@@ -184,3 +176,15 @@ func draw_body() -> void:
 	body.draw_circle(Vector2(36, 8), 2.5, Color(0.15, 0.15, 0.15))
 	if g.ctx == "trader":
 		body.draw_string(ThemeDB.fallback_font, Vector2(-40, -30), "Pocket", HORIZONTAL_ALIGNMENT_CENTER, 80, 13, Color(0.85, 0.75, 1))
+
+## Pocket himself, on any canvas item: the street body, or the dialog portrait when he talks.
+static func draw_opossum(ci: CanvasItem, sway: float) -> void:
+	var fur := Color(0.62, 0.6, 0.62)
+	var pink := Color(1, 0.65, 0.7)
+	ci.draw_line(Vector2(-14, 4), Vector2(-24, 10 + sway), pink, 2.0)  # tail
+	ci.draw_circle(Vector2(-6, 0), 10.0, fur)
+	ci.draw_circle(Vector2(4, -10 + sway), 7.0, Color(0.95, 0.95, 0.92))  # face
+	ci.draw_circle(Vector2(1, -16 + sway), 2.5, Color(0.2, 0.2, 0.2))   # ears
+	ci.draw_circle(Vector2(8, -16 + sway), 2.5, Color(0.2, 0.2, 0.2))
+	ci.draw_circle(Vector2(6, -11 + sway), 1.2, Color.BLACK)  # eye
+	ci.draw_circle(Vector2(11, -8 + sway), 1.8, pink)  # nose

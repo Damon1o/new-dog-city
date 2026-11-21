@@ -46,19 +46,23 @@ func _process(delta: float) -> void:
 
 func talk() -> void:
 	var lines: Array = on_talk.call() if on_talk.is_valid() else ["Woof!"]
-	g.dialog.play("npc", lines.map(func(t): return {"say": npc_name, "text": t}))
+	g.dialog.play("npc", lines.map(func(t): return {"say": npc_name, "text": t, "face": draw_dog.bind(color)}))
 
 func _draw() -> void:
-	var dark := color.darkened(0.35)
-	draw_rect(Rect2(-12, -10, 22, 10), color)        # body
-	for x in [-11.0, -4.0, 3.0, 8.0]:
-		draw_rect(Rect2(x, 0, 3, 7), dark)           # legs
-	draw_line(Vector2(-12, -8), Vector2(-18, -15), dark, 3.0)  # tail
-	draw_circle(Vector2(12, -13), 6.0, color)        # head
-	draw_rect(Rect2(9, -18, 4, 8), dark)             # ear
-	draw_circle(Vector2(17, -12), 1.8, Color.BLACK)  # nose
+	draw_dog(self, color)
 	var font := ThemeDB.fallback_font
 	var w := font.get_string_size(npc_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 	draw_set_transform(Vector2.ZERO, 0.0, scale)  # undo the flip so the name reads left to right
 	draw_string_outline(font, Vector2(-w / 2.0, -26), npc_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, 3, Color.BLACK)
 	draw_string(font, Vector2(-w / 2.0, -26), npc_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
+
+## The dog figure, on any canvas item: this node in the world, the dialog portrait when talking.
+static func draw_dog(ci: CanvasItem, c: Color) -> void:
+	var dark := c.darkened(0.35)
+	ci.draw_rect(Rect2(-12, -10, 22, 10), c)        # body
+	for x in [-11.0, -4.0, 3.0, 8.0]:
+		ci.draw_rect(Rect2(x, 0, 3, 7), dark)           # legs
+	ci.draw_line(Vector2(-12, -8), Vector2(-18, -15), dark, 3.0)  # tail
+	ci.draw_circle(Vector2(12, -13), 6.0, c)        # head
+	ci.draw_rect(Rect2(9, -18, 4, 8), dark)             # ear
+	ci.draw_circle(Vector2(17, -12), 1.8, Color.BLACK)  # nose
