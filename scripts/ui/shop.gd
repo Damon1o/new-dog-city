@@ -6,6 +6,7 @@ extends Node
 ## every 3-6 s for 1.5 s ("!" over his head). Unwatched = free slice; watched = pushed out. +25 heat.
 
 const Items := preload("res://scripts/data/items.gd")
+const Wardrobe := preload("res://scripts/data/wardrobe.gd")
 const MAX_ROWS := 4
 
 var g: Node2D
@@ -103,7 +104,7 @@ func refresh() -> void:
 		var full: int = eco.list_price(base, door)
 		var now: int = eco.price(base, door)
 		var icon_key: String = info.icon
-		r.icon.texture = g.tex.get(icon_key) if icon_key != "" else null
+		r.icon.texture = g.tex.get(icon_key) if icon_key != "" else Wardrobe.icon(item)  # armor art
 		r.name.text = "[%d]  %s   %s" % [i + 1, info.name, info.effect]
 		r.price.text = ("[s]%d[/s] [color=#8f8]%d[/color] treats" % [full, now]) if now < full else "%d treats" % now
 		r.owned.text = "own %d" % int(g.player.get(item)) if item in ["purina", "water"] else ("owned" if item in g.player.armor_owned else "")

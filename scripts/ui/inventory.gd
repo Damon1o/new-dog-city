@@ -217,18 +217,16 @@ func refresh_gear() -> void:
 	var left := VBoxContainer.new()
 	top.add_child(left)
 	worn(left, "Head", "hat")
-	var t: Texture2D = g.player.sprite.texture
-	var frame := AtlasTexture.new()  # sprite sheet is 2 walk frames side by side; show the first
-	frame.atlas = t
-	frame.region = Rect2(0, 0, t.get_width() / 2.0, t.get_height())
-	var breed: Dictionary = g.player.breed()
-	on_click(cell(labeled(left, "Skin"), frame, "", "%s - click to change breed" % breed.name), next_breed)
-	var preview := TextureRect.new()
-	preview.texture = frame
+	var preview := Control.new()  # the dog as worn: collar, hat, outfit and armor (same Gear as in game)
 	preview.custom_minimum_size = Vector2(150, 150)
-	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var dog := Sprite2D.new()
+	dog.texture = g.player.sprite.texture
+	dog.hframes = 2
+	dog.scale = Vector2.ONE * 9.0
+	dog.position = Vector2(75, 75)
+	dog.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	preview.add_child(dog)
+	g.wardrobe.Wardrobe.dress(dog, g.player.breed().file, g.wardrobe.Wardrobe.worn(g.save_extra, g.player.collar, g.player.armor))
 	var mid := VBoxContainer.new()
 	mid.add_child(preview)
 	var name_l: Label = g.ui.hud_label(mid, 14)
@@ -240,7 +238,7 @@ func refresh_gear() -> void:
 	cell(labeled(right, "Collar"), null, g.player.collar.left(6), "Name collar: %s" % (g.player.collar if g.player.collar != "" else "none"))
 	worn(right, "Outfit", "overlay")
 	var arm: String = g.player.armor
-	on_click(cell(labeled(left, "Armor"), null, Items.ARMOR[arm][0].left(6) if arm != "" else "",
+	on_click(cell(labeled(left, "Armor"), g.wardrobe.Wardrobe.icon(arm), "",
 		("%s  -%d%% damage\nClick to swap, right-click to take off" % [Items.ARMOR[arm][0], roundi(g.player.defense() * 100)])
 		if arm != "" else "No armor - buy some at shops"), next_armor, wear.bind(""))
 	var hb := HBoxContainer.new()
@@ -316,11 +314,6 @@ func refresh_stats() -> void:
 	stat_row("Armor", "-%d%% damage" % roundi(p.defense() * 100))
 	stat_row("Crit", "%.1f%%" % (p.crit_chance() * 100))
 
-func next_breed() -> void:
-	g.prev_skin = g.player.skin
-	g.player.cycle_skin()
-	refresh()
-
 func refresh_bag() -> void:
 	var n := 0
 	for item: String in CARRY:
@@ -335,7 +328,7 @@ func refresh_bag() -> void:
 	for a: String in g.player.armor_owned:
 		if a == g.player.armor:
 			continue
-		var c := cell(bag, null, Items.ARMOR[a][0].left(6), "%s  -%d%% damage\nRight-click to wear" % [Items.ARMOR[a][0], roundi(Items.ARMOR[a][1] * 100)])
+		var c := cell(bag, g.wardrobe.Wardrobe.icon(a), "", "%s  -%d%% damage\nRight-click to wear" % [Items.ARMOR[a][0], roundi(Items.ARMOR[a][1] * 100)])
 		on_click(c, Callable(), wear.bind(a))
 		n += 1
 	for i: String in Story.items:

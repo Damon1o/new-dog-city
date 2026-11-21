@@ -26,7 +26,6 @@ const BUFFS := {"pizza": ["food", 60.0, {"speed": 1.15}], "pepperoni": ["food", 
 const TRADER := {"xp_snack": ["XP snack", 30, "treats", "+10% XP for 5 min"],
 	"mustache": ["Fake mustache", 20, "treats", "-1 wanted star"],
 	"spiked": ["Spiked collar", 4, "bones", "collar, B to wear"],
-	"rare_skin": ["Rare coat", 5, "bones", "color variant of this breed"],
 	"mega_purina": ["Mega Purina", 25, "treats", "full HP, food, thirst"],
 	"map_scrap": ["Map scrap", 15, "treats", "marks the bodega cats"]}
 ## Shop rows (spec 11 Shop): display name, effect line, icon (game.tex key, "" = none).

@@ -1,9 +1,10 @@
 extends RefCounted
 ## Wardrobe items (spec 05) and their pixel art. Hats / collars / outfits are child Sprite2Ds of
 ## the dog sprite ("Gear" node), drawn here from string grids so no asset files are needed.
-## Skins are player.BREEDS; player.skin stays the source of truth for the skin slot.
+## The breed is fixed per dog (no skin swapping). Armor (data/items.gd ARMOR) is drawn here too,
+## slot "armor", layered over the outfit; it's worn from the bag, so it has no wardrobe tab.
 
-const SLOTS := {"skin": "Skin", "collar": "Collar", "hat": "Hat", "overlay": "Outfit"}
+const SLOTS := {"collar": "Collar", "hat": "Hat", "overlay": "Outfit"}
 ## id -> name, slot, start (owned from the start), cost [n, "treats" | "bones"] (buyable here),
 ## hint (how to unlock), at (top-left in dog-frame px; the frame is 16 x 10), art rows.
 const ITEMS := {
@@ -27,12 +28,19 @@ const ITEMS := {
 		"art": [".WWW.", "WBBBW"]},
 	"rain_hood": {"name": "Rain hood", "slot": "hat", "hint": "Top Dog of Tokyo", "at": Vector2(8, -1),
 		"art": [".YYYY.", "YY..YY"]},
+	"bandana": {"name": "Thick Bandana", "slot": "armor", "at": Vector2(9, 5),
+		"art": ["RWRR", "RRWR", ".RR.", "..R."]},
+	"vest": {"name": "Padded Vest", "slot": "armor", "at": Vector2(4, 3),
+		"art": ["OOOOOO", "ODOODO", "OOOOOO", "DDDDDD"]},
+	"kevlar": {"name": "K9 Kevlar", "slot": "armor", "at": Vector2(3, 3),
+		"art": ["NNNNNNA", "NYYNNNA", "NNNNNNA", "ANNNNNA"]},
 	"hoodie": {"name": "Sam's hoodie", "slot": "overlay", "start": true, "at": Vector2(3, 3),
 		"art": ["GGGGGGGGG", ".GGGGGGGG", ".GHHHHHHG", "GGGGGGGGG"]},
 }
 const PAL := {"R": Color(0.85, 0.2, 0.2), "Y": Color(0.95, 0.8, 0.25), "B": Color(0.25, 0.4, 0.85),
 	"W": Color(0.95, 0.95, 0.95), "K": Color(0.2, 0.2, 0.22), "G": Color(0.35, 0.38, 0.42),
-	"H": Color(0.55, 0.58, 0.62)}
+	"H": Color(0.55, 0.58, 0.62), "O": Color(0.82, 0.52, 0.22), "D": Color(0.55, 0.32, 0.14),
+	"N": Color(0.2, 0.24, 0.32), "A": Color(0.45, 0.5, 0.42)}
 ## ponytail: every breed shares one DOG grid (tools/gen_assets.py), so these are all zero;
 ## nudge a breed here if its art ever changes.
 const OFFSET := {"pug": Vector2.ZERO, "husky": Vector2.ZERO, "chihuahua": Vector2.ZERO,
@@ -52,11 +60,12 @@ static func icon(id: String) -> Texture2D:
 		cache[id] = ImageTexture.create_from_image(img)
 	return cache[id]
 
-## Equipped items, minus the name collar while the dog has no name (`extra` = game.save_extra).
-static func worn(extra: Variant, collar: String) -> Dictionary:
+## Equipped items plus worn armor, minus the name collar while the dog has no name (`extra` = game.save_extra).
+static func worn(extra: Variant, collar: String, armor := "") -> Dictionary:
 	var eq: Dictionary = (extra.get("wardrobe/equipped", {"collar": "name"}) if extra is Dictionary else {}).duplicate()
 	if eq.get("collar", "name") == "name" and collar == "":
 		eq.collar = ""
+	eq.armor = armor
 	return eq
 
 ## Put the worn collar / hat / overlay on `sprite` (the dog's Sprite2D, frames centered).
@@ -68,7 +77,7 @@ static func dress(sprite: Sprite2D, breed_file: String, eq: Dictionary) -> void:
 		sprite.add_child(gear)
 	for ch in gear.get_children():
 		ch.free()
-	for slot in ["overlay", "collar", "hat"]:
+	for slot in ["overlay", "armor", "collar", "hat"]:
 		var id: String = eq.get(slot, "")
 		if ITEMS.has(id):
 			var s := Sprite2D.new()

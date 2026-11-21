@@ -157,8 +157,6 @@ var marker := {}                  # nearest poi, drawn as a floating tag
 var waypoint := {}                # GPS target (M2-5): a poi / landmark dict, {} = none
 var drinking := false
 var last_treats := -1
-var card_t := 0.0
-var prev_skin := 0
 var banner_tw: Tween
 var title: Label
 var info: Label
@@ -167,13 +165,11 @@ var banner: Label
 var menu_head: Label
 var menu_rows: Array[Label] = []
 var menu: PanelContainer
-var card: PanelContainer
 var pause_panel: PanelContainer
 var toasts: VBoxContainer
 var vignette: TextureRect
 var overlay: Control
 var clock: Control
-var card_art: Control
 var mini: Control
 var volume: HSlider  # Master; same slider as vols.Master
 var vols := {}  # bus name -> HSlider
@@ -360,11 +356,6 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		on_number(event.keycode - KEY_1)
 		return
 	match Keys.action_of(event):  # scripts/systems/keys.gd, rebindable in Settings
-		"breed":
-			prev_skin = player.skin
-			player.cycle_skin()
-			card_t = 3.0
-			card_art.queue_redraw()
 		"bite":
 			player.bite()
 		"dash":

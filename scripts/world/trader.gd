@@ -19,7 +19,7 @@ var poi := {}     # entry in g.pois while he's in this city
 func visit() -> Dictionary:
 	var day := int(g.save_extra.get("world/day", 1))
 	var v: Variant = g.save_extra.get("trader/visit")
-	if v is Dictionary and int(v.get("day", 0)) == day:
+	if v is Dictionary and int(v.get("day", 0)) == day and v.stock.all(func(i): return Items.TRADER.has(i)):  # old saves sold rare_skin
 		return v
 	g.save_extra["trader/visit"] = roll(day, str(g.save_extra.get("world/city", "nyc")))
 	v = g.save_extra["trader/visit"]
@@ -67,7 +67,7 @@ func stock() -> Array:
 
 func sold_out(id: String) -> bool:
 	var owned: Array = g.save_extra.get("wardrobe/owned", [])
-	return (id == "spiked" and "spiked" in owned) or (id == "rare_skin" and "rare:%d" % g.player.skin in owned)
+	return id == "spiked" and "spiked" in owned
 
 func afford(id: String) -> bool:
 	var e: Array = Items.TRADER[id]
@@ -103,9 +103,8 @@ func buy(n: int) -> bool:
 			p.consume("xp_snack")
 		"mustache":
 			g.wanted.add_heat(-25.0)
-		"spiked", "rare_skin":
-			# ponytail: "rare:<breed>" is only recorded; the wardrobe has no color variants to draw yet
-			g.save_extra["wardrobe/owned"] = g.save_extra.get("wardrobe/owned", []) + ["spiked" if id == "spiked" else "rare:%d" % p.skin]
+		"spiked":
+			g.save_extra["wardrobe/owned"] = g.save_extra.get("wardrobe/owned", []) + ["spiked"]
 		"mega_purina":
 			p.hp = p.max_hp
 			p.hunger = 100.0
