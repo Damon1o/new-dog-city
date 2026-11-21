@@ -500,6 +500,8 @@ func _initialize() -> void:
 		racs[i].hp = 500.0  # hidden raccoons have 0 hp until they pop; the wave also hits
 	var boss: Node2D = get_nodes_in_group("boss")[0]
 	var boss_at: Vector2 = boss.position
+	for b in get_nodes_in_group("boss"):  # intros freeze the dog; this test is about the bark
+		root.get_node("Story").set_flag(b.cfg.intro)
 	boss.position = player.position + Vector2(-150, 0)  # behind the dog
 	assert(player.bark(), "bark fires")
 	assert(racs[2].state == racs[2].State.STUN, "raccoon within 4 levels is stunned point-blank")
@@ -567,6 +569,8 @@ func _initialize() -> void:
 		player.position = b.home + Vector2(120, 0)
 		await frames(3)
 		assert(game.boss == b, "boss wakes when the dog is near")
+		if game.dialog.playing():  # first wake this save: the boss intro
+			game.dialog.skip()
 		assert(game.boss_box.visible)
 		assert(root.get_node("Sound").current == "boss_fatcat", "boss fight takes over the music")
 		assert(b.cfg.specials.size() == 2)
@@ -576,6 +580,8 @@ func _initialize() -> void:
 		b.hurt(1e9, player.position)
 		assert(game.boss == null and not b.visible, "boss beaten")
 		assert(root.get_node("Sound").current == "nyc_jazz", "city music back after the boss")
+		assert(game.dialog.id == b.cfg.outro, "boss outro plays")
+		game.dialog.skip()
 		assert(player.treats >= treats + b.cfg.treats)  # quests may pay extra on the level-up
 		while player.points > 0:  # boss XP levels the dog; spend so the game unpauses
 			game.pick_stat(1)

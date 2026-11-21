@@ -6,6 +6,7 @@ extends Node
 
 const Look := preload("res://scripts/ui/theme.gd")
 const CUTSCENES: Dictionary = preload("res://scripts/data/story.gd").CUTSCENES
+const BOSSES: Array = preload("res://scripts/data/bosses.gd").BOSSES
 const CPS := 30.0
 const BAR := 80.0
 
@@ -134,8 +135,11 @@ func show_card(who: String, line: String) -> void:
 ## Byte's own sprite (first frame of the sheet); others get the cat art.
 ## ponytail: one stand-in face for every non-Byte speaker; real portraits once assets has them.
 func face(who: String) -> Texture2D:
-	if who == "Sam":
+	if who in ["Sam", "Boss Hedgehog"]:
 		return null  # Sam is drawn in code (scripts/world/flashback.gd), no texture to show
+	for b: Dictionary in BOSSES:
+		if b.name == who:
+			return g.tex[b.tex]
 	if who != "Byte":
 		return g.tex.cat
 	var sheet: Texture2D = g.player.sprite.texture

@@ -45,22 +45,30 @@ func _initialize() -> void:
 	game.act = "enter_boss"
 	game.interact()
 	check(game.inside == "boss" and boss.active and boss.wave == 0, "boss fight starts")
+	check(game.dialog.id == "cs_hedgehog_pre", "hedgehog intro plays on the first visit")
+	game.dialog.skip()
 	boss.hurt(boss.pos, 46.0, 9999.0)
 	check(boss.wave == 0, "intro pause blocks damage")
 	for w in 3:
+		game.dialog.skip()  # wave 2 / 3 taunt
 		boss.pause = 0.0
+		boss.summon_cd = 0.0
 		for i in 90:  # let it move and fire; park the dog in a corner and keep it alive
 			player.position = game.BOSS_EXIT - Vector2(0, 30)
 			player.hp = player.max_hp
 			await process_frame
 		check(boss.quills.size() > 0, "wave %d shoots" % (w + 1))
+		check(boss.minions.size() == boss.MINIONS[w], "wave %d summons its hoglets" % (w + 1))
 		check(boss.wave == w, "still on wave %d" % (w + 1))
 		boss.hurt(boss.pos, 46.0, 9999.0)
 	check(not boss.active and game.stat("boss") == 1, "boss beaten after 3 waves")
+	check(boss.minions.is_empty() and game.dialog.id == "cs_hedgehog_post", "hoglets go, outro plays")
+	game.dialog.skip()
 
 	# losing to the boss keeps level (M1-5) and throws the dog back onto the street
 	game.act = "enter_boss"
 	game.interact()
+	check(not game.dialog.playing(), "intro only plays once")
 	var before: int = player.level
 	player.treats = 100
 	player.take_damage(99999.0)
