@@ -1,6 +1,6 @@
 extends Node2D
 ## Prey (pigeon / rat / squirrel): wanders, flees the dog, tires out, gets caught.
-## Pigeons take wing while fresh; squirrels escape up trees.
+## Pigeons take wing while fresh and move as a flock (spawner.gd); squirrels escape up trees.
 
 const Levels := preload("res://scripts/systems/levels.gd")
 
@@ -13,6 +13,8 @@ var sprite: Sprite2D
 var target := Vector2.ZERO
 var retarget_in := 0.0
 var tired := 0.0
+var flock := {}  # spawner.gd flock {members, center, scatter}; {} = on its own
+var fleeing := false
 
 func setup(p_kind: String, p_cfg: Dictionary, tex: Texture2D, p_game: Node2D, bonus := 0) -> void:
 	kind = p_kind
@@ -35,7 +37,10 @@ func _process(delta: float) -> void:
 		return
 	var spd: float = cfg.speed
 	var flee_dist: float = float(cfg.flee) * float(player.breed().scare)
-	var fleeing := d < flee_dist
+	if d < flee_dist and not flock.is_empty():
+		game.spawner.scatter(flock)  # one bird spooked, the whole flock goes
+	var scattered: bool = not flock.is_empty() and flock.scatter > 0.0
+	fleeing = d < flee_dist or (scattered and d < flee_dist * 4.0)
 	var fresh := tired < 2.5
 	var vel := Vector2.ZERO
 	if fleeing:
@@ -54,7 +59,8 @@ func _process(delta: float) -> void:
 		retarget_in -= delta
 		if retarget_in <= 0.0 or position.distance_to(target) < 8.0:
 			retarget_in = randf_range(1.5, 4.0)
-			target = position + Vector2(randf_range(-150, 150), randf_range(-150, 150))
+			var r := 80.0 if not flock.is_empty() else 150.0  # spec 07: flock birds stay within 80 px of the center
+			target = (flock.center if not flock.is_empty() else position) + Vector2(randf_range(-r, r), randf_range(-r, r))
 		vel = position.direction_to(target) * spd * 0.4
 	var airborne := kind == "pigeon" and fleeing and fresh
 	sprite.position.y = lerpf(sprite.position.y, -16.0 if airborne else 0.0, delta * 10.0)
