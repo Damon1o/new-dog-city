@@ -15,6 +15,7 @@ const Spawns := preload("res://scripts/data/spawns.gd")
 const MAX_TREATS := 25
 
 const PreyScript := preload("res://scripts/prey.gd")
+const HumanScript := preload("res://scripts/human.gd")
 const RaccoonScript := preload("res://scripts/raccoon.gd")
 const BossScript := preload("res://scripts/boss.gd")
 const CarScript := preload("res://scripts/car.gd")
@@ -269,6 +270,12 @@ func _ready() -> void:
 	for i in 12:
 		spawn_prey()
 		spawn_treat()
+	for i in 10:  # street pedestrians, scream at barks / raccoons / rats
+		var at := random_spot(250.0)
+		if at.x >= 0.0:
+			var h := HumanScript.new()
+			h.setup_human(self, at)
+			add_child(h)
 	show_msg("Press Esc for controls")
 	if not Story.has("cs_intro"):  # ponytail: old saves see it once too; gate on a fresh dog if that annoys
 		dialog.play("cs_intro")
