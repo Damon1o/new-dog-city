@@ -7,7 +7,7 @@ const DEFAULTS := {  # action -> [label, default keycodes]
 	"move_left": ["Move left", [KEY_A, KEY_LEFT]], "move_right": ["Move right", [KEY_D, KEY_RIGHT]],
 	"sprint": ["Sprint", [KEY_SHIFT]], "bite": ["Bite  (hold: pounce)", [KEY_SPACE]],
 	"dash": ["Dash", [KEY_C]], "bark": ["Bark", [KEY_R]], "interact": ["Interact", [KEY_F]],
-	"inventory": ["Inventory", [KEY_E]], "stats": ["Stats", [KEY_K]], "map": ["Map", [KEY_M]], "breed": ["Change breed", [KEY_TAB]],
+	"inventory": ["Inventory", [KEY_E]], "stats": ["Stats", [KEY_K]], "map": ["Map", [KEY_M]],
 	"wardrobe": ["Wardrobe", [KEY_B]],
 	"stocks": ["Stock app", [KEY_P]],
 	"undo": ["Undo  (puzzles)", [KEY_BACKSPACE]],
