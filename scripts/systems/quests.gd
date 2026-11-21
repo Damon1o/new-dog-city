@@ -27,6 +27,10 @@ static func check(g: Node) -> void:
 				break
 			g.quest_step[line] = i + 1  # advance first: the xp below can level up and re-enter
 			g.player.treats += int(s[3])
+			if s.size() > 5:  # optional columns: bones, a wardrobe item id (spec 07 dog park rewards)
+				g.economy.add_bones(int(s[5]))
+			if s.size() > 6 and not g.wardrobe.owns(s[6]):
+				g.save_extra["wardrobe/owned"] = g.wardrobe.owned_list() + [s[6]]
 			g.sfx("pickup")
 			g.show_msg("%s: %s  -  done!  +%d treats  +%d XP" % [line, str(s[0]).replace("\n", " "), s[3], s[4]])
 			if i + 1 == steps.size():
@@ -39,6 +43,8 @@ static func text(g: Node) -> String:
 	for line: String in QUESTS:
 		if (line == "Tutorial") != tutorial_on(g):
 			continue
+		if str(QUESTS[line][0][1]).begins_with("met_") and stat(g, QUESTS[line][0][1]) == 0:
+			continue  # dog park lines show once you've talked to the dog
 		var steps: Array = QUESTS[line]
 		var i := int(g.quest_step.get(line, 0))
 		if i >= steps.size():

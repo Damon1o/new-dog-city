@@ -17,18 +17,21 @@ func float_text(pos: Vector2, text: String, color := Color.WHITE) -> void:
 	tw.parallel().tween_property(l, "modulate:a", 0.0, 0.8)
 	tw.tween_callback(l.queue_free)
 
-func poof(pos: Vector2, color: Color) -> void:
+## Burst of dots; also crit sparks (yellow, fast) and dash dust (grey, slow).
+func poof(pos: Vector2, color: Color, amount := 14, speed := 110.0) -> void:
 	var p := CPUParticles2D.new()
 	p.position = pos
 	p.z_index = 5
 	p.one_shot = true
 	p.explosiveness = 1.0
-	p.amount = 14
+	p.amount = amount
 	p.lifetime = 0.5
 	p.spread = 180.0
 	p.gravity = Vector2.ZERO
-	p.initial_velocity_min = 40.0
-	p.initial_velocity_max = 110.0
+	p.damping_min = speed * 0.8  # dots slow to a stop instead of flying off
+	p.damping_max = speed
+	p.initial_velocity_min = speed * 0.35
+	p.initial_velocity_max = speed
 	p.scale_amount_min = 2.0
 	p.scale_amount_max = 4.0
 	p.color = color
