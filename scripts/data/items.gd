@@ -33,15 +33,17 @@ const TRADER := {"xp_snack": ["XP snack", 30, "treats", "+10% XP for 5 min"],
 const ITEM_INFO := {
 	"purina": {"name": "Purina", "effect": "+50 food, +40 HP", "icon": "purina"},
 	"water": {"name": "Water", "effect": "+60 thirst", "icon": "water_bowl"},
-	"collar": {"name": "Name Collar", "effect": "rename your dog", "icon": ""},
-	"hotdog": {"name": "Hot Dog", "effect": "+35 food", "icon": ""},
-	"jerky": {"name": "Jerky", "effect": "thirst drain -50% for 120 s", "icon": ""},
-	"pizza": {"name": "Pizza Slice", "effect": "+30 food, Carb Rush +15% speed 60 s", "icon": ""},
-	"pepperoni": {"name": "Pepperoni Slice", "effect": "+30 food, +10% damage 60 s", "icon": ""},
-	"puppuccino": {"name": "Puppuccino", "effect": "stamina regen +50% 120 s", "icon": ""},
-	"barkbrew": {"name": "Bark Brew", "effect": "bark cooldown -50% 120 s", "icon": ""},
-	"bandana": {"name": "Thick Bandana", "effect": "armor: -5% damage taken", "icon": ""},
-	"vest": {"name": "Padded Vest", "effect": "armor: -12% damage taken", "icon": ""},
-	"kevlar": {"name": "K9 Kevlar", "effect": "armor: -20% damage taken", "icon": ""},
+	"collar": {"name": "Name Collar", "effect": "rename your dog", "icon": "collar"},
+	"hotdog": {"name": "Hot Dog", "effect": "+35 food", "icon": "hotdog"},
+	"jerky": {"name": "Jerky", "effect": "thirst drain -50% for 120 s", "icon": "jerky"},
+	"pizza": {"name": "Pizza Slice", "effect": "+30 food, Carb Rush +15% speed 60 s", "icon": "pizza"},
+	"pepperoni": {"name": "Pepperoni Slice", "effect": "+30 food, +10% damage 60 s", "icon": "pepperoni"},
+	"puppuccino": {"name": "Puppuccino", "effect": "stamina regen +50% 120 s", "icon": "puppuccino"},
+	"barkbrew": {"name": "Bark Brew", "effect": "bark cooldown -50% 120 s", "icon": "barkbrew"},
+	"bandana": {"name": "Thick Bandana", "effect": "armor: -5% damage taken", "icon": "bandana"},
+	"vest": {"name": "Padded Vest", "effect": "armor: -12% damage taken", "icon": "vest"},
+	"kevlar": {"name": "K9 Kevlar", "effect": "armor: -20% damage taken", "icon": "kevlar"},
 }
+## Carried in the bag (inventory) and usable from the hotbar: every shop food and drink.
+const CARRY := ["purina", "water", "hotdog", "jerky", "pizza", "pepperoni", "puppuccino", "barkbrew"]
 const SHOP_INFO :={"purina": "Purina  (+50 food, +40 HP)", "water": "Water  (+60 thirst)", "collar": "Name Collar"}

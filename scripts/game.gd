@@ -58,7 +58,8 @@ const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "bu
 	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
 	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant", "purina",
 	"cat", "shop_floor", "shop_wall", "shelf", "counter", "station_wall", "platform", "track",
-	"pillar", "stairs", "map_board", "train"]
+	"pillar", "stairs", "map_board", "train",
+	"hotdog", "jerky", "pizza", "pepperoni", "puppuccino", "barkbrew", "collar", "bandana", "vest", "kevlar"]
 
 const BOSS_COLOR := Color(0.85, 0.3, 1)
 const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway
