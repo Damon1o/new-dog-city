@@ -109,8 +109,7 @@ func _process(delta: float) -> void:
 	if cfg.trick == "stealth":  # invisible until Byte is close; once seen, stays seen
 		revealed = revealed or d < STEALTH_DIST
 		visible = revealed  # also keeps it off the minimap
-	if state != "dead":
-		sprite.flip_h = to.x < 0.0
+	var was := position
 	match state:
 		"idle":
 			if d < AGGRO:
@@ -146,6 +145,8 @@ func _process(delta: float) -> void:
 				state = "dash"
 				dir = to.normalized()
 				t = 0.3
+	if absf(position.x - was.x) > 0.01:  # face where it's going (knockback excluded)
+		sprite.flip_h = position.x < was.x
 
 func swipe(to: Vector2) -> void:
 	cd = 1.0

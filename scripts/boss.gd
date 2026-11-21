@@ -76,6 +76,7 @@ func _process(delta: float) -> void:
 	if stun_t > 0.0:  # bark / pounce: frozen in place, timers paused
 		stun_t -= delta
 		return
+	var was := position
 	var to_player := player.position - position
 	var d := to_player.length()
 	var speed: float = cfg.speed * (float(cfg.phases[phase].get("speed_mult", 1.0)) if cfg.has("phases") else 1.0)
@@ -104,7 +105,6 @@ func _process(delta: float) -> void:
 				return
 			if d > REACH * 0.6:
 				position += to_player / d * speed * delta
-			sprite.flip_h = to_player.x < 0.0
 			special_cd -= delta
 			if special_cd <= 0.0:
 				special(to_player / maxf(d, 1.0))
@@ -144,6 +144,8 @@ func _process(delta: float) -> void:
 					player.take_damage(dmg * 1.8)
 				for i in 16:  # shockwave ring
 					shoot(Vector2.RIGHT.rotated(TAU * i / 16.0) * 220.0, false, 2.0, coin())
+	if absf(position.x - was.x) > 0.01:  # face where it's going (knockback excluded)
+		sprite.flip_h = position.x < was.x
 	if state in [State.CHASE, State.CHARGE] and d < REACH and bite_cd <= 0.0:
 		var dmg: float = cfg.dmg
 		player.take_damage(dmg * (2.0 if state == State.CHARGE else 1.0))
