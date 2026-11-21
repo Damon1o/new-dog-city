@@ -5,9 +5,13 @@
 - `raccoon.gd`: trash-can ambusher, draws its own HP bar in `_draw()`.
 - `boss.gd`: park bosses from `BOSSES` in `game.gd` (King of Raccoons,
   Pigeon Queen, Rat Meister). Generic: `cfg.specials` cycles through named
-  specials (`charge`, `slam`, `feathers`, `storm`, `rats`, `burrow`),
-  projectiles via `shoot(vel, homing, life)`.
-- `hedgehog.gd`: Boss Hedgehog, 3 waves, in the burrow room.
+  specials, four per boss: raccoon `charge` `trash_rain` `slam` `goons`,
+  pigeon `feathers` `droppings` `dive` `storm`, rat `rats` `sewer` `burrow`
+  `pack`. Projectiles via `shoot(vel, homing, life)`, telegraphed ground hits
+  via `mark(p, col, delay)`, minions via `summon(cap, tex, lv, label, col)`.
+  Sprites: `assets/boss_<tex>.png` from `tools/gen_bosses.py`.
+- `hedgehog.gd`: Boss Hedgehog, 3 waves, in the burrow room. Every wave also
+  bursts ground spikes after a red warning circle (`spike_attack()`).
 
 New bosses reuse `boss.gd`: add new special names to its `special()` match,
 and add a `phases` list to the config (below). No second boss framework.
