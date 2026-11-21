@@ -529,6 +529,49 @@ func _initialize() -> void:
 			break
 	assert(boss.stun_t > 0.0, "boss within 4 levels is stunned by the wave")
 	boss.position = boss_at
+	# pedestrians: a bark wave makes one scream and run; so does a raccoon close by; a cat does not
+	var human: Node2D = get_nodes_in_group("human")[0]
+	while not get_nodes_in_group("bark").is_empty():
+		await physics_frame
+	human.position = player.position + Vector2(0, 160)
+	human.scream_cd = 0.0
+	assert(human.threat() == null, "nothing near the pedestrian yet")
+	player.bark_cd = 0.0
+	player.stamina = 100.0
+	assert(player.bark(), "bark toward a pedestrian")
+	for k in 20:
+		await process_frame
+		if human.scream_t > 0.0:
+			break
+	assert(human.scream_t > 0.0, "pedestrian screams at a bark")
+	assert(human.flee.y > 0.9, "and runs away from it")
+	while not get_nodes_in_group("bark").is_empty():
+		await physics_frame
+	human.scream_t = 0.0
+	human.scream_cd = 0.0
+	var rac_at: Vector2 = racs[2].position
+	var rac_vis: bool = racs[2].visible
+	racs[2].visible = true  # popped out of its can
+	racs[2].position = human.position + Vector2(40, 0)
+	assert(human.threat() != null, "pedestrian sees a raccoon close by")
+	racs[2].position = rac_at
+	racs[2].visible = rac_vis
+	# killing a pedestrian = 5 stars; the 5-star drone loses the dog in the dog park, so heat can decay
+	var bite_at: Vector2 = player.position + player.facing * 26.0
+	human.position = bite_at
+	human.hp = 1.0
+	game.on_bite(bite_at, 46.0, 1.0)
+	assert(human.is_queued_for_deletion() and game.wanted.stars() == 5, "killing a pedestrian = 5 stars")
+	game.wanted.staff_t = 0.0
+	await frames(2)
+	assert(game.wanted.drone != null, "5 stars: drone")
+	var street_at: Vector2 = player.position
+	player.position = game.city.dog_park.get_center()
+	game.wanted.unseen = 0.0
+	await frames(2)
+	assert(game.wanted.unseen > 0.0, "drone can't see the dog in the dog park: escape")
+	player.position = street_at
+	game.wanted.clear()
 	boss.stun_t = 0.0
 	player.facing = Vector2.RIGHT
 	player.bark_cd = player.BARK_CD  # the wave waits drained it; the ability-bar check below wants a fresh one

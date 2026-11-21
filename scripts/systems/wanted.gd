@@ -102,7 +102,7 @@ func _process(delta: float) -> void:
 		if offs.any(func(o): return o.position.distance_to(p.position) < NEAR_BARK):
 			add_heat(5, "bark")
 	last_bark = p.bark_cd
-	var seen := drone != null
+	var seen: bool = drone != null and not g.city.in_dog_park(p.position)  # the drone loses him under the park trees: 5 stars can be shaken
 	for o in offs:
 		var d: float = o.position.distance_to(p.position)
 		seen = seen or d < SIGHT

@@ -7,7 +7,7 @@ extends Node
 ## for them (assets/music/, looped on load). See assets/music/CREDITS.md.
 
 const BUSES := ["Music", "SFX", "Ambience"]
-const SFX_NAMES := ["bark", "catch", "hurt", "buy", "levelup", "steam", "subway", "pickup"]
+const SFX_NAMES := ["bark", "catch", "hurt", "buy", "levelup", "steam", "subway", "pickup", "scream"]
 
 enum { CITY, BOSS, CUTSCENE }
 const FADE := 1.5

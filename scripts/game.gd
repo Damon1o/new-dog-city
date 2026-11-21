@@ -15,6 +15,8 @@ const Spawns := preload("res://scripts/data/spawns.gd")
 const MAX_TREATS := 25
 
 const PreyScript := preload("res://scripts/prey.gd")
+const HumanScript := preload("res://scripts/human.gd")
+const MAX_HUMANS := 10
 const RaccoonScript := preload("res://scripts/raccoon.gd")
 const BossScript := preload("res://scripts/boss.gd")
 const CarScript := preload("res://scripts/car.gd")
@@ -275,6 +277,8 @@ func _ready() -> void:
 	for i in 12:
 		spawn_prey()
 		spawn_treat()
+	for i in MAX_HUMANS:
+		spawn_human()
 	show_msg("Press Esc for controls")
 	if not Story.has("cs_intro"):  # ponytail: old saves see it once too; gate on a fresh dog if that annoys
 		dialog.play("cs_intro")
@@ -301,6 +305,8 @@ func _process(delta: float) -> void:
 			spawn_prey()
 		if treat_sprites.size() < MAX_TREATS:
 			spawn_treat()
+		if get_tree().get_nodes_in_group("human").size() < MAX_HUMANS:
+			spawn_human()  # killed ones are replaced off screen
 	save_timer -= delta
 	if save_timer <= 0.0:
 		save_timer = 20.0
@@ -463,6 +469,14 @@ func random_spot(min_dist: float) -> Vector2:
 			return p
 	return Vector2(-1, -1)
 
+## Street pedestrian (human.gd) off screen; they scream at barks / raccoons / rats.
+func spawn_human() -> void:
+	var at := random_spot(500.0)
+	if at.x >= 0.0:
+		var h := HumanScript.new()
+		h.setup_human(self, at)
+		add_child(h)
+
 func sfx(sound: String) -> void:
 	Sound.sfx(sound)
 
@@ -556,6 +570,9 @@ func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	for p in get_tree().get_nodes_in_group("prey"):
 		if p.position.distance_to(center) < radius:
 			on_prey_caught(p)
+	for h in get_tree().get_nodes_in_group("human"):
+		if not h.is_queued_for_deletion() and h.position.distance_to(center) < radius + 10.0:
+			h.hurt(dmg)
 
 func on_prey_caught(prey: Node2D) -> void:
 	if prey.is_queued_for_deletion():
