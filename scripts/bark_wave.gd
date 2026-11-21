@@ -20,6 +20,7 @@ func radius() -> float:
 func _ready() -> void:
 	rotation = dir.angle()
 	z_index = 6
+	add_to_group("bark")  # human.gd screams when one passes
 	step()  # point-blank foes are hit on the frame of the bark
 
 func _physics_process(delta: float) -> void:

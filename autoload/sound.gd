@@ -71,7 +71,8 @@ func _ready() -> void:
 	# M4-4 animal control: one-shot synths off the music synth. ponytail: siren is one sweep, not a loop on the van
 	var shots := [["whistle", {"bpm": 400, "root": 88, "wave": "sine", "lead": [0, 3, 0, 3, 0, 3]}],
 			["siren", {"bpm": 90, "root": 72, "wave": "saw", "lead": [0, 1, 3, 5, 7, 5, 3, 1]}],
-			["rat_squeak", {"bpm": 700, "root": 93, "wave": "sine", "lead": [0, 5, 2]}]]
+			["rat_squeak", {"bpm": 700, "root": 93, "wave": "sine", "lead": [0, 5, 2]}],
+			["scream", {"bpm": 900, "root": 84, "wave": "saw", "lead": [0, 4, 7, 12, 14, 12, 14, 12, 11, 9, 7]}]]  # human.gd
 	# M3-2 foes, one root per type: yowl = saw pitch bend; hiss = dense noise hats over a short squeal.
 	# ponytail: the hiss "filter" is burst rate + squeal pitch, not a real filter; real one if they sound alike
 	for c: Array in [["cat_%s_tabby", 72], ["cat_%s_tom", 60], ["cat_%s_sphynx", 79], ["cat_%s_calico", 69],
