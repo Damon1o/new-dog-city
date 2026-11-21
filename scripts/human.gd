@@ -1,6 +1,7 @@
 extends "res://scripts/npc.gd"
 ## Street pedestrian: wanders like a park dog (npc.gd), but screams and runs when a bark wave
-## passes close or a raccoon / rat gets near. Never talks, never takes damage.
+## passes close or a raccoon / rat gets near. Never talks. The dog's bite hurts them (game.on_bite);
+## a kill maxes the wanted level (5 stars).
 
 const HEAR := 200.0    # bark wave this close = scream
 const THREAT := 110.0  # raccoon / rat this close = scream
@@ -9,6 +10,7 @@ const SKIN := [Color(0.98, 0.84, 0.7), Color(0.85, 0.65, 0.48), Color(0.6, 0.42,
 
 var scream_t := 0.0   # > 0 while screaming and running
 var scream_cd := 0.0  # one scream per scare, not one per frame
+var hp := 20.0
 var flee := Vector2.ZERO
 var skin: Color
 var hair: Color
@@ -38,6 +40,17 @@ func scream(from: Vector2) -> void:
 	if flee == Vector2.ZERO:
 		flee = Vector2.RIGHT
 	Sound.sfx("scream")
+
+func hurt(dmg: float) -> void:
+	hp -= dmg
+	g.float_text(position, "-%d" % dmg, Color(1, 0.4, 0.4))
+	if hp > 0.0:
+		scream(g.player.position)
+		return
+	g.poof(position, Color(0.8, 0.1, 0.1))
+	g.float_text(position + Vector2(0, -20), "WANTED!", Color(1, 0.2, 0.2))
+	g.wanted.add_heat(g.wanted.MAX_HEAT, "human")  # 5 stars
+	queue_free()
 
 func _process(delta: float) -> void:
 	scream_cd -= delta

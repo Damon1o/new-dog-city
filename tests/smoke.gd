@@ -550,6 +550,22 @@ func _initialize() -> void:
 	assert(human.threat() != null, "pedestrian sees a raccoon close by")
 	racs[2].position = rac_at
 	racs[2].visible = rac_vis
+	# killing a pedestrian = 5 stars; the 5-star drone loses the dog in the dog park, so heat can decay
+	var bite_at: Vector2 = player.position + player.facing * 26.0
+	human.position = bite_at
+	human.hp = 1.0
+	game.on_bite(bite_at, 46.0, 1.0)
+	assert(human.is_queued_for_deletion() and game.wanted.stars() == 5, "killing a pedestrian = 5 stars")
+	game.wanted.staff_t = 0.0
+	await frames(2)
+	assert(game.wanted.drone != null, "5 stars: drone")
+	var street_at: Vector2 = player.position
+	player.position = game.city.dog_park.get_center()
+	game.wanted.unseen = 0.0
+	await frames(2)
+	assert(game.wanted.unseen > 0.0, "drone can't see the dog in the dog park: escape")
+	player.position = street_at
+	game.wanted.clear()
 	boss.stun_t = 0.0
 	player.facing = Vector2.RIGHT
 	player.bark_cd = player.BARK_CD  # the wave waits drained it; the ability-bar check below wants a fresh one
