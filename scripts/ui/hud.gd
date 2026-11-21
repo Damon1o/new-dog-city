@@ -160,9 +160,9 @@ func build_hud() -> void:
 	for b in get_tree().get_nodes_in_group("boss"):
 		g.pois.append({"pos": b.home, "text": b.cfg.name, "color": g.BOSS_COLOR})
 	g.pois.append({"pos": g.burrow, "text": "Final Boss", "color": Color(0.85, 0.3, 0.9)})
-	var named := {"airport": "Airport", "gas": "Gas Station", "pizza": "Pizza", "cafe": "Cafe"}
+	var named := {"airport": "Airport", "gas": "Gas Station", "pizza": "Pizza", "cafe": "Cafe", "hq": "Hack Club HQ"}
 	for d in g.doors.filter(func(x): return named.has(x.template)):
-		g.pois.append({"pos": d.pos, "text": named[d.template], "color": Color(0.7, 0.9, 1) if d.template == "airport" else Color(1, 0.55, 0.15)})
+		g.pois.append({"pos": d.pos, "text": named[d.template], "color": POI_COLOR.get(d.template, Color(1, 0.55, 0.15))})
 
 	# top-left: stats, inventory, g.clock
 	var stats := panel()
@@ -440,10 +440,13 @@ func update_hud(delta: float) -> void:
 		g.info.text += "   %d mph" % int(g.player.velocity.length() / g.player.PX_PER_MPH)
 	g.clock.queue_redraw()
 	g.card_t -= delta
-	g.card.visible = g.card_t > 0.0 and g.boss == null  # g.boss bar uses the same spot
-	g.boss_box.visible = g.boss != null
-	if g.boss:
-		set_bar("boss", g.boss.hp / g.boss.max_hp, delta, "%d / %d" % [ceili(g.boss.hp), int(g.boss.max_hp)])
+	var b: Node2D = g.boss if g.boss else (g.hedgehog if g.hedgehog.active else null)  # top nametag + bar
+	g.card.visible = g.card_t > 0.0 and b == null  # boss bar uses the same spot
+	g.boss_box.visible = b != null
+	if b:
+		if b == g.hedgehog:
+			g.boss_name.text = "Daven the Hedgehog   Lv %d   wave %d / %d" % [b.level, b.wave + 1, b.WAVES]
+		set_bar("boss", maxf(b.hp, 0.0) / b.max_hp, delta, "%d / %d" % [ceili(maxf(b.hp, 0.0)), int(b.max_hp)])
 	g.quest_label.text = g.quest_text()
 	g.quest_label.modulate = Color(1, 0.9, 0.4) if g.tutorial_on() else Color.WHITE
 	for n in g.abilities:
@@ -471,14 +474,6 @@ func draw_ability(n: String) -> void:
 func draw_overlay() -> void:
 	var xf = g.get_canvas_transform()  # world -> screen
 	var font := ThemeDB.fallback_font
-	if g.hedgehog.active:
-		var bar = Rect2((g.overlay.size.x - 360.0) / 2.0, 34.0, 360.0, 14.0)
-		g.overlay.draw_rect(bar.grow(2), Color(0, 0, 0, 0.7))
-		g.overlay.draw_rect(Rect2(bar.position, Vector2(bar.size.x * maxf(g.hedgehog.hp, 0.0) / g.hedgehog.max_hp, bar.size.y)), Color(0.85, 0.3, 0.9))
-		g.overlay.draw_string_outline(font, Vector2(bar.position.x, 26.0), "BOSS HEDGEHOG   wave %d / %d" % [g.hedgehog.wave + 1, g.hedgehog.WAVES],
-			HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 14, 4, Color.BLACK)
-		g.overlay.draw_string(font, Vector2(bar.position.x, 26.0), "BOSS HEDGEHOG   wave %d / %d" % [g.hedgehog.wave + 1, g.hedgehog.WAVES],
-			HORIZONTAL_ALIGNMENT_CENTER, bar.size.x, 14)
 	if g.drinking:
 		g.overlay.draw_arc(xf * g.player.position, 30.0, -PI / 2, -PI / 2 + TAU * g.player.thirst / 100.0, 40, Color(0.35, 0.7, 1), 4.0)
 	if g.god_view:
@@ -609,12 +604,14 @@ func draw_minimap() -> void:
 
 ## Map POI text -> the letter drawn inside its dot.
 const GLYPHS := {"Shop": "$", "Subway": "S", "Airport": "A", "Gas Station": "G", "Pizza": "P", "Cafe": "C",
-	"Final Boss": "X", "Pocket": "T"}
+	"Final Boss": "X", "Pocket": "T", "Hack Club HQ": "H"}
+const HQ_RED := Color(0.93, 0.24, 0.32)  # Hack Club red
+const POI_COLOR := {"airport": Color(0.7, 0.9, 1), "hq": HQ_RED}
 ## Rows of the M map key: [glyph, color, label]. Bosses share one row.
 const MAP_KEY := [["$", Color(1, 0.55, 0.15), "Shop / bodega"], ["G", Color(1, 0.55, 0.15), "Gas station"],
 	["P", Color(1, 0.55, 0.15), "Pizza"], ["C", Color(1, 0.55, 0.15), "Cafe"], ["S", Color(0.3, 0.6, 1), "Subway"],
 	["A", Color(0.7, 0.9, 1), "Airport"], ["*", Color.WHITE, "Landmark"], ["!", Color(0.85, 0.3, 1), "Boss"],
-	["X", Color(0.85, 0.3, 0.9), "Final boss"], ["T", Color(0.75, 0.6, 1), "Pocket (trader)"],
+	["X", Color(0.85, 0.3, 0.9), "Final boss"], ["T", Color(0.75, 0.6, 1), "Pocket (trader)"], ["H", HQ_RED, "Hack Club HQ"],
 	["", Color(1, 0.2, 0.2), "Raccoon"]]
 
 func glyph(text: String) -> String:

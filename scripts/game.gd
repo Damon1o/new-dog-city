@@ -246,7 +246,7 @@ func _ready() -> void:
 		if inside == "boss":
 			hedgehog.stop()
 			player.treats = mini(player.treats, 20)  # spec 06: the hedgehog keeps treats above 20
-			death_cause = "The Boss Hedgehog flattened you... it kept your treats over 20."
+			death_cause = "Daven the Hedgehog flattened you... it kept your treats over 20."
 		death_why.text = death_cause + "\nLost half your treats."
 		death_cause = "You blacked out."
 		fade.color.a = 0.0  # in case the dog starved mid-ride
@@ -578,7 +578,7 @@ func on_raccoon_beaten(rac: Node2D) -> void:
 	bump("raccoons")
 
 func on_hedgehog_beaten(at: Vector2) -> void:
-	show_banner("BOSS HEDGEHOG DEFEATED")
+	show_banner("DAVEN THE HEDGEHOG DEFEATED")
 	sfx("levelup")
 	poof(at, Color(0.45, 0.3, 0.18), 50, 280.0)
 	poof(at, Color(1, 0.85, 0.4), 30, 200.0)

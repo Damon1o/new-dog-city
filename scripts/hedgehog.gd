@@ -1,5 +1,5 @@
 extends Node2D
-## Boss Hedgehog: waits in its den and fights in three waves, each with its own moves.
+## Daven the Hedgehog: waits in its den and fights in three waves, each with its own moves.
 ##   wave 1  stalks the dog, firing aimed fans of quills
 ##   wave 2  holds the middle, firing quill rings that turn a notch every burst
 ##   wave 3  sprays a double spiral, then curls up and rolls around the den shedding quills
@@ -18,7 +18,7 @@ const Levels := preload("res://scripts/systems/levels.gd")
 const Raccoon := preload("res://scripts/raccoon.gd")
 const LEVEL := 15
 const HARD := 5.0            # hp multiplier on top of BASE (the "5x harder" knob)
-const BASE := {"hp": 100.0 * HARD, "dmg": 8.0}  # level 1; hp is per wave
+const BASE := {"hp": 100.0 * HARD, "dmg": 4.0}  # level 1; hp is per wave; dmg nerfed 8 -> 4
 const WALK_SPEED := 85.0
 const ROLL_SPEED := 480.0
 const ROLL_TIME := 1.6
@@ -92,11 +92,11 @@ func begin_wave() -> void:
 	summon_cd = 1.0
 	rolling = false
 	mode_t = REST_TIME
-	game.show_banner("BOSS HEDGEHOG   WAVE %d" % (wave + 1))
+	game.show_banner("DAVEN THE HEDGEHOG   WAVE %d" % (wave + 1))
 	if wave > 0:
 		game.poof(pos, Color(0.9, 0.25, 0.15), 40, 260.0)
 		game.shake_amt = 8.0
-		game.dialog.play("hh_wave", [{"say": "Boss Hedgehog", "text": WAVE_LINES[wave]}])
+		game.dialog.play("hh_wave", [{"say": "Daven the Hedgehog", "text": WAVE_LINES[wave]}])
 
 func fire(angle: float, speed: float) -> void:
 	var dir := Vector2.from_angle(angle)
