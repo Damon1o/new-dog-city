@@ -25,6 +25,7 @@ const Street := preload("res://scripts/world/street.gd")
 const Spawner := preload("res://scripts/world/spawner.gd")
 const Fx := preload("res://scripts/world/fx.gd")
 const Subway := preload("res://scripts/world/subway.gd")
+const Territory := preload("res://scripts/systems/territory.gd")
 const CityBuilder := preload("res://scripts/world/city_builder.gd")
 const Interior := preload("res://scripts/world/interior.gd")
 const Rooms := preload("res://scripts/data/rooms.gd")
@@ -36,9 +37,18 @@ const Economy := preload("res://scripts/systems/economy.gd")
 const ShopUi := preload("res://scripts/ui/shop.gd")
 const InventoryUi := preload("res://scripts/ui/inventory.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
+const Look := preload("res://scripts/ui/theme.gd")
 const KeybindsUi := preload("res://scripts/ui/keybinds.gd")
+const Wanted := preload("res://scripts/systems/wanted.gd")
+const Pound := preload("res://scripts/world/pound.gd")
+var pound: Node  # scripts/world/pound.gd: cell, fine, breakout (wanted.caught)
+var wanted: Node  # scripts/systems/wanted.gd: heat, stars, animal control (add_heat)
 var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
-var inventory: Node  # scripts/ui/inventory.gd (I)
+var inventory: Node  # scripts/ui/inventory.gd (E bag, K stats)
+var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
+var stocks: Node  # scripts/systems/stocks.gd: NYSE ticks, news, trades, stock app (P)
+const DialogUi := preload("res://scripts/ui/dialog.gd")
+var dialog: Node  # scripts/ui/dialog.gd (dialog box + cutscenes)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
 const PREY := Items.PREY
 const SHOP := Items.SHOP
@@ -98,9 +108,7 @@ var death_cause := "You blacked out."
 var save_version := 2  # version of the file last loaded (1 = before meta/version)
 var save_extra := {}  # v2 keys no system owns yet, see Save.V2
 var save_path := "user://save.cfg"  # var so the smoke test can point it elsewhere
-var stat_panel: PanelContainer
-var stat_head: Label
-var stat_buttons: Array[Button] = []
+var rng_seed := 0  # 0 = random cars / prey / rolls; the smoke test pins one (city.build reseeds the global RNG)
 var station_sign: Label
 var fade: ColorRect
 var spawn_timer := 0.0
@@ -122,11 +130,17 @@ var street: Node  # scripts/world/street.gd
 var spawner: Node  # scripts/world/spawner.gd
 var fx: Node  # scripts/world/fx.gd
 var subway: Node  # scripts/world/subway.gd
+var territory: Node2D  # scripts/systems/territory.gd (G: pee markers)
 var city: Node  # scripts/world/city_builder.gd
 var interior: Node  # scripts/world/interior.gd
+var flashback: Node  # scripts/world/flashback.gd
+var hq: Node  # scripts/world/hq_floor.gd (M5-4 puzzle floors)
 var weather: Node  # scripts/systems/weather.gd
 var economy: Node  # scripts/systems/economy.gd
 var shop: Node  # scripts/ui/shop.gd
+var cats: Node  # scripts/world/bodega_cats.gd (friendly bodega cats, M4-3)
+var steps: Node  # scripts/systems/footsteps.gd (M3-5 footsteps by surface, ambience)
+var trader: Node  # scripts/world/trader.gd (Pocket, M4-8)
 var bars := {}   # key -> {ctl, color, v, ghost, text}
 var slots := {}  # item -> count Label
 var abilities := {}  # ability bar: name -> {ctl, key, v (cooldown left, 0..1)}
@@ -163,11 +177,25 @@ var name_edit: LineEdit
 func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
-	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy]]:
+	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")],
+			["stocks", preload("res://scripts/systems/stocks.gd")]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
 		set(m[0], n)
+	cats = preload("res://scripts/world/bodega_cats.gd").new()
+	cats.g = self
+	add_child(cats)
+	trader = preload("res://scripts/world/trader.gd").new()
+	trader.g = self
+	add_child(trader)
+	hq = preload("res://scripts/world/hq_floor.gd").new()  # M5-4
+	hq.g = self
+	add_child(hq)
+	steps = preload("res://scripts/systems/footsteps.gd").new()  # M3-5 footsteps + ambience
+	steps.g = self
+	add_child(steps)
+	add_child(preload("res://scripts/systems/scent.gd").new())  # M5-3 scent trail (V), node "Scent"
 	y_sort_enabled = true
 	ground = Node2D.new()
 	ground.z_index = -10
@@ -182,7 +210,10 @@ func _ready() -> void:
 	hedgehog = HedgehogScript.new()
 	add_child(hedgehog)
 	hedgehog.setup(self, Rect2(Interior.O, Rooms.ROOMS.burrow.size))
-	randomize()
+	if rng_seed:
+		seed(rng_seed)
+	else:
+		randomize()
 	for b in BOSSES:
 		var boss_node: Node2D = BossScript.new()
 		add_child(boss_node)
@@ -200,12 +231,17 @@ func _ready() -> void:
 	player.leveled.connect(func():
 		show_banner("LEVEL %d" % player.level)
 		sfx("levelup")
+		show_msg("+%d stat points - spend them in Stats [%s]" % [XP.points_for(player.level), Keys.label("stats")])
 		show_stats()
 		check_quests())
 	player.hit.connect(func():
 		shake_amt = 6.0
 		sfx("hurt"))
 	player.died.connect(func():
+		if wanted.jails_on_death():  # spec 08: HP 0 at 1+ stars = the pound, no death screen
+			player.respawn()
+			wanted.caught()
+			return
 		if inside == "boss":
 			hedgehog.stop()
 			player.treats = mini(player.treats, 20)  # spec 06: the hedgehog keeps treats above 20
@@ -223,6 +259,10 @@ func _ready() -> void:
 	Keys.apply({})  # defaults first so the HUD can show key names; the save overrides below
 	build_hud()
 	load_game()
+	get_tree().node_added.connect(func(n: Node):  # labels built later (menus, toasts) scale too
+		if save_extra.get("ui/large_text", false) and is_ancestor_of(n):
+			Look.big_text(n, true))
+	Look.set_big_text(self, save_extra.get("ui/large_text", false))
 	Keys.apply(save_extra.get("ui/keys", {}))
 	check_quests()
 	show_stats()
@@ -230,6 +270,14 @@ func _ready() -> void:
 		spawn_prey()
 		spawn_treat()
 	show_msg("Press Esc for controls")
+	if not Story.has("cs_intro"):  # ponytail: old saves see it once too; gate on a fresh dog if that annoys
+		dialog.play("cs_intro")
+	elif get_tree().root.get_meta("open", "") == "wardrobe":  # home screen's Wardrobe button
+		wardrobe.toggle()
+	elif get_tree().root.get_meta("open", "") == "album":  # and its Album button
+		inventory.toggle()
+		inventory.show_album(true)
+	get_tree().root.remove_meta("open")
 
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
@@ -252,7 +300,8 @@ func _process(delta: float) -> void:
 	update_train(delta)
 	check_pickups()
 	check_landmarks()
-	cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake_amt
+	var shake := 0.0 if save_extra.get("ui/reduce_motion", false) else shake_amt  # spec 11 reduce motion
+	cam.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
 	shake_amt = lerpf(shake_amt, 0.0, minf(delta * 10.0, 1.0))
 	update_hud(delta)
 	mini.queue_redraw()
@@ -266,6 +315,8 @@ func _notification(what: int) -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT \
 			and not player.frozen:
+		if get_viewport().gui_get_hovered_control() is BaseButton:  # HUD corner boxes: no bite, no waypoint
+			return
 		if god_view:  # clicking the full map picks a waypoint instead of biting
 			set_waypoint(get_canvas_transform().affine_inverse() * event.position)
 			return
@@ -281,6 +332,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.keycode == KEY_ESCAPE:  # fixed: always reaches pause / Settings
 		if inventory.is_open():
 			inventory.toggle()
+		elif wardrobe.is_open():
+			wardrobe.toggle()
+		elif stocks.is_open():
+			stocks.toggle()
 		elif not name_edit.visible:
 			set_paused(true)
 		return
@@ -296,29 +351,33 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		"bite":
 			player.bite()
 		"dash":
-			player.dash()
+			if player.dash():
+				poof(player.position - player.facing * 14.0 + Vector2(0, 12), Color(0.78, 0.74, 0.66, 0.7), 10, 70.0)
 		"bark":
-			player.bark()
-		"purina":
-			if player.use_purina():
-				sfx("pickup")
-				float_text(player.position, "+HP", Color(0.5, 1, 0.5))
-		"water":
-			if player.use_water():
-				sfx("pickup")
-				float_text(player.position, "+water", Color(0.5, 0.8, 1))
+			if player.bark():
+				spawner.scatter_near(player.position, 300.0)  # spec 05: pigeon flocks scatter at the sound
+				cats.on_bark()  # spec 07: barking in a bodega costs friendship
 		"interact":
 			interact()
-		"inventory":
+		"inventory", "stats":
 			inventory.toggle()
+		"wardrobe":
+			wardrobe.toggle()
+		"stocks":
+			stocks.toggle()
 		"map":
-			if inside == "":
-				god_view = not god_view
-				bump("map", true)
-				zoom_tw = create_tween()
-				zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
+			toggle_map()
 		"hot_1", "hot_2", "hot_3", "hot_4":  # hotbar on the street; menu choice in shops, subway, elevators, gates
 			on_number(int(Keys.action_of(event).right(1)) - 1)
+
+## M: god's-eye map with its key (street only).
+func toggle_map() -> void:
+	if inside != "":
+		return
+	god_view = not god_view
+	bump("map", true)
+	zoom_tw = create_tween()
+	zoom_tw.tween_property(cam, "zoom", Vector2.ONE * (0.3 if god_view else 1.5), 0.4)
 
 func sun() -> float:
 	return clampf(sin((tod - 0.25) * TAU) * 1.5 + 0.6, 0.0, 1.0)
@@ -348,6 +407,11 @@ func set_inside(room: String, at := player.position) -> void:
 func interact() -> void:
 	if player.frozen:
 		return
+	if act == "" and ctx == "bodega" and cats.interact():  # F at the counter: the bodega cat
+		return
+	if act == "" and ctx == "trader":  # F next to Pocket: chat / hint
+		trader.talk()
+		return
 	match act:
 		"enter":
 			interior.enter(door)
@@ -355,6 +419,10 @@ func interact() -> void:
 			interior.enter(doors.filter(func(d): return d.template == "burrow")[0])
 		"exit":
 			interior.leave()
+		"stocks":  # NYSE terminal (scripts/systems/stocks.gd sets the prompt)
+			stocks.toggle(true)
+		"desk":  # Hack Club HQ front desk (scripts/world/hq_floor.gd sets the prompt)
+			hq.desk()
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:
@@ -393,7 +461,7 @@ func respawn() -> void:
 	name_edit.hide()
 	player.respawn()
 	set_inside("")
-	get_tree().paused = stat_panel.visible
+	get_tree().paused = false
 
 ## New game: wipe the dog's progress (volume survives) and rebuild the scene.
 func restart() -> void:
@@ -404,15 +472,14 @@ func restart() -> void:
 	get_tree().paused = false
 	get_tree().reload_current_scene()
 
-## Level-up picker: stays up (game paused) until every stat point is spent.
+## Stat points never pause the game: they wait in the bag's STATS panel (corner box shows +N).
 func show_stats() -> void:
-	stat_panel.visible = player.points > 0
-	get_tree().paused = stat_panel.visible or death_panel.visible
-	stat_head.text = "LEVEL UP!   %d stat point%s" % [player.points, "" if player.points == 1 else "s"]
-	for i in stat_buttons.size():
-		stat_buttons[i].text = "[%d]  %s   (x%d)" % [i + 1, player.STATS[i][1], player.get(player.STATS[i][0])]
+	if inventory.is_open():
+		inventory.refresh.call_deferred()  # a + button may be the caller; free it next frame
 
 func pick_stat(i: int) -> void:
+	if player.points <= 0:
+		return
 	player.spend(i)
 	sfx("pickup")
 	show_stats()
@@ -454,8 +521,10 @@ func on_boss_beaten(b: Node2D) -> void:
 	var got := XP.award(self, b.cfg.xp, b)
 	show_banner("%s DEFEATED" % str(b.cfg.name).to_upper())
 	show_msg("+%d treats   +%d XP" % [b.cfg.treats, got])
-	poof(b.position, b.cfg.tint)
+	poof(b.position, b.cfg.tint, 40, 240.0)
 	sfx("levelup")
+	if b.cfg.has("outro") and not Story.has(b.cfg.outro):
+		dialog.play(b.cfg.outro)
 
 func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	sfx("bark")
@@ -485,8 +554,11 @@ func on_prey_caught(prey: Node2D) -> void:
 	poof(prey.position, Color(0.85, 0.85, 0.9))
 	sfx("catch")
 	prey.queue_free()
+	if not prey.flock.is_empty():
+		spawner.scatter(prey.flock)  # spec 07: catch one, the flock flees
 	if prey.kind == "squirrel":
 		bump("squirrels")
+	cats.rat = cats.rat or prey.kind == "rat"  # carried in as a bodega cat gift
 	bump("prey")
 
 func on_prey_escaped(prey: Node2D) -> void:
@@ -505,7 +577,8 @@ func on_raccoon_beaten(rac: Node2D) -> void:
 func on_hedgehog_beaten(at: Vector2) -> void:
 	show_banner("BOSS HEDGEHOG DEFEATED")
 	sfx("levelup")
-	poof(at, Color(0.45, 0.3, 0.18))
+	poof(at, Color(0.45, 0.3, 0.18), 50, 280.0)
+	poof(at, Color(1, 0.85, 0.4), 30, 200.0)
 	player.treats += 50
 	float_text(at, "+50 treats", Color(1, 0.85, 0.5))
 	show_msg("The den is yours. The door leads back to the street.")
@@ -532,6 +605,8 @@ func quest_text() -> String:
 func on_number(n: int) -> void:
 	if ctx == "bodega":
 		shop.buy(n, 5 if Input.is_key_pressed(KEY_SHIFT) else 1)
+	elif ctx == "trader":
+		trader.buy(n)
 	elif ctx == "elevator":
 		interior.ride(n)
 	elif ctx == "airport":
@@ -574,10 +649,18 @@ func build_hud() -> void:
 	inventory.g = self
 	add_child(inventory)
 	inventory.build()
+	wardrobe = preload("res://scripts/ui/wardrobe.gd").new()
+	wardrobe.g = self
+	add_child(wardrobe)
+	wardrobe.build()
 	keybinds = KeybindsUi.new()
 	keybinds.g = self
 	add_child(keybinds)
 	keybinds.build()
+	dialog = DialogUi.new()
+	dialog.g = self
+	add_child(dialog)
+	dialog.build()
 
 func update_hud(delta: float) -> void:
 	ui.update_hud(delta)
@@ -624,7 +707,7 @@ func update_prompts(delta: float) -> void:
 		var spots: Dictionary = interior.spots
 		if interior.room == null:
 			pass  # a test set `inside` without going through a door
-		elif at.distance_to(spots.exit) < 40.0 and interior.floor_n == 0:
+		elif spots.has("exit") and at.distance_to(spots.exit) < 40.0 and interior.floor_n == 0:
 			var e: Array = interior.data().exit
 			var n: String = interior.door.name
 			set_act("exit", e[0].format({"name": n, "NAME": n.to_upper()}),
@@ -652,6 +735,9 @@ func update_prompts(delta: float) -> void:
 					set_act("closed", "CAFE", "Closed until morning")
 				else:
 					set_act("enter", t[0].format({"name": d.name, "NAME": d.name.to_upper()}).strip_edges(), t[1])
+		if act == "" and trader.near(at):  # Pocket's cart: [1-4] buy, F chat
+			ctx = "trader"
+			show_menu("POCKET'S CART", trader.rows())
 
 	if not waypoint.is_empty() and inside == "" and player.position.distance_to(waypoint.pos) < 80.0:
 		waypoint = {}  # arrived
@@ -697,12 +783,13 @@ func float_text(pos: Vector2, text: String, color := Color.WHITE, crit := false)
 	if not crit:
 		fx.float_text(pos, text, color)
 		return
+	fx.poof(pos, Color(1, 0.9, 0.3), 20, 260.0)  # crit sparks; before the label, which must stay last
 	fx.float_text(pos, text + "!", Color(1, 0.9, 0.2))
 	var l: Label = get_child(-1)  # the label fx just added
 	l.add_theme_font_size_override("font_size", 24)
 
-func poof(pos: Vector2, color: Color) -> void:
-	fx.poof(pos, color)
+func poof(pos: Vector2, color: Color, amount := 14, speed := 110.0) -> void:
+	fx.poof(pos, color, amount, speed)
 
 func scratch(center: Vector2, dir: Vector2) -> void:
 	fx.scratch(center, dir)

@@ -2,7 +2,7 @@ extends SceneTree
 ## Smoke test for quests + Boss Hedgehog. Uses its own save file, never the real one.
 ##   godot --headless --path . -s tools/smoke_test.gd
 
-const SAVE := "user://smoke_test.cfg"
+var SAVE := "user://smoke_test_%d.cfg" % OS.get_process_id()  # per run: parallel worktrees share user://
 var failed := false
 
 func check(ok: bool, what: String) -> void:
@@ -17,9 +17,10 @@ func _initialize() -> void:
 	game.save_path = SAVE
 	root.add_child(game)
 	await process_frame
+	game.dialog.skip()  # new dog: the intro cutscene freezes it
 	var player: CharacterBody2D = game.player
 	var boss: Node2D = game.hedgehog
-	var spend := func():  # level-ups pause for a stat pick; spend so the game keeps running
+	var spend := func():  # level-ups bank stat points; spend them like the bag's STATS panel does
 		while player.points > 0:
 			game.pick_stat(0)
 
@@ -35,31 +36,39 @@ func _initialize() -> void:
 	for i in 4:
 		game.bump("prey")
 	check(game.quest_step["Street Hunter"] == 1, "catch-5 step completes")
-	check(player.points > 0 and paused, "quest XP levels the dog and opens the stat picker")
+	check(player.points > 0 and not paused, "quest XP levels the dog; stat points wait without pausing")
 	spend.call()
-	check(not paused, "picker closes once points are spent")
+	check(player.points == 0 and not paused, "points spent from the stats panel")
 
 	# boss: three waves, each needs its HP bitten off; unhittable during the wave intro
 	player.level = 25
 	game.act = "enter_boss"
 	game.interact()
 	check(game.inside == "boss" and boss.active and boss.wave == 0, "boss fight starts")
+	check(game.dialog.id == "cs_hedgehog_pre", "hedgehog intro plays on the first visit")
+	game.dialog.skip()
 	boss.hurt(boss.pos, 46.0, 9999.0)
 	check(boss.wave == 0, "intro pause blocks damage")
 	for w in 3:
+		game.dialog.skip()  # wave 2 / 3 taunt
 		boss.pause = 0.0
+		boss.summon_cd = 0.0
 		for i in 90:  # let it move and fire; park the dog in a corner and keep it alive
 			player.position = game.BOSS_EXIT - Vector2(0, 30)
 			player.hp = player.max_hp
 			await process_frame
 		check(boss.quills.size() > 0, "wave %d shoots" % (w + 1))
+		check(boss.minions.size() == boss.MINIONS[w], "wave %d summons its hoglets" % (w + 1))
 		check(boss.wave == w, "still on wave %d" % (w + 1))
 		boss.hurt(boss.pos, 46.0, 9999.0)
 	check(not boss.active and game.stat("boss") == 1, "boss beaten after 3 waves")
+	check(boss.minions.is_empty() and game.dialog.id == "cs_hedgehog_post", "hoglets go, outro plays")
+	game.dialog.skip()
 
 	# losing to the boss keeps level (M1-5) and throws the dog back onto the street
 	game.act = "enter_boss"
 	game.interact()
+	check(not game.dialog.playing(), "intro only plays once")
 	var before: int = player.level
 	player.treats = 100
 	player.take_damage(99999.0)

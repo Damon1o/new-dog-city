@@ -1,12 +1,14 @@
 extends RefCounted
 ## Prey spawn tables per city and day phase (spec 02 Day/night). Weights, not percents.
-## ponytail: raccoons x2 / cats / possums at night arrive with M3-2's enemy spawner.
+## Foe kinds (scripts/enemies/cat.gd TYPES, "rats" = a swarm of 5) go to spawner.spawn_foe.
+## ponytail: raccoons x2 at night still pending; sphynx waits for a tokyo / shenzhen table.
 
 const SPAWNS := {
 	"nyc": {
-		"day": {"pigeon": 0.45, "squirrel": 0.3, "rat": 0.25},
-		"dusk": {"pigeon": 0.25, "squirrel": 0.3, "rat": 0.45},
-		"night": {"squirrel": 0.25, "rat": 0.75},  # rats x2-ish, pigeons roost
+		"day": {"pigeon": 0.45, "squirrel": 0.3, "rat": 0.25, "tabby": 0.05, "calico": 0.04, "tom": 0.03, "rats": 0.03},
+		"dusk": {"pigeon": 0.25, "squirrel": 0.3, "rat": 0.45, "tabby": 0.05, "calico": 0.04, "tom": 0.03, "rats": 0.03},
+		"night": {"squirrel": 0.25, "rat": 0.75, "tabby": 0.04, "calico": 0.03, "tom": 0.03, "black": 0.05, "possum": 0.05,
+			"rats": 0.06},  # rats x2-ish, pigeons roost, black cats and possums out
 	},
 }
 const NIGHT_LEVELS := 2

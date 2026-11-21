@@ -32,4 +32,24 @@ const QUESTS := {
 		["Enter the hedgehog burrow in\nthe south-east park", "burrow", 1, 0, 50],
 		["Defeat the Boss Hedgehog", "boss", 1, 100, 500],
 	],
+	# Dog park dogs (spec 07). Optional columns: bones, wardrobe item. Step 0 = talk to the dog.
+	"Biscuit": [
+		["Meet Biscuit at the dog park", "met_biscuit", 1, 0, 0],
+		["Find Biscuit's ball (GPS)", "ball", 1, 0, 30],
+		["Scatter 10 pigeons", "pigeons", 10, 0, 40],
+		["Claim 3 blocks", "blocks", 3, 0, 80, 0, "bodega_cap"],
+	],
+	"Duchess": [
+		["Meet Duchess at the dog park", "met_duchess", 1, 0, 0],
+		["Get Duchess a cup at the cafe", "cafe", 1, 0, 40],
+		["Walk Duchess across 2 roads", "escort", 2, 0, 60],
+		["Race Duchess to the
+Empire State Building", "race", 1, 20, 100],
+	],
+	"Old Rex": [
+		["Meet Old Rex at the dog park", "met_old_rex", 1, 0, 0],
+		["Beat the King of Raccoons", "park_boss_raccoon", 1, 0, 100],
+		["Beat 3 black cats at night", "black_cats_night", 3, 0, 100],
+		["Visit the pound", "pound", 1, 0, 100, 2],
+	],
 }

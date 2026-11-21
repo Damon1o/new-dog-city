@@ -7,6 +7,7 @@ signal hit
 
 const XP := preload("res://scripts/systems/xp.gd")
 const Items := preload("res://scripts/data/items.gd")
+const Wardrobe := preload("res://scripts/data/wardrobe.gd")
 const PX_PER_MPH := 16.0  # ideas.md top speed 15-20 mph -> 240-320 px/s
 const BREEDS := [
 	{"name": "Pug", "file": "pug", "scale": 2.4, "mph": 15.0, "hp": 90.0, "atk": 8.0, "scare": 0.8},
@@ -21,8 +22,9 @@ const DASH_PX := 220.0
 const DASH_TIME := 0.15
 const DASH_CD := 1.2
 const DASH_COST := 25.0
-# spec 05: bark (R) = 180 px ring, 15 stamina, 6 s; pounce = hold Space 0.6 s, level 30, 160 px leap, 2x bite + 0.8 s stun
-const BARK_RADIUS := 180.0
+# spec 05: bark (R) = ranged sound wave (bark_wave.gd, 520 px), 15 stamina, 6 s; pounce = hold Space 0.6 s, level 30, 160 px leap, 2x bite + 0.8 s stun
+const BarkWave := preload("res://scripts/bark_wave.gd")
+const BARK_DMG := 0.4  # x bite damage per wave hit
 const BARK_CD := 6.0
 const BARK_COST := 15.0
 const POUNCE_LEVEL := 30
@@ -32,15 +34,17 @@ const POUNCE_TIME := 0.3
 const POUNCE_CD := 4.0
 const POUNCE_COST := 30.0
 
-const STATS := [["stat_hp", "+10 Max HP"], ["stat_atk", "+2 Bite"], ["stat_spd", "+1 mph Speed"]]
+## [var, label, gain per point]. 3 points per level, so each is a third of the old 10 HP / 2 bite / 1 mph.
+const STATS := [["stat_hp", "Max HP", 3.0], ["stat_atk", "Bite", 0.6], ["stat_spd", "Speed (mph)", 0.3]]
+const MAX_ARMOR := 0.5  # armor never cuts more than half a hit
 
-var points := 0  # unspent stat points, one per level (+1 every 10th)
+var points := 0  # unspent stat points, 3 per level; spent in the bag's STATS panel
 var stat_hp := 0
 var stat_atk := 0
 var stat_spd := 0
 var hp := 100.0
 var max_hp: float:
-	get: return float(BREEDS[skin].hp) + (level - 1) * 2.0 + stat_hp * 10.0
+	get: return float(BREEDS[skin].hp) + (level - 1) * 2.0 + stat_hp * STATS[0][2]
 var hunger := 100.0
 var thirst := 100.0
 var buffs := {}  # "food" / "drink" -> {id, t (s left), mods}; not saved, they last 1-2 min
@@ -52,6 +56,8 @@ var skin := 0
 var purina := 0
 var water := 0
 var collar := ""  # ideas.md: Dog Collar [Name]
+var armor := ""  # worn armor id (data/items.gd ARMOR), "" = none
+var armor_owned: Array = []
 
 var spawn_point := Vector2.ZERO
 var frozen := false  # true while typing the collar name
@@ -90,7 +96,14 @@ func display_name() -> String:
 	return ("%s the %s" % [collar, breed().name]) if collar != "" else str(breed().name)
 
 func attack_damage() -> float:
-	return (float(breed().atk) + level * 0.5 + stat_atk * 2.0) * mod("damage")
+	return (float(breed().atk) + level * 0.5 + stat_atk * STATS[1][2]) * mod("damage")
+
+func top_mph() -> float:
+	return float(breed().mph) + stat_spd * STATS[2][2]
+
+## Fraction of each hit the worn armor soaks up.
+func defense() -> float:
+	return minf(float(Items.ARMOR.get(armor, ["", 0.0])[1]), MAX_ARMOR)
 
 ## Shop food / drinks (spec 09): FOOD fills hunger now; BUFFS take the food or drink slot,
 ## replacing whatever was there.
@@ -116,6 +129,7 @@ func spend(i: int) -> void:
 	hp += max_hp - before
 
 func _physics_process(delta: float) -> void:
+	Wardrobe.flip(sprite)  # hats / collars follow flip_h (set here and by game.gd's mouse bite)
 	attack_cd = maxf(attack_cd - delta, 0.0)
 	dash_cd = maxf(dash_cd - delta, 0.0)
 	bark_cd = maxf(bark_cd - delta, 0.0)
@@ -150,7 +164,7 @@ func _physics_process(delta: float) -> void:
 		dir = Input.get_vector("move_left", "move_right", "move_up", "move_down").normalized()  # scripts/systems/keys.gd
 	var weak := hunger < 20.0 or thirst < 20.0
 	sprinting = dir != Vector2.ZERO and Input.is_action_pressed("sprint") and not winded
-	var top: float = (float(breed().mph) + stat_spd) * PX_PER_MPH * (0.75 if weak else 1.0) * mod("speed")
+	var top: float = top_mph() * PX_PER_MPH * (0.75 if weak else 1.0) * mod("speed")
 	var w: Node = get_parent().get("weather")  # scripts/systems/weather.gd modifiers
 	velocity = dir * (top * (w.sprint_mult() if w else 1.0) if sprinting else top * 0.6)
 	if dir != Vector2.ZERO:
@@ -197,16 +211,21 @@ func dash() -> bool:
 	dash_t = DASH_TIME
 	return true
 
-## R key. Foes 5+ levels below flee, within 4 levels get stunned, higher ones ignore it.
+## R key: fires a sound wave along `facing`. Foes it hits take a light hit, then
+## 5+ levels below flee, within 4 levels get stunned, higher ones ignore the scare.
 func bark() -> bool:
 	if frozen or bark_cd > 0.0 or stamina < BARK_COST:
 		return false
 	stamina -= BARK_COST
 	bark_cd = BARK_CD * mod("bark_cd")
 	Sound.sfx("bark_scare")
-	for r in foes():
-		if r.position.distance_to(position) < BARK_RADIUS:
-			r.scare(level)
+	var w := BarkWave.new()
+	w.dir = facing
+	w.dog_level = level
+	w.dmg = attack_damage() * BARK_DMG
+	w.game = get_parent()
+	w.position = position + facing * 20.0
+	get_parent().add_child(w)
 	return true
 
 ## Hold Space (level 30). The leap itself lands the hit, see land().
@@ -228,13 +247,18 @@ func land() -> void:
 func foes() -> Array:
 	return get_tree().get_nodes_in_group("raccoon") + get_tree().get_nodes_in_group("boss")
 
-## Spec 05: 5% crit, +1% per 10 stat_atk.
+## Spec 05: 5% crit, +1% per 30 stat_atk (points are a third the size they were).
+func crit_chance() -> float:
+	return 0.05 + stat_atk / 3000.0
+
 func roll_crit() -> bool:
-	return randf() < 0.05 + stat_atk * 0.001
+	return randf() < crit_chance()
 
 func take_damage(amount: float) -> void:
 	if dead or dash_t > 0.0:
 		return
+	if amount >= 1.0:  # hits, not the per-frame starving tick
+		amount *= 1.0 - defense()
 	hp -= amount
 	if amount >= 1.0:
 		get_parent().float_text(position, str(int(amount)), Color(1, 0.3, 0.3))  # red: damage to Byte (spec 06)
@@ -249,7 +273,8 @@ func die() -> void:
 	dead = true
 	frozen = true
 	hp = 0.0
-	treats = treats / 2
+	if not get_parent().wanted.jails_on_death():  # caught instead: treats kept (spec 08)
+		treats = treats / 2
 	died.emit()
 
 func respawn() -> void:
@@ -263,7 +288,7 @@ func respawn() -> void:
 	position = spawn_point
 
 func add_xp(amount: int) -> void:
-	xp += amount
+	xp += roundi(amount * mod("xp"))  # Pocket's XP snack
 	while xp >= xp_needed() and level < 100:
 		xp -= xp_needed()
 		level += 1
@@ -304,4 +329,6 @@ func cycle_skin() -> void:
 func apply_skin() -> void:
 	sprite.texture = load("res://assets/dog_%s.png" % breed().file)
 	sprite.scale = Vector2.ONE * float(breed().scale)
-	name_tag.text = collar
+	var eq := Wardrobe.worn(get_parent().get("save_extra"), collar)  # scripts/data/wardrobe.gd
+	name_tag.text = collar if eq.get("collar", "name") == "name" else ""
+	Wardrobe.dress(sprite, breed().file, eq)

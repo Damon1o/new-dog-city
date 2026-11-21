@@ -1,7 +1,8 @@
 extends Node
-## Inventory (I): three panels like a survival-game bag.
+## Inventory (E, or K / the Stats corner box): panels like a survival-game bag.
 ##   ON THE GROUND  treats near the dog; click to grab
-##   EQUIPMENT      dog preview, Head / Collar / Skin / Outfit slots, the 4-slot hotbar
+##   STATS          level, HP / bite / speed / armor / crit; + buttons spend stat points (no forced popup)
+##   EQUIPMENT      dog preview, Head / Collar / Skin / Outfit / Armor slots, the 4-slot hotbar
 ##   INVENTORY      grid of carried items, Sam's things and keycards
 ## Drag an item onto a hotbar slot to bind it; right-click an item to use it, a hotbar slot to clear it.
 ## The hotbar also sits on the HUD (bottom right) and saves as save_extra["ui/hotbar"].
@@ -10,6 +11,7 @@ const Items := preload("res://scripts/data/items.gd")
 const Gates := preload("res://scripts/data/gates.gd")
 const Look := preload("res://scripts/ui/theme.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
+const Album := preload("res://scripts/ui/album.gd")
 const CARRY := ["purina", "water"]  # bindable consumables so far
 const ALBUM := 17
 const CELL := 54.0
@@ -18,9 +20,11 @@ const GROUND_PX := 320.0
 var g: Node2D
 var root: HBoxContainer
 var ground: GridContainer
+var stats_box: VBoxContainer
 var gear: VBoxContainer
 var bag: GridContainer
 var wallet: Label
+var album: HBoxContainer  # ALBUM panel content, swapped in for the other three by its button
 var hud_slots: Array[Dictionary] = []  # HUD hotbar: {icon, count, key}
 
 func build() -> void:
@@ -28,7 +32,13 @@ func build() -> void:
 	root.add_theme_constant_override("separation", 14)
 	ground = GridContainer.new()
 	ground.columns = 4
-	section("ON THE GROUND", ground)
+	var left := VBoxContainer.new()  # ground + stats share the first column
+	left.add_theme_constant_override("separation", 10)
+	root.add_child(left)
+	section("ON THE GROUND", ground, left)
+	stats_box = VBoxContainer.new()
+	stats_box.add_theme_constant_override("separation", 3)
+	section("STATS", stats_box, left)
 	gear = VBoxContainer.new()
 	gear.add_theme_constant_override("separation", 8)
 	section("EQUIPMENT", gear)
@@ -36,6 +46,15 @@ func build() -> void:
 	bag.columns = 5
 	var right := section("INVENTORY", bag)
 	wallet = g.ui.hud_label(right, 13, Look.DIM)
+	var open_album := Button.new()
+	open_album.text = "Album"
+	open_album.pressed.connect(show_album.bind(true))
+	right.add_child(open_album)
+	album = HBoxContainer.new()
+	var back := Button.new()
+	back.text = "Back"
+	back.pressed.connect(show_album.bind(false))
+	section("ALBUM", album).add_child(back)
 	var c := CenterContainer.new()
 	g.ui.full(c)
 	c.add_child(root)
@@ -43,7 +62,7 @@ func build() -> void:
 	build_hud_hotbar()
 
 ## Titled panel; returns its column so callers can add under the content.
-func section(title: String, content: Control) -> VBoxContainer:
+func section(title: String, content: Control, parent: Node = null) -> VBoxContainer:
 	var p: PanelContainer = g.ui.panel(0.92)
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
@@ -55,7 +74,7 @@ func section(title: String, content: Control) -> VBoxContainer:
 		content.add_theme_constant_override("h_separation", 4)
 		content.add_theme_constant_override("v_separation", 4)
 	col.add_child(content)
-	root.add_child(p)
+	(parent if parent else root).add_child(p)
 	return col
 
 func is_open() -> bool:
@@ -68,6 +87,7 @@ func toggle() -> void:
 		g.player.frozen = false
 	elif not g.player.frozen and not g.player.dead:
 		refresh()
+		show_album(false)
 		root.show()
 		g.player.frozen = true
 
@@ -163,10 +183,12 @@ func labeled(parent: Node, title: String) -> VBoxContainer:
 # ---------- panels ----------
 
 func refresh() -> void:
-	for box: Node in [ground, gear, bag]:
+	for box: Node in [ground, stats_box, gear, bag, album]:
 		for ch in box.get_children():
 			ch.free()
+	album.add_child(Album.grid(Story.flags, replay))
 	refresh_ground()
+	refresh_stats()
 	refresh_gear()
 	refresh_bag()
 
@@ -194,7 +216,7 @@ func refresh_gear() -> void:
 	gear.add_child(top)
 	var left := VBoxContainer.new()
 	top.add_child(left)
-	cell(labeled(left, "Head"), null, "", "Hats arrive with the wardrobe")
+	worn(left, "Head", "hat")
 	var t: Texture2D = g.player.sprite.texture
 	var frame := AtlasTexture.new()  # sprite sheet is 2 walk frames side by side; show the first
 	frame.atlas = t
@@ -216,7 +238,11 @@ func refresh_gear() -> void:
 	var right := VBoxContainer.new()
 	top.add_child(right)
 	cell(labeled(right, "Collar"), null, g.player.collar.left(6), "Name collar: %s" % (g.player.collar if g.player.collar != "" else "none"))
-	cell(labeled(right, "Outfit"), null, "", "Outfits arrive with the wardrobe")
+	worn(right, "Outfit", "overlay")
+	var arm: String = g.player.armor
+	on_click(cell(labeled(left, "Armor"), null, Items.ARMOR[arm][0].left(6) if arm != "" else "",
+		("%s  -%d%% damage\nClick to swap, right-click to take off" % [Items.ARMOR[arm][0], roundi(g.player.defense() * 100)])
+		if arm != "" else "No armor - buy some at shops"), next_armor, wear.bind(""))
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 4)
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -233,11 +259,62 @@ func refresh_gear() -> void:
 			func(_at, d): bind(d.item, s))
 		on_click(p, Callable(), clear_slot.bind(s))
 
+## Head / Outfit: the worn wardrobe item; click opens the wardrobe (B).
+func worn(parent: Node, title: String, slot: String) -> void:
+	var id: String = g.wardrobe.equipped().get(slot, "")
+	var info: Dictionary = g.wardrobe.Wardrobe.ITEMS.get(id, {})
+	on_click(cell(labeled(parent, title), g.wardrobe.Wardrobe.icon(id), "",
+		"%s - click for the wardrobe" % info.get("name", "Nothing")), open_wardrobe)
+
+func open_wardrobe() -> void:
+	toggle()
+	g.wardrobe.toggle()
+
 func clear_slot(s: int) -> void:
 	var h := hotbar().duplicate()
 	h[s] = ""
 	g.save_extra["ui/hotbar"] = h
 	refresh()
+
+## Armor slot click: wear the next owned piece.
+func next_armor() -> void:
+	var owned: Array = g.player.armor_owned
+	if owned.is_empty():
+		return
+	wear(owned[(owned.find(g.player.armor) + 1) % owned.size()])
+
+func wear(id: String) -> void:
+	g.player.armor = id
+	g.sfx("pickup")
+	refresh.call_deferred()  # the clicked cell is mid-signal; free it next frame
+
+func stat_row(text: String, value: String) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	var l: Label = g.ui.hud_label(row, 13, Look.DIM)
+	l.text = text
+	l.custom_minimum_size.x = 120
+	g.ui.hud_label(row, 13).text = value
+	stats_box.add_child(row)
+	return row
+
+func refresh_stats() -> void:
+	var p: Node = g.player
+	stat_row("Level", "%d   (%d / %d XP)" % [p.level, p.xp, p.xp_needed()])
+	var pts: Label = g.ui.hud_label(stats_box, 14, Color(1, 0.85, 0.3) if p.points > 0 else Look.DIM)
+	pts.text = "%d stat point%s to spend" % [p.points, "" if p.points == 1 else "s"]
+	var shown := ["%d" % int(p.max_hp), "%.1f" % p.attack_damage(), "%.1f" % p.top_mph()]
+	for i in p.STATS.size():
+		var st: Array = p.STATS[i]
+		var row := stat_row(st[1], "%s   (x%d)" % [shown[i], int(p.get(st[0]))])
+		var plus := Button.new()
+		plus.text = "+%s" % str(st[2])
+		plus.focus_mode = Control.FOCUS_NONE
+		plus.disabled = p.points <= 0
+		plus.tooltip_text = "Spend 1 point: +%s %s" % [str(st[2]), st[1]]
+		plus.pressed.connect(g.pick_stat.bind(i))
+		row.add_child(plus)
+	stat_row("Armor", "-%d%% damage" % roundi(p.defense() * 100))
+	stat_row("Crit", "%.1f%%" % (p.crit_chance() * 100))
 
 func next_breed() -> void:
 	g.prev_skin = g.player.skin
@@ -255,6 +332,12 @@ func refresh_bag() -> void:
 		p.set_drag_forwarding(func(_at): return drag(item), Callable(), Callable())
 		on_click(p, Callable(), func(): use(item); refresh())
 		n += 1
+	for a: String in g.player.armor_owned:
+		if a == g.player.armor:
+			continue
+		var c := cell(bag, null, Items.ARMOR[a][0].left(6), "%s  -%d%% damage\nRight-click to wear" % [Items.ARMOR[a][0], roundi(Items.ARMOR[a][1] * 100)])
+		on_click(c, Callable(), wear.bind(a))
+		n += 1
 	for i: String in Story.items:
 		cell(bag, null, i.left(6), "Sam's " + i.capitalize())
 		n += 1
@@ -265,6 +348,15 @@ func refresh_bag() -> void:
 		cell(bag, null)
 	var shots: int = Story.flags.filter(func(f): return f.begins_with("fb_")).size()
 	wallet.text = "%d treats   %d bones   Polaroids %d / %d" % [g.player.treats, g.economy.bones, shots, ALBUM]
+
+## Album tab (spec 11): the polaroid grid in place of the other three panels.
+func show_album(on: bool) -> void:
+	for p: Control in root.get_children():
+		p.visible = (p == album.get_parent().get_parent()) == on
+
+func replay(fb: String) -> void:
+	toggle()
+	g.flashback.play(fb)
 
 func drag(item: String) -> Variant:
 	var t := TextureRect.new()

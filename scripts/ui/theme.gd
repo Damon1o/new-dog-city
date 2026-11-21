@@ -8,6 +8,20 @@ const ACCENT := Color(0.36, 0.6, 1.0)
 const TEXT := Color(0.94, 0.96, 1.0)
 const DIM := Color(0.62, 0.68, 0.8)
 
+const BIG := 1.25  # "Large text" setting (spec 11 accessibility)
+
+## Scale one Label / Button's text from the size it was built with. Safe to call repeatedly.
+static func big_text(n: Node, on: bool) -> void:
+	if not (n is Label or n is Button):
+		return
+	if not n.has_meta("fs"):
+		n.set_meta("fs", n.get_theme_font_size("font_size"))
+	n.add_theme_font_size_override("font_size", roundi(n.get_meta("fs") * (BIG if on else 1.0)))
+
+static func set_big_text(root: Node, on: bool) -> void:
+	for n in root.find_children("*", "Control", true, false):
+		big_text(n, on)
+
 static func box(bg := BG, radius := 10, edge := EDGE, pad := 10) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg

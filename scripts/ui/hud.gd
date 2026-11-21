@@ -194,7 +194,7 @@ func build_hud() -> void:
 
 	# top-right: minimap + legend
 	g.mini = Control.new()
-	g.mini.size = Vector2(200, 200 * g.WORLD.y / g.WORLD.x + 34)
+	g.mini.size = Vector2(200, 200 * g.WORLD.y / g.WORLD.x)  # the key lives on the M map now
 	g.mini.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	g.mini.draw.connect(draw_minimap)
 	g.hud.add_child(g.mini)
@@ -286,6 +286,18 @@ func build_hud() -> void:
 	keys_btn.text = "Key bindings"
 	keys_btn.pressed.connect(func(): g.keybinds.open())
 	pv.add_child(keys_btn)
+	var calm := CheckBox.new()
+	calm.text = "Reduce motion  (no screen shake)"
+	calm.toggled.connect(func(on: bool): g.save_extra["ui/reduce_motion"] = on)
+	g.pause_panel.visibility_changed.connect(func(): calm.set_pressed_no_signal(g.save_extra.get("ui/reduce_motion", false)))
+	pv.add_child(calm)
+	var big := CheckBox.new()
+	big.text = "Large text"
+	big.toggled.connect(func(on: bool):
+		g.save_extra["ui/large_text"] = on
+		Look.set_big_text(g, on))
+	g.pause_panel.visibility_changed.connect(func(): big.set_pressed_no_signal(g.save_extra.get("ui/large_text", false)))
+	pv.add_child(big)
 	for bus in ["Master", "Music", "SFX", "Ambience"]:
 		hud_label(pv, 14).text = "Volume" if bus == "Master" else bus
 		var sl := HSlider.new()
@@ -341,23 +353,8 @@ func build_hud() -> void:
 	g.death_panel.hide()
 	center.add_child(g.death_panel)
 
-	g.stat_panel = panel(0.94)
-	var sv := VBoxContainer.new()
-	sv.add_theme_constant_override("separation", 8)
-	g.stat_panel.add_child(sv)
-	g.stat_head = hud_label(sv, 24, Color(1, 0.9, 0.3))
-	for i in g.player.STATS.size():
-		var b := Button.new()
-		b.focus_mode = Control.FOCUS_NONE  # mashing Space (bite) must not pick a stat
-		b.pressed.connect(g.pick_stat.bind(i))
-		var key := InputEventKey.new()
-		key.keycode = (KEY_1 + i) as Key
-		b.shortcut = Shortcut.new()
-		b.shortcut.events = [key]
-		sv.add_child(b)
-		g.stat_buttons.append(b)
-	g.stat_panel.hide()
-	center.add_child(g.stat_panel)
+	build_corner()
+	build_loading()
 
 ## Wipes the save, so it takes two clicks; re-arms whenever its panel reopens.
 func restart_button(parent: Control) -> void:
@@ -421,6 +418,8 @@ func update_hud(delta: float) -> void:
 		if chip.visible:
 			(chip.get_child(0) as Label).text = "%s  %ds" % [Items.ITEM_INFO[b.id].name, ceili(b.t)]
 
+	for b: Button in corner.values():
+		b.queue_redraw()
 	if g.player.treats != g.last_treats:
 		if g.last_treats >= 0:  # pop green on gain, red on spend
 			g.treat_label.modulate = Color(0.5, 1, 0.5) if g.player.treats > g.last_treats else Color(1, 0.45, 0.45)
@@ -433,7 +432,7 @@ func update_hud(delta: float) -> void:
 	for item in ["purina", "water"]:
 		var n: int = g.player.get(item)
 		var l: Label = g.slots[item]
-		l.text = "x%d [%s]" % [n, "Q" if item == "purina" else "E"]
+		l.text = "x%d" % n  # used from the hotbar (keys 1-4)
 		l.get_parent().modulate.a = 1.0 if n > 0 else 0.4
 	var mins = int(g.tod * 1440.0)
 	g.info.text = "%02d:%02d" % [mins / 60, mins % 60]
@@ -485,12 +484,13 @@ func draw_overlay() -> void:
 	if g.god_view:
 		for poi in g.pois:
 			if poi.text != "Drink":
-				g.overlay.draw_circle(xf * poi.pos, 6.0, poi.color)
+				draw_poi(g.overlay, xf * poi.pos, 10.0, glyph(poi.text), poi.color)
 		for l in g.landmarks:
-			g.overlay.draw_circle(xf * l.pos, 6.0, Color.WHITE)
+			draw_poi(g.overlay, xf * l.pos, 10.0, "*", Color.WHITE)
 		for r in get_tree().get_nodes_in_group("raccoon"):
 			if r.visible:
-				g.overlay.draw_circle(xf * r.position, 5.0, Color(1, 0.2, 0.2))
+				draw_poi(g.overlay, xf * r.position, 7.0, "", Color(1, 0.2, 0.2))
+		draw_map_key()
 	if not g.waypoint.is_empty() and g.inside == "":
 		var a := waypoint_arrow()
 		if a.is_empty():  # on screen: pulse ring over it
@@ -576,11 +576,14 @@ func draw_minimap() -> void:
 	for r in get_tree().get_nodes_in_group("raccoon"):
 		if r.visible:
 			g.mini.draw_circle(r.position * s, 2.5, Color(1, 0.2, 0.2))
+	for m in g.territory.markers():  # spec 05: markers show on the map
+		if m.city == g.city.id:
+			g.mini.draw_circle(m.pos * s, 1.5, Color(1, 0.85, 0.2))
 	for poi in g.pois:
 		if poi.text != "Drink":
-			g.mini.draw_circle(poi.pos * s, 3.0, poi.color)
+			draw_poi(g.mini, poi.pos * s, 5.0, glyph(poi.text), poi.color)
 	for l in g.landmarks:
-		g.mini.draw_circle(l.pos * s, 3.0, Color.WHITE)
+		draw_poi(g.mini, l.pos * s, 5.0, "*", Color.WHITE)
 	if g.ctx == "subway":  # number the destinations the g.menu offers
 		for i in g.stations.size():
 			var sp: Vector2 = g.stations[i].pos * s
@@ -598,10 +601,175 @@ func draw_minimap() -> void:
 	g.mini.draw_colored_polygon(PackedVector2Array([c + Vector2(6, 0).rotated(a),
 		c + Vector2(-4, 4).rotated(a), c + Vector2(-4, -4).rotated(a)]), Color(1, 0.9, 0.2))
 	g.mini.draw_rect(Rect2(Vector2.ZERO, g.mini.size), Color(1, 1, 1, 0.6), false, 1.0)
-	var x := 6.0
-	for e in [["shop", Color(1, 0.55, 0.15)], ["subway", Color(0.3, 0.6, 1)], ["sight", Color.WHITE], ["raccoon", Color(1, 0.2, 0.2)]]:
-		var word: String = e[0]
-		g.mini.draw_circle(Vector2(x + 3, h + 10), 3.0, e[1])
-		g.mini.draw_string(font, Vector2(x + 9, h + 14), word, HORIZONTAL_ALIGNMENT_LEFT, -1, 10)
-		x += 16.0 + font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
-	g.mini.draw_string(font, Vector2(6, h + 28), "[M] god's-eye map   [Esc] pause", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(1, 1, 1, 0.7))
+	var hint := "[%s] map + key" % Keys.label("map").get_slice(" / ", 0)
+	g.mini.draw_string_outline(font, Vector2(4, h - 4), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, 3, Color.BLACK)
+	g.mini.draw_string(font, Vector2(4, h - 4), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(1, 1, 1, 0.75))
+
+# ---------- map icons + key (M) ----------
+
+## Map POI text -> the letter drawn inside its dot.
+const GLYPHS := {"Shop": "$", "Subway": "S", "Airport": "A", "Gas Station": "G", "Pizza": "P", "Cafe": "C",
+	"Final Boss": "X", "Pocket": "T"}
+## Rows of the M map key: [glyph, color, label]. Bosses share one row.
+const MAP_KEY := [["$", Color(1, 0.55, 0.15), "Shop / bodega"], ["G", Color(1, 0.55, 0.15), "Gas station"],
+	["P", Color(1, 0.55, 0.15), "Pizza"], ["C", Color(1, 0.55, 0.15), "Cafe"], ["S", Color(0.3, 0.6, 1), "Subway"],
+	["A", Color(0.7, 0.9, 1), "Airport"], ["*", Color.WHITE, "Landmark"], ["!", Color(0.85, 0.3, 1), "Boss"],
+	["X", Color(0.85, 0.3, 0.9), "Final boss"], ["T", Color(0.75, 0.6, 1), "Pocket (trader)"],
+	["", Color(1, 0.2, 0.2), "Raccoon"]]
+
+func glyph(text: String) -> String:
+	if GLYPHS.has(text):
+		return GLYPHS[text]
+	if g.BOSSES.any(func(b): return b.name == text):
+		return "!"
+	return text.left(1).to_upper()
+
+## Dot with an icon letter inside: dark rim, colored fill, letter in black or white for contrast.
+func draw_poi(ci: CanvasItem, at: Vector2, r: float, letter: String, color: Color) -> void:
+	ci.draw_circle(at, r + 1.0, Color(0, 0, 0, 0.8))
+	ci.draw_circle(at, r, color)
+	if letter == "":
+		return
+	var font := ThemeDB.fallback_font
+	var fs := int(r * 1.5)
+	var w := font.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	ci.draw_string(font, at + Vector2(-w / 2.0, fs * 0.36), letter, HORIZONTAL_ALIGNMENT_LEFT, -1, fs,
+		Color.BLACK if color.get_luminance() > 0.5 else Color.WHITE)
+
+## Key panel on the left of the full map; only while the map is open.
+func draw_map_key() -> void:
+	var font := ThemeDB.fallback_font
+	var rows: int = MAP_KEY.size()
+	var box := Rect2(14, (g.overlay.size.y - (rows * 24 + 64)) / 2.0, 190, rows * 24 + 64)
+	g.overlay.draw_style_box(Look.box(Color(Look.BG, 0.9)), box)
+	g.overlay.draw_string(font, box.position + Vector2(12, 24), "MAP KEY", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Look.ACCENT.lightened(0.3))
+	var y := box.position.y + 46.0
+	for k: Array in MAP_KEY:
+		draw_poi(g.overlay, Vector2(box.position.x + 22, y), 8.0, k[0], k[1])
+		g.overlay.draw_string(font, Vector2(box.position.x + 38, y + 5), k[2], HORIZONTAL_ALIGNMENT_LEFT, -1, 13)
+		y += 24.0
+	g.overlay.draw_string(font, Vector2(box.position.x + 12, y + 4), "Click a place: waypoint", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Look.DIM)
+	g.overlay.draw_string(font, Vector2(box.position.x + 12, y + 18), "[%s] close map" % Keys.label("map").get_slice(" / ", 0), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Look.DIM)
+
+# ---------- corner boxes ----------
+
+## Bottom-right, over the hotbar: one icon box per screen, key in the corner. Stats shows +N unspent points.
+const CORNER := [["stats", "Stats"], ["inventory", "Bag"], ["wardrobe", "Wardrobe"], ["map", "Map"], ["stocks", "Stocks"], ["pause", "Menu"]]
+var corner := {}  # action -> Button
+
+func build_corner() -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c: Array in CORNER:
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(46, 46)
+		b.focus_mode = Control.FOCUS_NONE  # Space / Enter must never press these
+		b.tooltip_text = c[1]
+		b.draw.connect(draw_corner.bind(b, c[0]))
+		b.pressed.connect(corner_pressed.bind(c[0]))
+		row.add_child(b)
+		corner[c[0]] = b
+	dock(row, true, 62, Control.SIZE_SHRINK_END)
+
+func corner_pressed(a: String) -> void:
+	match a:
+		"stats", "inventory":
+			g.inventory.toggle()
+		"wardrobe":
+			g.wardrobe.toggle()
+		"map":
+			g.toggle_map()
+		"stocks":
+			g.stocks.toggle()
+		"pause":
+			set_paused(true)
+
+func draw_corner(b: Button, a: String) -> void:
+	var c := b.size / 2.0 + Vector2(0, -3)
+	var col := Color(0.85, 0.9, 1) if a != "map" or g.inside == "" else Color(0.5, 0.5, 0.55)
+	var dark := Color(0.1, 0.12, 0.18)
+	match a:
+		"stats":  # bar chart
+			for i in 3:
+				var hgt := 6.0 + i * 5.0
+				b.draw_rect(Rect2(c.x - 10 + i * 7, c.y + 8 - hgt, 5, hgt), col)
+		"inventory":  # backpack
+			b.draw_rect(Rect2(c.x - 9, c.y - 6, 18, 16), col)
+			b.draw_arc(c + Vector2(0, -6), 5.0, PI, TAU, 10, col, 2.0)
+			b.draw_rect(Rect2(c.x - 5, c.y + 1, 10, 5), dark)
+		"wardrobe":  # cap
+			b.draw_arc(c + Vector2(0, 4), 5.0, PI, TAU, 14, col, 9.0)
+			b.draw_rect(Rect2(c.x - 2, c.y + 2, 14, 3), col)
+		"map":  # folded map
+			b.draw_colored_polygon(PackedVector2Array([c + Vector2(-11, -7), c + Vector2(-4, -9), c + Vector2(4, -7),
+				c + Vector2(11, -9), c + Vector2(11, 8), c + Vector2(4, 10), c + Vector2(-4, 8), c + Vector2(-11, 10)]), col)
+			b.draw_line(c + Vector2(-4, -9), c + Vector2(-4, 8), dark, 1.5)
+			b.draw_line(c + Vector2(4, -7), c + Vector2(4, 10), dark, 1.5)
+		"stocks":  # rising line
+			b.draw_polyline(PackedVector2Array([c + Vector2(-11, 7), c + Vector2(-4, 0), c + Vector2(1, 4), c + Vector2(11, -8)]), Color(0.4, 1, 0.55), 2.5)
+		"pause":  # menu lines
+			for i in 3:
+				b.draw_rect(Rect2(c.x - 9, c.y - 7 + i * 6, 18, 3), col)
+	var font := ThemeDB.fallback_font
+	var key: String = "Esc" if a == "pause" else Keys.label(a).get_slice(" / ", 0).left(3)
+	b.draw_string_outline(font, Vector2(4, b.size.y - 4), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, 3, Color.BLACK)
+	b.draw_string(font, Vector2(4, b.size.y - 4), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Look.DIM)
+	if a == "stats" and g.player.points > 0:  # badge: unspent points
+		var pulse := 0.75 + 0.25 * sin(Time.get_ticks_msec() / 160.0)
+		b.draw_circle(Vector2(b.size.x - 8, 8), 9.0, Color(1, 0.75, 0.2, pulse))
+		var t := "+%d" % g.player.points
+		var w := font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		b.draw_string(font, Vector2(b.size.x - 8 - w / 2.0, 12), t, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.BLACK)
+
+# ---------- loading screen ----------
+
+const TIPS := ["Hotbar keys 1-4 use what's in each slot.", "E opens your bag; drag items onto the hotbar.",
+	"Every level gives 3 stat points. Spend them in Stats (K) whenever you like.",
+	"Armor from shops cuts the damage you take. Wear it in the bag's Armor slot.",
+	"M opens the full map with its key. Click a place to set a waypoint.",
+	"Bark (R) sends lower-level foes running.", "Elevators: stand by the doors and pick a floor."]
+var loading: ColorRect
+var loading_title: Label
+var loading_tip: Label
+var loading_bar: ProgressBar
+var loading_tw: Tween
+
+func build_loading() -> void:
+	loading = ColorRect.new()
+	loading.color = Color(0.04, 0.05, 0.08)
+	full(loading)
+	var c := CenterContainer.new()
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loading.add_child(c)
+	c.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	c.add_child(v)
+	loading_title = hud_label(v, 34, Look.TEXT)
+	loading_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loading_bar = ProgressBar.new()
+	loading_bar.custom_minimum_size = Vector2(360, 10)
+	loading_bar.show_percentage = false
+	loading_bar.max_value = 1.0
+	v.add_child(loading_bar)
+	loading_tip = hud_label(v, 14, Look.DIM)
+	loading_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loading.hide()
+
+## Loading card over a scene change (doors, elevators). The room is already built underneath;
+## this only covers the swap, so nothing waits on it.
+func show_loading(title: String) -> void:
+	if get_tree().paused:  # never cover the death / pause panels
+		return
+	loading_title.text = title
+	loading_tip.text = "Tip: " + TIPS.pick_random()
+	loading_bar.value = 0.0
+	loading.modulate.a = 1.0
+	loading.show()
+	if loading_tw:
+		loading_tw.kill()
+	loading_tw = create_tween()
+	loading_tw.tween_property(loading_bar, "value", 1.0, 0.55).set_trans(Tween.TRANS_SINE)
+	loading_tw.tween_property(loading, "modulate:a", 0.0, 0.3)
+	loading_tw.tween_callback(loading.hide)
