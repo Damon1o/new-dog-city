@@ -17,6 +17,8 @@ var typed := 0.0
 var bars: Array[ColorRect] = []
 var box: PanelContainer
 var portrait: TextureRect
+var sketch: Control      # over the portrait: speakers drawn in code (npc.gd dogs, Pocket)
+var face_fn: Callable    # step "face": func(ci: CanvasItem) drawing the speaker around (0, 0)
 var speaker: Label
 var text: Label
 var pan_tw: Tween
@@ -57,6 +59,11 @@ func build() -> void:
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	row.add_child(portrait)
+	sketch = Control.new()
+	sketch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait.add_child(sketch)
+	sketch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sketch.draw.connect(draw_sketch)
 	var col := VBoxContainer.new()
 	row.add_child(col)
 	speaker = g.ui.hud_label(col, 18, Look.ACCENT.lightened(0.35))
@@ -85,7 +92,7 @@ func next() -> void:
 	while not steps.is_empty():
 		var s: Dictionary = steps.pop_front()
 		if s.has("say"):
-			show_card(s.say, s.text)
+			show_card(s.say, s.text, s.get("face", Callable()))
 			return
 		if s.has("pan"):
 			pan_tw = create_tween()
@@ -123,16 +130,24 @@ func finish() -> void:
 	wait_t = 0.0
 	id = ""
 
-func show_card(who: String, line: String) -> void:
+func show_card(who: String, line: String, art := Callable()) -> void:
 	speaker.text = who
 	text.text = line
 	text.visible_characters = 0
 	typed = 0.0
-	portrait.texture = face(who)
+	face_fn = art
+	portrait.texture = null if art.is_valid() else face(who)
+	sketch.queue_redraw()
 	box.show()
 
-## Byte's own sprite (first frame of the sheet); others get the cat art.
-## ponytail: one stand-in face for every non-Byte speaker; real portraits once assets has them.
+## Code-drawn speaker, scaled up and centred in the portrait square.
+func draw_sketch() -> void:
+	if face_fn.is_valid():
+		sketch.draw_set_transform(sketch.size / 2.0 + Vector2(0, 8), 0.0, Vector2(1.8, 1.8))
+		face_fn.call(sketch)
+
+## Byte's own sprite (first frame of the sheet); others get the cat art (Mango, Fat Cat, the
+## bodega cats and the HQ receptionist are all cats). Steps with a "face" callable skip this.
 func face(who: String) -> Texture2D:
 	if who == "Sam":
 		return null  # Sam is drawn in code (scripts/world/flashback.gd), no texture to show

@@ -820,6 +820,7 @@ func _initialize() -> void:
 	game.act = ""
 	game.interact()  # F at the counter goes through game.gd's hook
 	assert(cats.points("nyc_mango") == 1 and game.dialog.playing(), "talk +1, the cat speaks")
+	assert(game.dialog.portrait.texture == game.tex.cat and not game.dialog.face_fn.is_valid(), "a cat speaker shows the cat")
 	game.dialog.skip()
 	for i in 5:
 		cats.interact()
@@ -914,6 +915,7 @@ func _initialize() -> void:
 	game.act = ""
 	game.interact()
 	assert(story.objective() in game.dialog.text.text and game.save_extra["trader/hinted"] == ["nyc"], "first chat in a city: story hint")
+	assert(game.dialog.face_fn.is_valid() and game.dialog.portrait.texture == null, "Pocket's portrait is Pocket, not the cat")
 	game.dialog.skip()
 	tr.talk()
 	assert(not story.objective() in game.dialog.text.text, "one hint per city")
@@ -1292,6 +1294,7 @@ func _initialize() -> void:
 	assert(not game.quest_text().contains("BISCUIT"), "dog lines hidden until you meet the dog")
 	dp_biscuit.talk()
 	assert(game.dialog.playing() and game.quest_step.Biscuit == 1 and game.waypoint.text == "Biscuit's ball", "talk starts the line")
+	assert(game.dialog.face_fn.is_valid() and game.dialog.portrait.texture == null, "a quest dog's portrait is that dog, not the cat")
 	game.dialog.skip()
 	player.position = game.waypoint.pos
 	await frames(1)
