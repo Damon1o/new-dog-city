@@ -59,7 +59,11 @@ const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "bu
 	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant", "purina",
 	"cat", "shop_floor", "shop_wall", "shelf", "counter", "station_wall", "platform", "track",
 	"pillar", "stairs", "map_board", "train", "subway_wall", "subway_floor", "platform_edge",
-	"subway_column", "subway_ad_0", "subway_ad_1", "subway_ad_2", "bench"]
+	"subway_column", "subway_ad_0", "subway_ad_1", "subway_ad_2", "bench",
+	# themed shop interiors (tools/gen_interiors.py, rooms.gd gas / pizza / cafe / shop_small)
+	"gas_floor", "gas_wall", "pizza_floor", "pizza_wall", "cafe_floor", "cafe_wall", "store_floor", "store_wall",
+	"cooler", "snack_rack", "gas_counter", "price_board", "pizza_oven", "pizza_counter", "pizza_table", "pizza_sign",
+	"espresso_counter", "pastry_case", "cafe_table", "plant", "chalk_menu", "gondola", "shop_counter", "sale_sign"]
 
 const BOSS_COLOR := Color(0.85, 0.3, 1)
 const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway
