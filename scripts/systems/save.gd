@@ -13,6 +13,7 @@ const V2 := {
 	"world/city": "nyc", "world/tod": 0.33, "world/day": 1, "world/weather": {},
 	"story/flags": [], "story/items": [], "story/keycards": [], "story/floors": {},
 	"cats/points": {}, "cats/today": {},
+	"trader/visit": {}, "trader/hinted": [],
 	"territory/markers": [], "territory/rep": {},
 	"wardrobe/owned": [], "wardrobe/equipped": {"skin": 0, "collar": "name", "hat": "", "overlay": ""},
 	"stocks/prices": {}, "stocks/history": {}, "stocks/held": {},

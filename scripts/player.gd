@@ -272,7 +272,7 @@ func respawn() -> void:
 	position = spawn_point
 
 func add_xp(amount: int) -> void:
-	xp += amount
+	xp += roundi(amount * mod("xp"))  # Pocket's XP snack
 	while xp >= xp_needed() and level < 100:
 		xp -= xp_needed()
 		level += 1

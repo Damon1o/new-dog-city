@@ -71,3 +71,16 @@ Questions for Damon that came up during wave 3. Each one lists the current defau
     - Every interior is wood, including the subway, pound and flashback rooms.
     - Ambience plays at -10 dB, ducks 12 dB indoors, and uses one city/night pair for every city.
     - All sounds are synthesized placeholders. Swap in real CC0 sounds later and list them in `assets/sfx/CREDITS.md`.
+17. **Scent trail (M5-3).**
+    - Sam's bodega is `bodega_doors[0]` (block 0,0) until M5-8 picks the real one.
+    - "Range" is how far the paw prints reach along the path; the GPS edge arrow covers the rest.
+    - The edge arrow is the GPS arrow, so sniffing replaces a waypoint you set by hand.
+    - During Biscuit's quest, the ball takes priority over the story target.
+    - The path is a single L-turn on the road grid, not a shortest-path search.
+18. **Pocket the trader (M4-8).**
+    - Prices are the fixed spec 09 list, with no city multiplier or bodega discount.
+    - He's rolled once per day (50% chance) for the city the dog is in when the day starts.
+    - Items can be bought more than once per visit, except the Spiked collar and the Rare coat.
+    - The mustache removes 25 heat.
+    - The Rare coat only records `rare:<breed>`, because the wardrobe has no colour variants yet.
+    - The XP snack has no HUD buff chip.
