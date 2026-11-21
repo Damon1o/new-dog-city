@@ -573,9 +573,18 @@ func _initialize() -> void:
 			game.dialog.skip()
 		assert(game.boss_box.visible)
 		assert(root.get_node("Sound").current == "boss_fatcat", "boss fight takes over the music")
-		assert(b.cfg.specials.size() == 2)
-		for i in 2:  # both specials fire without errors
+		assert(b.cfg.specials.size() == 4)
+		assert(b.sprite.texture.resource_path.ends_with("boss_%s.png" % b.cfg.tex), "boss uses its own art")
+		for i in 4:  # every special fires without errors
 			b.special(Vector2.RIGHT)
+			b.state = b.State.CHASE
+		assert(b.minions.is_empty() != ("goons" in b.cfg.specials or "pack" in b.cfg.specials), "goons / pack summon minions")
+		b.marks.clear()
+		b.mark(player.position, Color.WHITE, 0.01 - b.MARK_WARN)
+		var hp_before: float = player.hp
+		await frames(2)
+		assert(b.marks.is_empty() and player.hp < hp_before, "a ground mark under the dog hits it")
+		player.hp = player.max_hp
 		var treats: int = player.treats
 		b.hurt(1e9, player.position)
 		assert(game.boss == null and not b.visible, "boss beaten")
@@ -652,6 +661,25 @@ func _initialize() -> void:
 	var lv_before: int = player.level
 	var xp_before: int = player.xp
 	game.set_inside("boss")
+	var hh: Node2D = game.hedgehog  # ground spikes: every wave's pattern spawns, a burst under the dog hits
+	player.position = hh.room.get_center() + Vector2(0, 120)
+	hh.start()
+	if game.dialog.playing():
+		game.dialog.skip()
+	for w in 3:
+		hh.wave = w
+		var n: int = hh.spikes.size()
+		hh.spike_attack()
+		assert(hh.spikes.size() > n, "wave %d spikes" % w)
+	hh.wave = 0
+	hh.spikes.clear()
+	hh.spike(player.position, 0.01 - hh.SPIKE_WARN)
+	player.hp = player.max_hp
+	await frames(2)
+	assert(player.hp < player.max_hp, "spikes bursting under the dog hit it")
+	hh.stop()
+	assert(hh.spikes.is_empty())
+	player.hp = player.max_hp
 	player.treats = 100
 	player.take_damage(1e9)
 	assert(player.level == lv_before and player.xp == xp_before, "hedgehog loss keeps level")
