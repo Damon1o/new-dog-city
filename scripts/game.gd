@@ -78,6 +78,7 @@ const STATIONS: Dictionary = NYC.stations
 var tex := {}
 var building_rects: Array[Rect2] = []
 var parks: Array[Rect2] = []
+var in_park := false  # dog is in a park on the street; flips the city music to the park theme
 var trees: Array[Vector2] = []
 var cans: Array[Vector2] = []
 var water_spots: Array[Vector2] = []
@@ -282,6 +283,11 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	tod = fmod(tod + delta / DAY_LENGTH, 1.0)
 	Sound.night = sun() < 0.2
+	if inside == "":
+		var p := parks.any(func(r: Rect2): return r.has_point(player.position))
+		if p != in_park:
+			in_park = p
+			Sound.room("park" if p else "")
 	night.color = interior.tint if inside != "" else Color(0.3, 0.33, 0.55).lerp(Color.WHITE, sun())
 	spawn_timer -= delta
 	if spawn_timer <= 0.0:
@@ -389,6 +395,7 @@ func sun() -> float:
 ## Switch between the street ("") and an interior; clamps the camera to that area.
 func set_inside(room: String, at := player.position) -> void:
 	inside = room
+	in_park = false  # re-checked next frame on the street
 	Sound.room(room)
 	if room == "":
 		interior.clear()
@@ -577,6 +584,7 @@ func on_raccoon_beaten(rac: Node2D) -> void:
 func on_hedgehog_beaten(at: Vector2) -> void:
 	show_banner("BOSS HEDGEHOG DEFEATED")
 	sfx("levelup")
+	Sound.music("hedgehog_theme")  # the den calms down; leaving it restores the street track
 	poof(at, Color(0.45, 0.3, 0.18), 50, 280.0)
 	poof(at, Color(1, 0.85, 0.4), 30, 200.0)
 	player.treats += 50

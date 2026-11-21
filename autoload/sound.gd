@@ -3,8 +3,8 @@ extends Node
 ## and music(track, layer): two players crossfading over FADE seconds.
 ## Music layers by priority: CUTSCENE > BOSS > CITY. The highest non-empty layer plays;
 ## at night a "<track>_night" variant replaces its day track when one exists.
-## Tracks are placeholder synth loops built at runtime (no files, nothing added to the
-## web build); see assets/music/CREDITS.md. Real OGGs later go in assets/music/<track>.ogg.
+## Tracks are placeholder synth loops built at runtime, unless FILES has a real recording
+## for them (assets/music/, looped on load). See assets/music/CREDITS.md.
 
 const BUSES := ["Music", "SFX", "Ambience"]
 const SFX_NAMES := ["bark", "catch", "hurt", "buy", "levelup", "steam", "subway", "pickup"]
@@ -23,7 +23,6 @@ const TRACKS := {
 	"nyc_jazz": {"bpm": 132, "root": 53, "wave": "sq", "decay": 0.25, "hats": 0.7, "swing": 0.33,
 		"lead": [9, R, 12, 9, 7, R, R, 4, 5, R, 7, R, 9, 7, 5, R, 4, R, 7, 9, 11, R, 12, R, 14, 12, R, 9, 7, R, R, R],
 		"bass": [2, 5, 9, 12, 7, 11, 14, 11, 0, 4, 7, 9, 12, 9, 7, 4]},
-	"nyc_jazz_night": {"from": "nyc_jazz", "bpm": 100, "wave": "tri", "decay": 0.4, "hats": 0.25},
 	"interior_shop": {"bpm": 96, "root": 65, "wave": "tri", "decay": 0.3, "hats": 0.3, "swing": 0.2,
 		"lead": [0, 4, 7, 4, 9, 7, 4, R, 5, 9, 12, 9, 7, R, R, R],
 		"bass": [0, 7, 5, 7]},
@@ -38,8 +37,19 @@ const TRACKS := {
 		"lead": [0, R, 0, R, 3, R, 2, R, 0, R, -1, R, 0, R, R, R, 0, R, 0, R, 5, R, 3, R, 2, R, 1, R, 0, R, R, R],
 		"bass": [0, 0, -1, -1, 0, 0, -2, -1]},
 }
+## Recorded tracks, preferred over TRACKS. An array = pick one at random each time it starts.
+const FILES := {
+	"nyc_jazz_night": ["res://assets/music/city_night_1.mp3", "res://assets/music/city_night_2.mp3"],
+	"bodega": "res://assets/music/bodega.mp3",
+	"park": "res://assets/music/park.mp3",
+	"hedgehog_theme": "res://assets/music/hedgehog_theme.mp3",
+	"hedgehog_battle_1": "res://assets/music/hedgehog_battle_1.mp3",
+	"hedgehog_battle_2": "res://assets/music/hedgehog_battle_2.mp3",
+}
 ## Room the dog enters -> its city-layer track. Rooms not listed keep the city track.
-const ROOM_MUSIC := {"": "nyc_jazz", "subway": "nyc_jazz", "shop": "interior_shop", "boss": "boss_fatcat"}
+## "park" is not a room: game.gd sends it when the dog walks into a park on the street.
+const ROOM_MUSIC := {"": "nyc_jazz", "subway": "nyc_jazz", "shop": "interior_shop", "boss": "hedgehog_battle_1",
+	"park": "park"}
 
 var sounds := {}
 var layers: Array[String] = ["", "", ""]  # indexed by CITY / BOSS / CUTSCENE
@@ -90,6 +100,7 @@ func _ready() -> void:
 	# M3-5 ambience loops (scripts/systems/footsteps.gd plays them): low traffic hum + far-off honk, night crickets
 	sounds["amb_city"] = _synth({"bpm": 30, "root": 57, "wave": "saw", "decay": 1.5, "hats": 0.3, "swing": 0.0,
 		"lead": [-24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24, -24], "bass": [R, R, R, 31, R, R, R, R]})
+	sounds["amb_rain"] = _looped("res://assets/music/amb_rain.mp3")
 	sounds["amb_night"] = _synth({"bpm": 240, "root": 96, "wave": "sine", "decay": 0.02, "hats": 0.0, "swing": 0.0, "bass": [],
 		"lead": [0, 0, R, R, R, R, R, R, 0, 0, 0, R, R, R, R, R, R, R, R, R, 0, 0, R, R, R, R, R, R, R, R, R, R]})
 	for i in 2:
@@ -116,7 +127,7 @@ func set_volume(bus: String, v: float) -> void:
 
 ## Set the track for a priority layer ("" clears it). Same resulting track = no-op.
 func music(track: String, layer := CITY) -> void:
-	assert(track == "" or TRACKS.has(track), "unknown music track " + track)
+	assert(track == "" or has_track(track), "unknown music track " + track)
 	layers[layer] = track
 	_refresh()
 
@@ -129,8 +140,11 @@ func wanted() -> String:
 	for i in range(layers.size() - 1, -1, -1):
 		var t := layers[i]
 		if t != "":
-			return t + "_night" if night and TRACKS.has(t + "_night") else t
+			return t + "_night" if night and has_track(t + "_night") else t
 	return ""
+
+func has_track(track: String) -> bool:
+	return FILES.has(track) or TRACKS.has(track)
 
 func _refresh() -> void:
 	var t := wanted()
@@ -154,11 +168,19 @@ func _refresh() -> void:
 	fade.tween_property(old, "volume_db", -60.0, FADE)
 	fade.chain().tween_callback(old.stop)
 
-## Looping stream for a track, synthesized once and cached.
-func stream(track: String) -> AudioStreamWAV:
+## Looping stream for a track: its recording, else a synth built once and cached.
+func stream(track: String) -> AudioStream:
+	if FILES.has(track):
+		var f = FILES[track]
+		return _looped(f.pick_random() if f is Array else f)
 	if not streams.has(track):
 		streams[track] = _synth(_recipe(track))
 	return streams[track]
+
+func _looped(path: String) -> AudioStream:
+	var s: AudioStream = load(path)
+	s.set("loop", true)  # mp3 / ogg import with loop off; Godot caches the resource, so once is enough
+	return s
 
 func _recipe(track: String) -> Dictionary:
 	var d: Dictionary = TRACKS[track]
