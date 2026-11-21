@@ -20,7 +20,7 @@ var rng := RandomNumberGenerator.new()  # own rng: the global one is seeded for 
 func setup(p_g: Node2D, p_name: String, breed: String, p_size: float, p_area: Rect2, at: Vector2) -> void:
 	g = p_g
 	npc_name = p_name
-	tex = load("res://assets/dog_%s.png" % breed)
+	tex = load("res://assets/dog_%s.png" % breed) if breed != "" else null  # "" = draws itself (human.gd)
 	size = p_size
 	area = p_area
 	position = at

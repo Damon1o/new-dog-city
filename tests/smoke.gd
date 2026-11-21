@@ -670,7 +670,8 @@ func _initialize() -> void:
 		if game.station_i == 1 and not player.frozen:
 			break
 	assert(game.station_i == 1 and game.inside == "subway", "rode the train to station 2")
-	assert(game.subway.rats.filter(func(r): return is_instance_valid(r)).size() >= 4, "fresh rats at the new station")
+	# >= 2: the tunnel-mouth pack spawns on the tracks and the arriving train flattens it; the platform pack (2-4) stays
+	assert(game.subway.rats.filter(func(r): return is_instance_valid(r)).size() >= 2, "fresh rats at the new station")
 	assert(game.interior.door == game.stations[1].door and game.stat("rides") == rides + 1)
 	assert(not player.dead and player.position.y < game.interior.O.y + 320, "stepped off onto the platform")
 	game.set_inside("", game.stations[1].pos)

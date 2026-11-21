@@ -14,9 +14,11 @@ var hp := 20.0
 var flee := Vector2.ZERO
 var skin: Color
 var hair: Color
+var color: Color  # shirt
 
 func setup_human(p_g: Node2D, at: Vector2) -> void:
-	setup(p_g, "", Color.from_hsv(randf(), 0.55, 0.85), Rect2(at - Vector2(150, 150), Vector2(300, 300)), at)
+	setup(p_g, "", "", 1.0, Rect2(at - Vector2(150, 150), Vector2(300, 300)), at)
+	color = Color.from_hsv(randf(), 0.55, 0.85)
 	rng.seed = hash(at)
 	skin = SKIN[randi() % SKIN.size()]
 	hair = Color.from_hsv(randf_range(0.05, 0.12), 0.6, randf_range(0.1, 0.6))
