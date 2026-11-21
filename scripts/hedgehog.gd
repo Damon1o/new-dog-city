@@ -3,7 +3,11 @@ extends Node2D
 ##   wave 1  stalks the dog, firing aimed fans of quills
 ##   wave 2  holds the middle, firing quill rings that turn a notch every burst
 ##   wave 3  sprays a double spiral, then curls up and rolls around the den shedding quills
-## Every wave it keeps summoning hoglets (raccoon AI, hedgehog-brown) up to MINIONS[wave].
+## Every wave it keeps summoning hoglets (raccoon AI, hedgehog-brown) up to MINIONS[wave],
+## and spikes burst from the floor after a red warning circle:
+##   wave 1  under the dog and where it is running to
+##   wave 2  a line racing from the hedgehog through the dog
+##   wave 3  (resting only) a ring round the dog plus one under it: step out sideways
 ## Talks before the fight (once per save), at waves 2 and 3, and when beaten (once per save).
 ## Sits at the world origin and draws everything (body + quills) in world space.
 
@@ -22,7 +26,12 @@ const REST_TIME := 1.8       # wave 3 spiral time between rolls
 const WINDUP := 0.5          # tail end of the rest: shakes and shows the roll line
 const MINIONS := [2, 3, 4]   # hoglets alive at once, per wave
 const SUMMON_CD := 6.0
-const WAVE_LINES := ["", "You bite harder than you look. Hoglets, SURROUND it!", "ENOUGH! Curl up... and ROLL!"]
+const SPIKE_R := 30.0
+const SPIKE_WARN := 0.8      # red circle time before the spikes burst up
+const SPIKE_UP := 0.45       # spikes stay up (drawn only; they hit once, as they burst)
+const SPIKE_CD := [3.0, 3.5, 2.6]
+var art: Texture2D = preload("res://assets/boss_hedgehog.png")  # tools/gen_bosses.py, faces right; per node: a const would leak at exit
+const WAVE_LINES :=["", "You bite harder than you look. Hoglets, SURROUND it!", "ENOUGH! Curl up... and ROLL!"]
 
 var level := LEVEL
 var stats: Dictionary = Levels.scale_for_level(BASE, LEVEL)
@@ -36,6 +45,8 @@ var max_hp := 1.0
 var active := false
 var quills: Array[Dictionary] = []  # {p, v}
 var minions: Array[Node2D] = []
+var spikes: Array[Dictionary] = []  # {p, t}: t > 0 warning, t <= 0 up until -SPIKE_UP
+var spike_cd := 0.0
 var shot_cd := 0.0
 var summon_cd := 0.0
 var aim := 0.0       # ring / spiral firing angle
@@ -67,14 +78,17 @@ func start() -> void:
 func stop() -> void:
 	active = false
 	quills.clear()
+	spikes.clear()
 	clear_minions()
 	hide()
 
 func begin_wave() -> void:
 	quills.clear()
+	spikes.clear()
 	clear_minions()
 	pause = 2.0
 	shot_cd = 0.0
+	spike_cd = 1.5
 	summon_cd = 1.0
 	rolling = false
 	mode_t = REST_TIME
@@ -87,6 +101,40 @@ func begin_wave() -> void:
 func fire(angle: float, speed: float) -> void:
 	var dir := Vector2.from_angle(angle)
 	quills.append({"p": pos + dir * RADIUS, "v": dir * speed})
+
+## A spike patch at `p`, bursting after SPIKE_WARN (+ delay) seconds.
+func spike(p: Vector2, delay := 0.0) -> void:
+	spikes.append({"p": p.clamp(room.position + Vector2(0, game.WALL_H), room.end), "t": SPIKE_WARN + delay})
+
+## This wave's spike pattern (see the header).
+func spike_attack() -> void:
+	match wave:
+		0:
+			spike(player.position)
+			spike(player.position + player.velocity * 0.5, 0.15)
+			spike(player.position + player.velocity * 0.9, 0.3)
+		1:
+			var dir := pos.direction_to(player.position)
+			for i in 9:
+				spike(pos + dir * (RADIUS + 30.0 + 50.0 * i), i * 0.06)
+		2:
+			spike(player.position)
+			for i in 6:
+				spike(player.position + Vector2.RIGHT.rotated(TAU * i / 6.0 + randf()) * 90.0, 0.1)
+
+func update_spikes(delta: float) -> void:
+	for i in range(spikes.size() - 1, -1, -1):
+		var s: Dictionary = spikes[i]
+		var was: float = s.t
+		s.t -= delta
+		if was > 0.0 and s.t <= 0.0:  # burst
+			game.poof(s.p, Color(0.95, 0.9, 0.75), 10, 150.0)
+			if s.p.distance_to(player.position) < SPIKE_R:
+				player.take_damage(stats.dmg * 1.6)
+				if not active:  # dog went down; the game already called stop()
+					return
+		if s.t < -SPIKE_UP:
+			spikes.remove_at(i)
 
 func clear_minions() -> void:
 	for m in minions:
@@ -141,6 +189,9 @@ func _process(delta: float) -> void:
 			player.take_damage(dmg)
 			if not active:  # dog went down; the game already called stop()
 				return
+	update_spikes(delta)
+	if not active:
+		return
 	if pause > 0.0:
 		pause -= delta
 		return
@@ -149,6 +200,10 @@ func _process(delta: float) -> void:
 	if summon_cd <= 0.0:
 		summon_cd = SUMMON_CD
 		summon()
+	spike_cd -= delta
+	if spike_cd <= 0.0 and not rolling:
+		spike_cd = SPIKE_CD[wave]
+		spike_attack()
 	shot_cd -= delta
 	var to_dog := pos.angle_to_point(player.position)
 	match wave:
@@ -227,6 +282,22 @@ func hurt(center: Vector2, radius: float, dmg: float) -> void:
 		begin_wave()
 
 func _draw() -> void:
+	for s in spikes:
+		var p: Vector2 = s.p
+		if s.t > 0.0:  # warning: ring fills in
+			var k: float = 1.0 - s.t / (SPIKE_WARN + 0.5)
+			draw_circle(p, SPIKE_R * clampf(k, 0.1, 1.0), Color(1, 0.2, 0.1, 0.25))
+			draw_arc(p, SPIKE_R, 0, TAU, 24, Color(1, 0.3, 0.2, 0.7), 2.0)
+		else:  # up: five quills out of the floor, sinking back
+			var h: float = 30.0 * (1.0 + s.t / SPIKE_UP)
+			draw_circle(p, SPIKE_R * 0.8, Color(0.2, 0.13, 0.08, 0.45))
+			for j in 5:
+				var x := p.x + (j - 2) * 9.0
+				var y := p.y + (4.0 if j % 2 else 0.0)
+				var tip: float = h * (0.7 if j % 2 else 1.0)
+				draw_colored_polygon(PackedVector2Array([Vector2(x - 4, y), Vector2(x + 4, y), Vector2(x, y - tip)]),
+					Color(0.35, 0.24, 0.14))
+				draw_line(Vector2(x, y - tip), Vector2(x, y - tip + 6.0), Color(0.95, 0.9, 0.75), 2.0)
 	for q in quills:
 		var d: Vector2 = q.v.normalized()
 		draw_line(q.p - d * 9.0, q.p + d * 9.0, Color(0.95, 0.9, 0.75), 3.0)
@@ -241,17 +312,19 @@ func _draw() -> void:
 		body = Color.WHITE
 	if pause > 0.0:  # blinks while it can't be hurt
 		body.a = 0.45 + 0.35 * sin(Time.get_ticks_msec() / 60.0)
-	var spin := Time.get_ticks_msec() / 60.0 if rolling else 0.0
-	for i in 14:
+	if not rolling:  # sprite art, turned toward the dog, redder each wave
+		var mod := Color.WHITE.lerp(Color(1, 0.55, 0.5), wave * 0.4)
+		if flash > 0.0:
+			mod = Color(2, 2, 2)
+		mod.a = body.a
+		draw_set_transform(c - Vector2(0, 10), 0.0, Vector2(-2.0 if look.x < 0.0 else 2.0, 2.0))
+		draw_texture(art, -art.get_size() / 2.0, mod)
+		draw_set_transform(Vector2.ZERO)
+		return
+	var spin := Time.get_ticks_msec() / 60.0
+	for i in 14:  # curled up: spikes all round
 		var dir := Vector2.from_angle(spin + TAU * i / 14.0)
-		if rolling or dir.dot(look) < 0.45:  # spikes on the back, all round when curled up
-			var side := dir.orthogonal() * 8.0
-			draw_colored_polygon(PackedVector2Array([c + dir * RADIUS * 0.7 + side,
-				c + dir * RADIUS * 0.7 - side, c + dir * (RADIUS + 16.0)]), Color(0.25, 0.17, 0.1, body.a))
+		var side := dir.orthogonal() * 8.0
+		draw_colored_polygon(PackedVector2Array([c + dir * RADIUS * 0.7 + side,
+			c + dir * RADIUS * 0.7 - side, c + dir * (RADIUS + 16.0)]), Color(0.25, 0.17, 0.1, body.a))
 	draw_circle(c, RADIUS, body)
-	if not rolling:
-		draw_circle(c + look * RADIUS * 0.6, RADIUS * 0.5, Color(0.85, 0.7, 0.55, body.a))
-		draw_circle(c + look * RADIUS * 1.05, 5.0, Color.BLACK)
-		for s in [-1.0, 1.0]:
-			draw_circle(c + look * RADIUS * 0.5 + look.orthogonal() * 11.0 * s, 4.0,
-				Color(0.9, 0.1, 0.1) if wave == 2 else Color.BLACK)
