@@ -20,6 +20,7 @@ var grab_t := 0.0
 var broke_free := false  # spec 08: mashing C breaks a grab once per officer
 var net_cd := 1.5
 var fence_t := 0.0  # waiting at a dog park fence
+var face := 1.0     # 1 = facing right (art below is drawn facing right), -1 = left
 
 func setup(p_game: Node2D, at: Vector2) -> void:
 	g = p_game
@@ -69,14 +70,18 @@ func _process(delta: float) -> void:
 			queue_free()
 		return
 	fence_t = 0.0
+	var was := position.x
 	if not g.blocked(position + step):  # ponytail: same wall slide as prey.gd, no pathfinding
 		position += step
 	elif not g.blocked(position + Vector2(step.x, 0)):
 		position.x += step.x
 	elif not g.blocked(position + Vector2(0, step.y)):
 		position.y += step.y
+	if absf(position.x - was) > 0.01:
+		face = signf(position.x - was)
 
 func _draw() -> void:
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(face, 1.0))  # mirror the body, not the grab bar
 	var navy := Color(0.12, 0.2, 0.4) if stun_t <= 0.0 else Color(0.5, 0.5, 0.7)
 	draw_rect(Rect2(-9, -14, 18, 22), navy)                 # uniform
 	draw_rect(Rect2(-8, 8, 6, 8), Color(0.1, 0.1, 0.12))    # legs
@@ -88,6 +93,7 @@ func _draw() -> void:
 	draw_rect(Rect2(-6, -2, 12, 3), Color(0.9, 0.5, 0.1))     # hi-vis stripe
 	if net:
 		draw_rect(Rect2(8, -6, 14, 5), Color(0.45, 0.45, 0.5))  # net gun
+	draw_set_transform(Vector2.ZERO)
 	if grab_t > 0.0:  # grab bar over the dog
 		var at: Vector2 = g.player.position - position + Vector2(-20, -40)
 		draw_rect(Rect2(at, Vector2(40, 5)), Color(0, 0, 0, 0.7))

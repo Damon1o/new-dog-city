@@ -53,6 +53,7 @@ func _process(delta: float) -> void:
 	if state != State.HIDDEN:
 		position += knock * delta
 		knock = knock.lerp(Vector2.ZERO, minf(delta * 8.0, 1.0))
+	var was := position
 	match state:
 		State.HIDDEN:
 			if hide_cooldown <= 0.0 and player.position.distance_to(home) < POP_DIST:
@@ -67,7 +68,6 @@ func _process(delta: float) -> void:
 			chase_left -= delta
 			var to_player := player.position - position
 			position += to_player.normalized() * CHASE_SPEED * delta
-			sprite.flip_h = to_player.x < 0.0
 			if to_player.length() < BITE_DIST and bite_cooldown <= 0.0:
 				player.take_damage(stats.dmg)
 				bite_cooldown = 1.0
@@ -110,6 +110,8 @@ func _process(delta: float) -> void:
 				go_home(0.0)
 			else:
 				position += to_home.normalized() * CHASE_SPEED * 0.7 * delta
+	if absf(position.x - was.x) > 0.01:  # face where it's going (knockback excluded)
+		sprite.flip_h = position.x < was.x
 
 func go_home(cooldown: float) -> void:
 	position = home

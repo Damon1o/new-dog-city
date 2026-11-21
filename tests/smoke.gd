@@ -298,6 +298,12 @@ func _initialize() -> void:
 	assert(rac.state == rac.State.LUNGE, "raccoon pounces")
 	await frames(20)
 	assert(player.hp < player.max_hp, "pounce bites")
+	# facing follows travel, not the dog: walking home (left, dog to the right) faces left
+	rac.position = rac.home + Vector2(120, 0)
+	rac.state = rac.State.RETURN
+	await frames(2)
+	assert(rac.sprite.flip_h, "raccoon walking home faces the way it walks")
+	rac.state = rac.State.CHASE
 
 	# enemy tag (M1-2): shows after a hit, hides 3 s later; Lv colors; crit numbers
 	rac.set_process(false)  # hold it still, away from the dog

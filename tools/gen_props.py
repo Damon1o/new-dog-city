@@ -601,7 +601,7 @@ CRITTERS = {
              ".OWWOOOOD",
              ".DO.DOO.D"]),
 }
-FACE_LEFT = {"squirrel", "raccoon"}  # gen_assets drew these facing right then mirrored them
+DRAWN_LEFT = {"pigeon", "cat"}  # mirrored so every critter faces right; game code sets flip_h when moving left
 
 def critter(name):
     pal, rows = CRITTERS[name]
@@ -611,7 +611,7 @@ def critter(name):
         for i, c in enumerate(row):
             if c == "K":
                 px[j][i] = pal["K"]
-    if name in FACE_LEFT:
+    if name in DRAWN_LEFT:
         px = [r[::-1] for r in px]
     return px
 
