@@ -168,7 +168,7 @@ func icon_of(item: String) -> Texture2D:
 func cell(parent: Node, tex: Texture2D, corner := "", tip := "", size := CELL) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.custom_minimum_size = Vector2(size, size)
-	var sb := Look.box(Color(0.1, 0.11, 0.16, 0.92), 6, Look.EDGE, 4)
+	var sb := Look.box(Look.SLOT, 6, Look.EDGE, 4)
 	sb.shadow_size = 0
 	p.add_theme_stylebox_override("panel", sb)
 	p.tooltip_text = tip

@@ -7,7 +7,7 @@ const Save := preload("res://scripts/systems/save.gd")
 const Look := preload("res://scripts/ui/theme.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
 const Player := preload("res://scripts/player.gd")
-const GOLD := Color(1, 0.85, 0.3)
+const GOLD := Look.GOLD
 const TILE := 64.0
 const STEP := Vector2(7, 5) * TILE  # one block + one road, same rhythm as the city
 
@@ -54,8 +54,8 @@ func _ready() -> void:
 	var shade := TextureRect.new()
 	var grad := GradientTexture2D.new()
 	grad.gradient = Gradient.new()
-	grad.gradient.set_color(0, Color(0.02, 0.03, 0.06, 0.92))
-	grad.gradient.set_color(1, Color(0.02, 0.03, 0.06, 0.35))
+	grad.gradient.set_color(0, Color(0.06, 0.04, 0.03, 0.92))
+	grad.gradient.set_color(1, Color(0.12, 0.06, 0.04, 0.3))
 	grad.fill_to = Vector2(1, 0)
 	shade.texture = grad
 	shade.stretch_mode = TextureRect.STRETCH_SCALE
@@ -261,7 +261,7 @@ func show_dog(cfg: ConfigFile) -> void:
 	frame.region = Rect2(0, 0, sheet.get_width() / 2.0, sheet.get_height())
 	dog_pic.texture = frame
 	if not continue_btn.visible:
-		dog_pic.modulate = Color(0.25, 0.28, 0.38)  # silhouette: no dog yet
+		dog_pic.modulate = Color(0.32, 0.26, 0.22)  # silhouette: no dog yet
 		dog_name.text = "No dog yet"
 		dog_stats.text = "Start a New Story
 to adopt one."

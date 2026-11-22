@@ -5,6 +5,7 @@ extends Node2D
 ## ponytail: no repeat slot yet (nyc_3 has none); add "repeat x2/x3" when a floor needs it.
 
 const Keys := preload("res://scripts/systems/keys.gd")
+const Look := preload("res://scripts/ui/theme.gd")
 const CMDS := ["forward", "left", "right", "bark"]
 const SLOTS := 8
 const STEP := 0.3
@@ -78,8 +79,8 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	for k in SLOTS:
 		var r := Rect2(64 + k * 72, 40, 64, 40)
-		draw_rect(r, Color(0.36, 0.6, 1.0) if running and k == pc - 1 else Color(0.14, 0.16, 0.24))
-		draw_rect(r, Color(0.55, 0.75, 1.0, 0.5), false, 1.0)
+		draw_rect(r, Look.ACCENT if running and k == pc - 1 else Look.SLOT)
+		draw_rect(r, Look.EDGE, false, 1.0)
 		if k < bar.size():
 			draw_string(font, r.position + Vector2(0, 26), bar[k].to_upper(), HORIZONTAL_ALIGNMENT_CENTER, 64, 12)
 	draw_string(font, Vector2(64, 112), "[1] forward  [2] left  [3] right  [4] bark   [%s] undo   [F] run   hold [R] reset" % Keys.label("undo"),
