@@ -46,6 +46,49 @@ const QUESTS := {
 		["Race Duchess to the
 Empire State Building", "race", 1, 20, 100],
 	],
+	# SF dog park dogs (M6-6)
+	"Pixel": [
+		["Meet Pixel at the SF dog park", "met_pixel", 1, 0, 0],
+		["Ride the cable car 3 times", "sf_rides", 3, 20, 80],
+		["Beat Sea Lion Sal", "park_boss_sealion", 1, 40, 200],
+		["Ship the PawFinder beta", "su_ships", 1, 60, 200, 2],
+	],
+	"Fogarty": [
+		["Meet Fogarty at the SF dog park", "met_fogarty", 1, 0, 0],
+		["Beat The Twin Peaks Coyote", "park_boss_coyote", 1, 40, 200],
+		["Claim 8 blocks", "blocks", 8, 30, 150],
+		["Catch 60 critters", "prey", 60, 50, 200, 3],
+	],
+	"Captain": [
+		["Meet Captain at the SF dog park", "met_captain", 1, 0, 0],
+		["Beat the Seagull King on the pier", "park_boss_seagull", 1, 60, 300],
+		["Buy 10 things in shops", "bought", 10, 30, 120],
+		["Ride the cable car 8 times", "sf_rides", 8, 80, 250, 3],
+	],
+	# SF critter boom (spawns.gd "sf", enemies/cat.gd skunk / coyote, weather.gd quakes). Shows on landing
+	# in SF; the last step plays cs_done_sf_pest_patrol (systems/quests.gd).
+	"SF Pest Patrol": [
+		["Land in San Francisco", "met_sf", 1, 0, 0],
+		["Run 5 skunks off the streets", "skunks", 5, 15, 80],
+		["Catch 4 gophers before they dig
+up the whole park", "gophers", 4, 15, 80],
+		["Scatter 20 wild parrots by
+Coit Tower", "parrots", 20, 15, 80],
+		["Ride out an earthquake", "quakes", 1, 20, 60],
+		["Beat 6 coyotes (packs roam
+at night)", "coyotes", 6, 40, 200, 2],
+	],
+	# Good Boy AI startup tycoon (systems/startup.gd), shows once Patch has pitched it in SF
+	"Good Boy AI": [
+		["Meet Patch in the SF startup garage", "met_patch", 1, 0, 0],
+		["Found Good Boy AI at the desk", "su_found", 1, 0, 40],
+		["Hire 3 dogs", "su_hires", 3, 30, 60],
+		["Ship the PawFinder beta", "su_ships", 1, 40, 100],
+		["Close a Seed round", "su_rounds", 1, 60, 150],
+		["Move into the SoMa Loft", "su_moves", 1, 80, 200],
+		["Ship PawFinder Pro", "su_ships", 3, 150, 400],
+		["Take Good Boy AI public", "su_rounds", 4, 500, 1000],
+	],
 	"Old Rex": [
 		["Meet Old Rex at the dog park", "met_old_rex", 1, 0, 0],
 		["Beat the King of Raccoons", "park_boss_raccoon", 1, 0, 100],

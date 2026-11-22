@@ -35,6 +35,9 @@ static func check(g: Node) -> void:
 			g.show_msg("%s: %s  -  done!  +%d treats  +%d XP" % [line, str(s[0]).replace("\n", " "), s[3], s[4]])
 			if i + 1 == steps.size():
 				g.show_banner("%s COMPLETE" % line.to_upper())
+				var cs := "cs_done_" + line.to_lower().replace(" ", "_")  # optional story beat per line
+				if g.dialog.CUTSCENES.has(cs) and not Story.has(cs):
+					g.dialog.play(cs)
 			XP.award(g, int(s[4]))
 
 ## Tracker text: the tutorial on its own until it is finished, then every other line.

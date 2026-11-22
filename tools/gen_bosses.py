@@ -181,7 +181,67 @@ def hedgehog():
     finish(px)
     return px
 
+def seagull():
+    """Seagull King: white gull, grey wings, yellow beak, gold crown with a fry."""
+    px = blank(56, 48)
+    shadow(px, 26, 44, 19, 3)
+    W, G = (240, 242, 246, 255), (150, 160, 176, 255)
+    tri(px, (2, 26), (14, 22), (12, 34), (40, 44, 52, 255))  # black tail tips
+    ball(px, 25, 30, 15, W, 11)
+    ellipse(px, 20, 28, 11, 6, G)  # wing
+    for k in range(3):
+        line(px, 11 + k * 4, 31, 18 + k * 4, 24, shade(G, -22))
+    ball(px, 36, 17, 8, W)
+    tri(px, (42, 16), (52, 18), (42, 21), (250, 200, 50, 255))  # beak
+    dot(px, 46, 19, (220, 60, 40, 255))  # red spot
+    eye(px, 38, 14, (250, 220, 120, 255))
+    line(px, 35, 11, 41, 12, K)  # scowl
+    for x in (22, 29):
+        line(px, x, 41, x - 1, 45, (240, 170, 90, 255))
+    finish(px)
+    crown(px, 31, 3, 11)
+    rect(px, 44, 4, 2, 8, (246, 210, 90, 255))  # a french fry, stolen
+    return px
+
+def sealion():
+    """Sea Lion Sal: big brown blob, flippers, whiskers, sunglasses on the forehead."""
+    px = blank(58, 44)
+    shadow(px, 28, 40, 22, 3)
+    B = (120, 86, 60, 255)
+    ellipse(px, 24, 30, 20, 10, B)
+    ball(px, 40, 18, 10, shade(B, 12))
+    tri(px, (14, 36), (24, 36), (16, 43), shade(B, -30))  # flipper
+    tri(px, (2, 30), (8, 24), (8, 36), shade(B, -30))  # tail flippers
+    ellipse(px, 47, 21, 5, 4, shade(B, 30))  # muzzle
+    dot(px, 51, 19, K)
+    for j in (20, 22):
+        line(px, 49, j, 56, j - 1, (230, 230, 230, 255))
+    eye(px, 42, 15)
+    rect(px, 35, 9, 13, 3, K)  # sunglasses
+    finish(px)
+    return px
+
+def coyote():
+    """Twin Peaks Coyote: lean tan canine, pointed ears, bushy tail, fog-grey bandana."""
+    px = blank(56, 46)
+    shadow(px, 26, 42, 18, 3)
+    T, D = (196, 150, 96, 255), (140, 100, 60, 255)
+    tri(px, (2, 22), (14, 26), (10, 34), D)  # bushy tail
+    ellipse(px, 24, 28, 15, 8, T)
+    for x in (15, 22, 30, 35):
+        line(px, x, 34, x, 42, D)
+    ball(px, 40, 18, 8, T)
+    tri(px, (36, 12), (39, 3), (42, 12), D)  # ears
+    tri(px, (42, 12), (46, 4), (47, 13), D)
+    tri(px, (46, 18), (55, 21), (46, 23), shade(T, 20))  # snout
+    dot(px, 54, 20, K)
+    eye(px, 43, 16, (250, 210, 80, 255))
+    rect(px, 33, 24, 12, 3, (150, 160, 176, 255))  # bandana
+    finish(px)
+    return px
+
 if __name__ == "__main__":
-    for name, fn in [("raccoon", raccoon), ("pigeon", pigeon), ("rat", rat), ("cat", fat_cat), ("hedgehog", hedgehog)]:
+    for name, fn in [("raccoon", raccoon), ("pigeon", pigeon), ("rat", rat), ("cat", fat_cat), ("hedgehog", hedgehog),
+                     ("seagull", seagull), ("sealion", sealion), ("coyote", coyote)]:
         write_png(f"boss_{name}.png", fn())
     print("bosses done")

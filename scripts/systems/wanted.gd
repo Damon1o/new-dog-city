@@ -105,7 +105,7 @@ func _process(delta: float) -> void:
 	var seen: bool = drone != null and not g.city.in_dog_park(p.position)  # the drone loses him under the park trees: 5 stars can be shaken
 	for o in offs:
 		var d: float = o.position.distance_to(p.position)
-		seen = seen or d < SIGHT
+		seen = seen or d < minf(SIGHT, g.weather.sight_radius())  # SF fog hides the dog
 		if d < WHISTLE and not o.whistled:
 			o.whistled = true
 			Sound.sfx("whistle")

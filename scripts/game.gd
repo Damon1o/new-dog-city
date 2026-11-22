@@ -49,6 +49,7 @@ var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (E bag, K stats)
 var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
 var stocks: Node  # scripts/systems/stocks.gd: NYSE ticks, news, trades, stock app (P)
+var startup: Node  # scripts/systems/startup.gd: Good Boy AI, the SF startup garage
 const DialogUi := preload("res://scripts/ui/dialog.gd")
 var dialog: Node  # scripts/ui/dialog.gd (dialog box + cutscenes)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
@@ -57,7 +58,7 @@ const SHOP := Items.SHOP
 const SHOP_INFO := Items.SHOP_INFO
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
-	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
+	"empire_state", "chrysler", "transamerica", "coit_tower", "bodega", "subway", "trashcan", "manhole", "water_bowl",
 	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant", "purina",
 	"cat", "shop_floor", "shop_wall", "shelf", "counter", "station_wall", "platform", "track",
 	"pillar", "stairs", "map_board", "train", "subway_wall", "subway_floor", "platform_edge",
@@ -66,7 +67,8 @@ const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "bu
 	"gas_floor", "gas_wall", "pizza_floor", "pizza_wall", "cafe_floor", "cafe_wall", "store_floor", "store_wall",
 	"cooler", "snack_rack", "gas_counter", "price_board", "pizza_oven", "pizza_counter", "pizza_table", "pizza_sign",
 	"espresso_counter", "pastry_case", "cafe_table", "plant", "chalk_menu", "gondola", "shop_counter", "sale_sign",
-	"hotdog", "jerky", "pizza", "pepperoni", "puppuccino", "barkbrew", "collar", "bandana", "vest", "kevlar"]
+	"hotdog", "jerky", "pizza", "pepperoni", "puppuccino", "barkbrew", "collar", "bandana", "vest", "kevlar",
+	"su_founder"]  # Good Boy AI founder desk (tools/gen_startup.py); the rest of su_* load in startup.gd
 
 const BOSS_COLOR := Color(0.85, 0.3, 1)
 const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway
@@ -78,10 +80,12 @@ const LOW_KEYS := ["hp", "hunger", "thirst"]
 const WALL_H := 96.0
 const BOSS_EXIT := Interior.O + Vector2(480, 624)  # burrow exit spot; tools/smoke_test.gd parks the dog by it
 
-const PARKS: Array = NYC.parks
-const BODEGAS: Array = NYC.bodegas
-const LANDMARKS: Dictionary = NYC.landmarks
-const STATIONS: Dictionary = NYC.stations
+# the current city's tables; city_builder.build() swaps them on travel (M6-1)
+var PARKS: Array = NYC.parks
+var BODEGAS: Array = NYC.bodegas
+var LANDMARKS: Dictionary = NYC.landmarks
+var STATIONS: Dictionary = NYC.stations
+var park_bosses: Node2D  # the current city's park bosses (spawn_park_bosses), rebuilt on travel
 
 var tex := {}
 var building_rects: Array[Rect2] = []
@@ -183,7 +187,7 @@ func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
 	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")],
-			["stocks", preload("res://scripts/systems/stocks.gd")]]:
+			["stocks", preload("res://scripts/systems/stocks.gd")], ["startup", preload("res://scripts/systems/startup.gd")]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -211,6 +215,10 @@ func _ready() -> void:
 	add_child(night)
 
 	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
+	park_bosses = Node2D.new()
+	park_bosses.name = "ParkBosses"
+	park_bosses.y_sort_enabled = true
+	add_child(park_bosses)
 	city.build("nyc")
 	hedgehog = HedgehogScript.new()
 	add_child(hedgehog)
@@ -219,10 +227,7 @@ func _ready() -> void:
 		seed(rng_seed)
 	else:
 		randomize()
-	for b in BOSSES:
-		var boss_node: Node2D = BossScript.new()
-		add_child(boss_node)
-		boss_node.setup(b, block_origin(PARKS[b.park]) + BLOCK / 2.0 + Vector2(0, 110), tex[b.tex], self)
+	spawn_park_bosses()
 	for lane in 2:  # one car per lane, keep-right traffic
 		for i in NX + 1:
 			add_car(Vector2(i * (BLOCK.x + ROAD) + 32 + lane * 64, randf() * WORLD.y), [Vector2.DOWN, Vector2.UP][lane])
@@ -424,7 +429,11 @@ func interact() -> void:
 		return
 	match act:
 		"enter":
-			interior.enter(door)
+			var hq_gate: String = Story.Gates.HQ_GATE.get(city.id, "G1")
+			if door.template == "hq" and not Story.gate_open(hq_gate, player.level):
+				interior.GatePopup.open(self, hq_gate)  # what's missing, with "Find XP"
+			else:
+				interior.enter(door)
 		"enter_boss":  # shortcut tools/smoke_test.gd uses
 			interior.enter(doors.filter(func(d): return d.template == "burrow")[0])
 		"exit":
@@ -433,6 +442,17 @@ func interact() -> void:
 			stocks.toggle(true)
 		"desk":  # Hack Club HQ front desk (scripts/world/hq_floor.gd sets the prompt)
 			hq.desk()
+
+## Park bosses of the current city (data/bosses.gd `city`, default nyc). Only this city's bosses
+## exist, so the "boss" group (HUD, bark, targeting) never sees another city's.
+func spawn_park_bosses() -> void:
+	for n in park_bosses.get_children():
+		n.free()
+	for b in BOSSES:
+		if b.get("city", "nyc") == city.id:
+			var boss_node: Node2D = BossScript.new()
+			park_bosses.add_child(boss_node)
+			boss_node.setup(b, block_origin(PARKS[b.park]) + BLOCK / 2.0 + Vector2(0, 110), tex[b.get("critter", b.tex)], self)
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:
@@ -579,13 +599,13 @@ func on_prey_caught(prey: Node2D) -> void:
 	prey.queue_free()
 	if not prey.flock.is_empty():
 		spawner.scatter(prey.flock)  # spec 07: catch one, the flock flees
-	if prey.kind == "squirrel":
-		bump("squirrels")
+	if prey.kind in ["squirrel", "gopher"]:
+		bump(prey.kind + "s")
 	cats.rat = cats.rat or prey.kind == "rat"  # carried in as a bodega cat gift
 	bump("prey")
 
 func on_prey_escaped(prey: Node2D) -> void:
-	float_text(prey.position, "up the tree!", Color(0.7, 1, 0.7))
+	float_text(prey.position, "down the hole!" if prey.kind == "gopher" else "up the tree!", Color(0.7, 1, 0.7))
 	prey.queue_free()
 
 func on_raccoon_beaten(rac: Node2D) -> void:
@@ -635,6 +655,8 @@ func on_number(n: int) -> void:
 		interior.ride(n)
 	elif ctx == "airport":
 		interior.fly(n)
+	elif ctx == "startup":
+		startup.choose(n)
 	elif ctx == "" and not player.frozen and n < 4:
 		inventory.use_slot(n)  # hotbar
 	elif ctx == "subway" and n < stations.size():

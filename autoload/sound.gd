@@ -85,7 +85,7 @@ func _ready() -> void:
 	# M3-2 foes, one root per type: yowl = saw pitch bend; hiss = dense noise hats over a short squeal.
 	# ponytail: the hiss "filter" is burst rate + squeal pitch, not a real filter; real one if they sound alike
 	for c: Array in [["cat_%s_tabby", 72], ["cat_%s_tom", 60], ["cat_%s_sphynx", 79], ["cat_%s_calico", 69],
-			["cat_%s_black", 65], ["possum_%s", 55]]:
+			["cat_%s_black", 65], ["possum_%s", 55], ["skunk_%s", 50], ["coyote_%s", 62]]:  # skunk / coyote: SF foes
 		shots.append([c[0] % "yowl", {"bpm": 240 + c[1], "root": c[1], "wave": "saw", "decay": 0.3, "lead": [0, 2, 5, 7, 8, 7, 5, 2, -3]}])
 		shots.append([c[0] % "hiss", {"bpm": 3000 - c[1] * 20, "root": c[1] + 30, "wave": "sq", "decay": 0.01, "hats": 6.0,
 			"lead": [0, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R, R]}])

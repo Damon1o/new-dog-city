@@ -7,6 +7,7 @@ extends Node
 const Look := preload("res://scripts/ui/theme.gd")
 const CUTSCENES: Dictionary = preload("res://scripts/data/story.gd").CUTSCENES
 const BOSSES: Array = preload("res://scripts/data/bosses.gd").BOSSES
+const SEAGULL_KING: Dictionary = preload("res://scripts/data/bosses.gd").SEAGULL_KING
 const CPS := 30.0
 const BAR := 80.0
 
@@ -152,9 +153,10 @@ func draw_sketch() -> void:
 func face(who: String) -> Texture2D:
 	if who in ["Sam", "Daven the Hedgehog"]:
 		return null  # Sam is drawn in code (scripts/world/flashback.gd), no texture to show
-	for b: Dictionary in BOSSES:
-		if b.name == who:
-			return g.tex[b.tex]
+	for b: Dictionary in BOSSES + [SEAGULL_KING]:
+		if b.name == who:  # boss art when there is some (tools/gen_bosses.py), else its critter
+			var art := "res://assets/boss_%s.png" % b.tex
+			return load(art) if ResourceLoader.exists(art) else g.tex[b.get("critter", b.tex)]
 	if who != "Byte":
 		return g.tex.cat
 	var sheet: Texture2D = g.player.sprite.texture

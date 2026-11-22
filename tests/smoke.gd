@@ -211,7 +211,14 @@ func _initialize() -> void:
 	await frames(60)
 	assert(weather.scent_range() < 1400.0 and weather.scent_range() > 700.0, "rain blends in over 10 s")
 	assert(weather.roll("nyc") in ["clear", "snow", "rain"])
+	# M6-2 fog: veil around the dog, fog banks roll, sight drops to 260
+	weather.set_weather("fog", false)
+	await frames(2)
+	assert(weather.fog.visible and weather.banks.emitting and weather.fog.position == player.position, "fog veil follows the dog")
+	assert(is_equal_approx(weather.sight_radius(), 260.0), "fog limits sight")
 	weather.set_weather("clear", false)
+	await frames(2)
+	assert(not weather.fog.visible and not weather.banks.emitting, "clear skies, no fog")
 	# M3-5 audio: surface lookup (grass inside a park), one step sound per step, ambience ducks indoors
 	var au_steps: Node = game.steps
 	var au_park: Rect2 = game.parks[0]
@@ -386,8 +393,231 @@ func _initialize() -> void:
 	var st: Node = root.get_node("Story")  # -s scripts can't see autoload names at compile time
 	st.set_flag("ch1_clue")
 	assert(game.interior.gate_rows()[1][1], "ch1_clue opens the SF gate")
-	st.flags.erase("ch1_clue")
+	# M6-1: fly to SF, land at SFO, arrival cutscene once, then fly home
+	var nyc_hq: Vector2 = game.doors.filter(func(d): return d.template == "hq")[0].pos
+	game.on_number(1)
+	await frames(50)
+	assert(game.city.id == "sf" and game.inside == "", "landed in SF on the street")
+	assert(game.save_extra["world/city"] == "sf", "save knows the city")
+	assert(game.landmarks.size() == 2 and game.landmarks.any(func(l): return l.name == "Coit Tower"), "SF landmarks")
+	assert(game.stations.size() == 4 and game.bodega_doors.size() == 3, "4 cable car stops, 3 corner stores")
+	var sfo: Array = game.doors.filter(func(d): return d.template == "airport")
+	assert(sfo.size() == 1 and sfo[0].name == "SFO Airport" and player.position.distance_to(sfo[0].pos) < 200.0, "dog at SFO")
+	assert(not game.doors.any(func(d): return d.template in ["burrow", "nyse"]), "no NYC-only doors in SF")
+	var sf_store: Dictionary = game.doors.filter(func(d): return d.template == "bodega" and d.pos == game.bodega_doors[0])[0]
+	game.interior.enter(sf_store)
+	assert(game.cats.here() == ["sf_sourdough", "Sourdough"], "M6-3: SF corner store 0 has Sourdough")
+	var sf_park: Node = get_nodes_in_group("dog_park")[0]
+	assert(sf_park.dogs.keys() == ["Pixel", "Fogarty", "Captain"], "M6-6: SF dog park dogs")
+	assert(sf_park.lines_for("Pixel")[0].contains("cable car") and game.stats.get("met_pixel") == 1, "Pixel starts the cable car line")
+	game.stats.erase("met_pixel")
 	game.interior.leave()
+	await frames(2)
+	var sf_bosses: Array = game.park_bosses.get_children().map(func(b): return b.cfg.name)
+	assert(sf_bosses == ["Sea Lion Sal", "The Twin Peaks Coyote"], "SF park bosses, NYC's stay home: %s" % [sf_bosses])
+	assert(st.spots.get("sf_pier", Vector2.ZERO) != Vector2.ZERO, "the pier is a story spot")
+	assert(st.spots.get("hq_sf", Vector2.ZERO) != Vector2.ZERO, "SF HQ is a story spot")
+	assert(game.dialog.playing(), "cs_arrive_sf plays on the first landing")
+	game.dialog.skip()
+	await frames(2)
+	assert(st.has("cs_arrive_sf"), "skip still sets the arrival flag")
+	# SF Pest Patrol: SF critters, skunk stink, coyote packs, quakes, the line shows on landing
+	assert(game.stats.get("met_sf") == 1 and game.quest_step.get("SF Pest Patrol") == 1, "Pest Patrol starts on landing: %s %s" % [game.stats.get("met_sf"), game.quest_step.get("SF Pest Patrol")])
+	var sf_day: Dictionary = game.Spawns.SPAWNS.sf.day
+	assert(sf_day.has("parrot") and sf_day.has("gopher") and game.Spawns.SPAWNS.sf.night.has("coyotes"), "SF spawn table")
+	var pest_keep := [player.level, player.xp, player.treats]  # put back after: later checks count exact treats
+	var pack: Array = game.spawner.spawn_foe("coyotes", player.position + Vector2(900, 0))
+	assert(pack.size() == 3 and pack.all(func(c): return c.kind == "coyote"), "coyotes come in packs of 3")
+	var skunk: Node2D = game.spawner.spawn_foe("skunk", player.position + Vector2(900, 60))[0]
+	var skunk_hp0: float = player.hp
+	skunk.swipe(player.position - skunk.position)
+	assert(player.hp < skunk_hp0 and player.poison_t > 0.0, "skunk spray stinks (poison)")
+	player.poison_t = 0.0
+	player.hp = player.max_hp
+	skunk.hurt(9999.0, player.position)
+	assert(game.stats.get("skunks") == 1, "beaten skunk counts for the patrol")
+	for c in pack:
+		c.queue_free()
+	var parrots: Dictionary = game.spawner.spawn_flock(player.position + Vector2(-900, 0), 0, "parrot")
+	assert(parrots.members[0].kind == "parrot" and parrots.members[0].sprite.texture != null, "parrot flock, baked art")
+	var gopher: Node2D = game.PreyScript.new()
+	gopher.position = player.position + Vector2(-900, 200)
+	game.add_child(gopher)
+	gopher.setup("gopher", game.PREY.gopher, game.spawner.tex_for("gopher"), game)
+	assert(gopher.home == gopher.position, "gopher remembers its hole")
+	game.on_prey_caught(gopher)
+	assert(game.stats.get("gophers") == 1, "gopher catch counts")
+	var parrots_before := int(game.stats.get("parrots", 0))
+	game.weather.quake()
+	assert(game.weather.quake_t > 0.0 and game.stats.get("quakes") == 1, "SF quake")
+	assert(int(game.stats.get("parrots", 0)) == parrots_before + parrots.members.size(), "quake scatters the parrots")
+	game.weather.quake_t = 0.0
+	for p in parrots.members:
+		p.queue_free()
+	player.level = pest_keep[0]
+	player.xp = pest_keep[1]
+	player.treats = pest_keep[2]
+	var sal: Node2D = game.park_bosses.get_child(0)
+	sal.special_n = -1
+	sal.special(Vector2.RIGHT)  # wave_splash
+	assert(sal.marks.size() == 24, "wave splash: 3 rings of 8")
+	sal.clear_shots()
+	var yote: Node2D = game.park_bosses.get_child(1)
+	yote.special_n = -1
+	yote.special(Vector2.RIGHT)  # fog_cloak
+	await frames(2)
+	assert(yote.cloak_t > 0.0 and yote.sprite.self_modulate.a < 0.5, "coyote fades into the fog")
+	yote.hurt(1.0, player.position)
+	assert(yote.cloak_t == 0.0 and yote.sprite.self_modulate.a == 1.0, "a hit reveals it")
+	if game.dialog.playing():  # the hit woke it: intro
+		game.dialog.skip()
+	yote.special(Vector2.RIGHT)  # charge
+	yote.special(Vector2.RIGHT)  # howl
+	assert(yote.minions.size() == 2 and yote.shots.size() == 10, "howl: 2 pups + a ring")
+	yote.clear_shots()
+	yote.state = yote.State.IDLE
+	game.on_boss_left(yote)
+	st.flags.erase("cs_coyote_pre")
+	# Good Boy AI tycoon: Patch's pitch once, found, hire, ship the beta, grow, raise, move, collect
+	var garage: Array = game.doors.filter(func(d): return d.template == "startup")
+	assert(garage.size() == 1, "one startup garage in SF")
+	game.interior.enter(garage[0])
+	assert(game.inside == "startup" and game.dialog.playing(), "Patch pitches on the first visit")
+	game.dialog.skip()
+	player.position = game.interior.spots.pitch
+	await frames(2)
+	var su: Node = game.startup
+	su.rng.seed = 7  # random company events stay the same every run
+	assert(game.ctx == "startup" and su.rows()[0][0].contains("Found"), "founder's desk menu")
+	var su_treats: int = player.treats
+	player.treats = 20000
+	game.on_number(0)
+	assert(su.founded() and player.treats == 19850 and game.dialog.playing(), "founded for 150, cutscene")
+	game.dialog.skip()
+	assert(su.revenue() == 0.0 and su.growth() == 0.0, "no product, no users")
+	game.on_number(0)  # Team & hiring
+	game.on_number(0)  # engineer
+	assert(su.staff("eng") == 1 and su.page == "hire", "hired an engineer")
+	for i in 3:
+		game.on_number(2)  # marketers
+	game.on_number(1)  # designer: the garage holds 4
+	assert(su.headcount() == 4 and su.staff("des") == 0, "garage team cap is 4")
+	game.on_number(4)  # back
+	assert(su.page == "main", "back to the main page")
+	await frames(1)
+	assert(su.office.get_children().filter(func(c): return c.is_in_group("startup_staff")).size() == 4, "a dog at each desk")
+	for i in 30:
+		su.tick()
+	assert(su.f("dev") >= su.dev_need() and su.f("users") == 0.0, "dev points pile up, still no users")
+	game.on_number(2)  # ship the beta
+	assert(su.n("version") == 1 and game.dialog.playing(), "PawFinder beta cutscene")
+	game.dialog.skip()
+	assert(st.has("startup_lead"), "the beta points at the pier")
+	for i in 200:
+		su.tick()
+	assert(su.f("users") == su.user_cap(), "users grow until the laptop is full")
+	assert(su.revenue() > su.salaries(), "the beta pays its way")
+	game.on_number(1)  # upgrades
+	game.on_number(1)  # server rack
+	assert(su.user_cap() == 2500 and su.office.get_children().any(func(c): return c is Sprite2D and c.texture == su.tex("su_server")), "rack bought and drawn")
+	game.on_number(0)  # the loft needs a seed round first
+	assert(su.n("office") == 0, "no move before the seed round")
+	game.on_number(5)
+	game.on_number(4)  # raise seed
+	assert(su.n("round") == 1 and su.f("bank") > 600.0 and game.dialog.playing(), "seed round lands in the bank")
+	game.dialog.skip()
+	game.on_number(1)
+	game.on_number(0)  # move to the loft
+	assert(su.n("office") == 1 and su.team_cap() == 8, "moved to the SoMa loft")
+	assert(is_instance_valid(su.front) and su.front.texture.resource_path.ends_with("startup_1.png"), "the street front becomes the loft")
+	assert(int(game.quest_step.get("Good Boy AI", 0)) == 6, "Good Boy AI quest line follows the company")
+	game.on_number(5)
+	var su_bank: int = su.owed()
+	var su_before: int = player.treats
+	game.on_number(5)  # collect
+	assert(player.treats == su_before + su_bank and su.owed() == 0, "collected the bank")
+	su.state().bank = -100.0
+	su.state().users = 0.0
+	su.tick()
+	assert(su.headcount() == 3, "out of runway: a hire quits")
+	player.treats = su_treats
+	game.save_extra.erase("startup/state")
+	game.quest_step.erase("Good Boy AI")
+	for k: String in ["met_patch", "su_found", "su_hires", "su_ships", "su_rounds", "su_moves"]:
+		game.stats.erase(k)
+	for f: String in ["cs_startup_intro", "cs_startup_found", "startup_lead", "cs_startup_seed"]:
+		st.flags.erase(f)
+	game.interior.leave()
+	await frames(2)
+	# M6-4 Seagull King: pier bait crate plays the intro, the kill drops the SF keycard + Sam's backpack
+	var pier: Array = game.doors.filter(func(d): return d.template == "pier")
+	assert(pier.size() == 1, "one pier in SF")
+	game.interior.enter(pier[0])
+	var gull: Array = get_nodes_in_group("boss").filter(func(b): return b.cfg.name == "Seagull King")
+	assert(gull.size() == 1 and gull[0].state == gull[0].State.IDLE, "Seagull King waits on the pier")
+	player.hp = player.max_hp
+	player.position = game.interior.spots.podium
+	await frames(2)
+	assert(game.dialog.id == "cs_seagull_pre", "bait crate plays the intro")
+	game.dialog.skip()
+	await frames(2)
+	assert(gull[0].state == gull[0].State.CHASE, "then the fight starts")
+	for i in 3:  # dive, feathers, gust (any order)
+		gull[0].special(Vector2.RIGHT)
+	gull[0].state = gull[0].State.CHASE
+	var gust_from: Vector2 = player.position
+	assert(gull[0].gust_t > 0.0, "gust blows")
+	await frames(10)
+	assert(player.position.x > gust_from.x + 20.0, "gust pushes the dog back")
+	gull[0].hurt(gull[0].max_hp * 0.45, player.position)
+	assert(gull[0].phase == 1 and "storm" in gull[0].specials(), "phase 2 below 60%")
+	for i in 4:  # fish_rain, dive, flock_call, storm
+		gull[0].special(Vector2.RIGHT)
+	gull[0].state = gull[0].State.CHASE
+	assert(gull[0].marks.any(func(m): return m.fish == 2) and gull[0].minions.size() == 3, "fish rain + flock")
+	for m in gull[0].minions:  # only the fish matter here: no flock, no feathers, boss held still
+		m.queue_free()
+	gull[0].minions.clear()
+	for sh in gull[0].shots:
+		sh.s.queue_free()
+	gull[0].shots.clear()
+	gull[0].stun_t = 5.0
+	player.position = game.interior.rect.position + Vector2(60, 60)  # far corner while the fish land
+	await frames(int((gull[0].MARK_WARN + 0.7) * 60.0))
+	assert(gull[0].shots.any(func(s): return s.s.texture == gull[0].fish()), "landed fish flop out")
+	player.position = game.interior.spots.podium
+	player.hp = player.max_hp
+	gull[0].hurt(1e9, player.position)
+	assert(st.has_keycard("sf") and "backpack" in st.items and st.has("ch2_boss"), "SF keycard + backpack")
+	assert(game.dialog.id == "cs_seagull_post", "post-fight cutscene")
+	game.dialog.skip()
+	while player.points > 0:
+		game.pick_stat(1)
+	await frames(2)
+	game.interior.leave()
+	game.interior.enter(pier[0])
+	assert(get_nodes_in_group("boss").filter(func(b): return b.cfg.name == "Seagull King").is_empty(), "beaten: gone for good")
+	game.interior.leave()
+	await frames(2)
+	for f: String in ["ch2_boss", "cs_seagull_post"]:
+		st.flags.erase(f)
+	st.keycards.erase("sf")
+	st.items.erase("backpack")
+	player.points = 0  # the Seagull's XP levels the dog; close the stat picker (it pauses the tree)
+	game.show_stats()
+	await frames(1)
+	game.interior.enter(sfo[0])
+	player.position = game.interior.spots.gates
+	await frames(1)
+	assert(game.interior.gate_rows()[1][0].contains("here"), "SF gate is where you are")
+	assert(game.ctx == "airport", "gate menu up: ctx=%s inside=%s dialog=%s paused=%s act=%s" % [game.ctx, game.inside, game.dialog.playing(), paused, game.act])
+	game.on_number(0)
+	await frames(50)
+	assert(game.city.id == "nyc" and game.park_bosses.get_child_count() == 3, "flew home to NYC, its 3 park bosses back: %s %s stars=%d frozen=%s" % [game.city.id, game.park_bosses.get_children().map(func(n): return n.name), game.wanted.stars(), player.frozen])
+	assert(game.doors.filter(func(d): return d.template == "hq")[0].pos == nyc_hq, "NYC rebuilt the same")
+	assert(not game.dialog.playing(), "no arrival cutscene for NYC")
+	st.flags.erase("ch1_clue")
+	st.flags.erase("cs_arrive_sf")
 	# NYC shops (M4-2): gas / pizza / cafe exist; cafe locked at night; a buff times out
 	for t in ["gas", "pizza", "cafe"]:
 		assert(game.doors.any(func(d): return d.template == t), "NYC has a " + t)
@@ -713,12 +943,14 @@ func _initialize() -> void:
 	for t in ["bodega", "subway", "burrow", "apartment", "office", "shop_small"]:
 		assert(game.doors.any(func(d): return d.template == t), "some door uses " + t)
 	for i in 20:
-		var d: Dictionary = game.doors.pick_random()
+		var d: Dictionary = game.doors.filter(func(x): return x.template != "hq").pick_random()  # HQ door is gated, tested below
 		player.hp = player.max_hp
 		player.position = d.pos
 		await frames(1)
 		assert(game.act == "enter" and game.door == d, "F prompt reads the door under the dog")
 		game.interact()
+		if game.dialog.playing():  # first visits (Daven's den) open with a cutscene
+			game.dialog.skip()
 		assert(game.inside == ROOMS[d.template].kind and get_nodes_in_group("interior").size() == 1, "one interior")
 		assert(game.Save.street_pos(game) == d.pos, "saving indoors keeps the street door")
 		player.points = 0  # a door quest can level the dog up; the stat picker would pause the game
@@ -872,22 +1104,24 @@ func _initialize() -> void:
 			assert(game.save_extra[k] == {"synthetic": k}, "v2 round trip " + k)
 	assert(story.to_save() == story_saved, "story round trip")
 
-	# Story gates: G1 needs level 20 + the NYC keycard; popup shows why and Find XP sets a waypoint
+	# Story gates: G1 needs level 30 + every NYC boss beaten; popup shows why and Find XP sets a waypoint
 	story.reset()
 	assert(story.objective() == "Find Sam's things at the bodega" and story.target() == game.bodega_doors[0], "the city registers story spots")
 	story.spots["bodega"] = Vector2(100, 200)
 	assert(story.target() == Vector2(100, 200))
 	story.set_flag("ch1_bodega")
 	assert(story.objective().contains("Fat Cat"))
-	assert(not story.gate_open("G1", 20) and story.gate_block("G1", 20).contains("keycard"))
-	story.add_keycard("nyc")
-	assert(not story.gate_open("G1", 19) and story.gate_block("G1", 19) == "Level 20 required (you are 19)")
-	assert(story.gate_open("G1", 20), "G1 open at 20 with keycard")
+	assert(not story.gate_open("G1", 30) and story.gate_block("G1", 30).contains("Fat Cat"), "names the bosses left")
+	for f: String in ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "cs_hedgehog_post", "ch1_boss"]:
+		story.set_flag(f)
+	assert(not story.gate_open("G1", 29) and story.gate_block("G1", 29) == "Level 30 required (you are 29)")
+	assert(story.gate_open("G1", 30), "G1 open at 30 with every boss beaten")
 	assert(not story.gate_open("G2", 99) and story.gate_open("G0", 1))
+	assert(story.gate_block("G3", 49) == "Level 50 required (you are 49)", "SF HQ opens at 50")
 	player.level = 19
 	var GatePopup: GDScript = load("res://scripts/ui/gate_popup.gd")
 	var popup: Node = GatePopup.open(game, "G1")
-	assert(player.frozen and popup.req.text == "Level 20 required (you are 19)")
+	assert(player.frozen and popup.req.text == "Level 30 required (you are 19)")
 	bosses[1].show()  # all bosses were beaten above; stand one back up as open side content
 	popup.find_btn.pressed.emit()
 	assert(not player.frozen and story.waypoint == bosses[1].home, "Find XP sets the waypoint")
@@ -1319,14 +1553,29 @@ func _initialize() -> void:
 	var hqb_keys: Array = pz_story.keycards.duplicate()
 	var hqb_level: int = player.level
 	var hqb_it: Node = game.interior
+	var hqb_flags: Array = pz_story.flags.duplicate()
+	pz_story.flags.erase("ch1_clue")
+	player.level = 1
+	game.door = hqb_doors[0]
+	game.act = "enter"
+	game.interact()
+	await frames(1)
+	var hqb_pop: Array = game.hud.get_children().filter(func(n): return n.get_script() == load("res://scripts/ui/gate_popup.gd"))
+	assert(game.inside == "" and hqb_pop.size() == 1 and hqb_pop[0].req.text.begins_with("Level 30"), "HQ door shut below 30: gate popup")
+	hqb_pop[0].free()
+	player.frozen = false
 	hqb_it.enter(hqb_doors[0])
 	assert(game.inside == "hq_lobby" and hqb_it.spots.has("elevator"), "HQ lobby")
+	assert(game.dialog.playing(), "first time in: Sam's SF clue plays")
+	game.dialog.skip()
+	assert(pz_story.has("ch1_clue"), "the clue opens the SF gate")
 	pz_story.floors = {}
 	pz_story.keycards.clear()
 	player.level = 1
 	assert(not hqb_it.floor_rows()[0][1] and not hqb_it.floor_rows()[3][1], "G1 shut: every floor locked")
-	player.level = 20
-	pz_story.add_keycard("nyc")
+	player.level = 30
+	for f: String in ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "cs_hedgehog_post", "ch1_boss"]:
+		pz_story.set_flag(f)
 	assert(hqb_it.floor_rows()[0][1] and not hqb_it.floor_rows()[3][1], "G1 open: floors 1-3, not 4")
 	pz_story.floors = {"nyc_1": 50.0, "nyc_2": 50.0}
 	assert(not hqb_it.floor_rows()[3][1], "two floors cleared: floor 4 still locked")
@@ -1347,6 +1596,7 @@ func _initialize() -> void:
 	assert(game.inside == "" and player.is_physics_processing(), "off the floor, back on the street")
 	pz_story.floors = hqb_floors
 	pz_story.keycards.assign(hqb_keys)
+	pz_story.flags.assign(hqb_flags)
 	player.level = hqb_level
 
 	# street foes (M3-2): night table has them; each kind spawns with its hiss / yowl and is beaten through on_bite

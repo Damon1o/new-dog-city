@@ -17,13 +17,14 @@ const ODDS := {
 const MODS := {
 	"clear": {"sprint": 1.0, "thirst": 1.0, "scent": 1600.0, "dash": 1.0, "steer": 1.0, "sight": NO_LIMIT},
 	"snow": {"sprint": 0.9, "thirst": 0.8, "scent": 1400.0, "dash": 1.0, "steer": 1.0, "sight": NO_LIMIT},
-	"fog": {"sprint": 1.0, "thirst": 1.0, "scent": 900.0, "dash": 1.0, "steer": 1.0, "sight": 420.0},
+	"fog": {"sprint": 1.0, "thirst": 1.0, "scent": 900.0, "dash": 1.0, "steer": 1.0, "sight": 260.0},  # officers lose the dog past this
 	"rain": {"sprint": 1.0, "thirst": 1.0, "scent": 700.0, "dash": 1.3, "steer": 0.5, "sight": NO_LIMIT},
 	"haze": {"sprint": 1.0, "thirst": 1.3, "scent": 1600.0, "dash": 1.0, "steer": 1.0, "sight": NO_LIMIT},
 	"storm": {"sprint": 1.0, "thirst": 1.0, "scent": 700.0, "dash": 1.3, "steer": 0.5, "sight": NO_LIMIT},
 }
 ## Which particle look each weather uses; fog / haze / storm-lightning visuals ship with their cities.
-const LOOK := {"snow": "snow", "rain": "rain", "storm": "rain"}
+const LOOK := {"snow": "snow", "rain": "rain", "storm": "rain", "fog": "fog"}
+const FOG_FAR := 2400.0  # fog veil radius in px; past the view at any zoom
 const SAY := {"clear": "The sky clears up.", "snow": "It's snowing!", "rain": "It's raining.",
 	"fog": "Fog rolls in.", "haze": "A hot haze hangs over the city.", "storm": "A storm is coming!"}
 const PRINT_EVERY := 28.0  # px walked between snow paw prints
@@ -37,6 +38,14 @@ var started := false
 var last_tod := 0.0
 var snow: CPUParticles2D
 var rain: CPUParticles2D
+var fog: Sprite2D  # radial veil around the dog: clear inside sight_radius, white past it
+var banks: CPUParticles2D  # slow fog banks rolling across the view
+## SF quakes (not weather, but this is the per-city ticker): a short tremor every few minutes on the
+## street. Shakes the camera (reduce motion still gates it), scatters every flock, spooks the foes.
+const QUAKE_EVERY := Vector2(240.0, 480.0)  # seconds between tremors, random in this range
+const QUAKE_LEN := 3.0
+var quake_in := randf_range(QUAKE_EVERY.x, QUAKE_EVERY.y)
+var quake_t := 0.0  # > 0 while the ground is shaking
 var last_print := Vector2.ZERO
 var print_side := 1.0
 
@@ -48,6 +57,38 @@ func _ready() -> void:
 	rain = _particles(_streak_tex(), 400, 0.9, Vector2(600, 900), Vector2(-60, 0))
 	rain.particle_flag_align_y = true
 	rain.color = Color(0.7, 0.8, 1.0, 0.55)
+	var veil := Gradient.new()
+	var clear: float = MODS.fog.sight / FOG_FAR
+	veil.offsets = PackedFloat32Array([0.0, clear * 0.45, clear, 1.0])
+	veil.colors = PackedColorArray([Color(0.86, 0.88, 0.92, 0.0), Color(0.86, 0.88, 0.92, 0.0), Color(0.86, 0.88, 0.92, 0.78), Color(0.86, 0.88, 0.92, 0.9)])
+	var vt := GradientTexture2D.new()
+	vt.gradient = veil
+	vt.fill = GradientTexture2D.FILL_RADIAL
+	vt.fill_from = Vector2(0.5, 0.5)
+	vt.fill_to = Vector2(1.0, 0.5)
+	vt.width = 512
+	vt.height = 512
+	fog = Sprite2D.new()
+	fog.texture = vt
+	fog.scale = Vector2.ONE * FOG_FAR * 2.0 / 512.0
+	fog.z_index = 49
+	fog.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR  # the project is pixel-art nearest; a stretched gradient must be smooth
+	add_child(fog)
+	var puff := Gradient.new()
+	puff.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+	var pt := GradientTexture2D.new()
+	pt.gradient = puff
+	pt.fill = GradientTexture2D.FILL_RADIAL
+	pt.fill_from = Vector2(0.5, 0.5)
+	pt.fill_to = Vector2(1.0, 0.5)
+	banks = _particles(pt, 36, 24.0, Vector2(12, 30), Vector2.ZERO)
+	banks.direction = Vector2.RIGHT
+	banks.spread = 15.0
+	banks.scale_amount_min = 3.0
+	banks.scale_amount_max = 6.0
+	banks.color = Color(0.9, 0.92, 0.95, 0.22)
+	banks.z_index = 49
+	banks.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 
 ## Weather starts once game._ready has loaded the save, so save_extra holds today's roll.
 func _process(delta: float) -> void:
@@ -61,6 +102,24 @@ func _process(delta: float) -> void:
 	last_tod = g.tod
 	blend_t += delta
 	_update_visuals()
+	if quake_t > 0.0:
+		quake_t -= delta
+		g.shake_amt = maxf(g.shake_amt, 5.0)
+	elif city() == "sf" and g.inside == "" and not g.dialog.playing():
+		quake_in -= delta
+		if quake_in <= 0.0:
+			quake()
+
+func quake() -> void:
+	quake_in = randf_range(QUAKE_EVERY.x, QUAKE_EVERY.y)
+	quake_t = QUAKE_LEN
+	g.show_msg("Earthquake! The whole block is rattling.")
+	g.sfx("bark_scare")  # ponytail: low rumble stand-in; real rumble when spec 12 audio lands
+	for f in g.spawner.flocks:
+		g.spawner.scatter(f)
+	for foe in g.get_tree().get_nodes_in_group("foe"):
+		foe.stun(1.0)
+	g.bump("quakes")  # SF Pest Patrol
 
 func city() -> String:
 	return str(g.save_extra.get("world/city", "nyc"))
@@ -124,13 +183,16 @@ func look(kind: String) -> float:
 func _update_visuals() -> void:
 	var outdoors: bool = g.inside == "" and not g.god_view
 	var half: Vector2 = get_viewport().get_visible_rect().size / (2.0 * g.cam.zoom)
-	for p: CPUParticles2D in [snow, rain]:
-		var k := look("snow" if p == snow else "rain")
+	for p: CPUParticles2D in [snow, rain, banks]:
+		var k := look("snow" if p == snow else "rain" if p == rain else "fog")
 		p.emitting = outdoors and k > 0.0
 		p.visible = outdoors
 		p.modulate.a = k
 		p.position = g.cam.get_screen_center_position()  # emit over the whole view; drops stay in the world
 		p.emission_rect_extents = half * 1.1
+	fog.visible = outdoors and look("fog") > 0.0
+	fog.modulate.a = look("fog")
+	fog.position = g.player.position
 	# snow whitens the ground, rain darkens it
 	var s := look("snow")
 	var r := look("rain")

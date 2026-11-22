@@ -51,19 +51,19 @@ func hq_id(n: int) -> String:
 func hq_block(n: int) -> String:
 	if n == 3:
 		return "" if range(3).all(func(k): return Story.floors.has(hq_id(k))) else "Clear floors 1-3 first"
-	return Story.gate_block("G1", g.player.level)
+	return Story.gate_block(Gates.HQ_GATE.get(g.city.id, "G1"), g.player.level)
 
 func ride_hq(n: int) -> void:
 	if n < 0 or n > 3 or g.player.frozen:
 		return
 	if hq_block(n) != "":
 		if n < 3:
-			GatePopup.open(g, "G1")  # level + keycard, with "Find XP"
+			GatePopup.open(g, Gates.HQ_GATE.get(g.city.id, "G1"))  # what's missing, with "Find XP"
 		else:
 			g.show_msg(hq_block(n))
 		return
-	if n == 3:  # ponytail: clue room placeholder until M5-8 adds Sam's sticker
-		g.show_msg("Floor 4: the clue room. The doors are still being fixed. Come back soon.")
+	if n == 3:  # ponytail: the clue plays in the lobby (cs_ch1_clue); floor 4 just replays it
+		g.dialog.play("cs_ch1_clue")
 		return
 	g.player.frozen = true
 	var tw := g.create_tween()
@@ -86,14 +86,22 @@ func gate_rows() -> Array:
 		rows.append(["[%d]  %s%s" % [k + 1, Gates.CITIES[gate[0]][0], note], not here and not locked])
 	return rows
 
-## Flight stub (M2-6): only NYC exists, so an open gate just announces the flight.
-## ponytail: 3 s plane-over-map cutscene + city.travel() once a second city is in data/cities.gd.
+## Board an open gate (spec 02): free in story mode, but security turns away a wanted dog.
+## Cities not built yet (no data/cities.gd entry) still just announce the flight.
 func fly(n: int) -> void:
-	if n < 0 or n >= Gates.AIRPORT.size() or not gate_rows()[n][1]:
+	if n < 0 or n >= Gates.AIRPORT.size() or not gate_rows()[n][1] or g.player.frozen:
 		return
-	var city_name: String = Gates.CITIES[Gates.AIRPORT[n][0]][0]
+	if g.wanted.stars() > 0:
+		g.show_msg("Security: lose the heat first")
+		return
+	var to: String = Gates.AIRPORT[n][0]
+	var city_name: String = Gates.CITIES[to][0]
 	g.show_banner("FLIGHT TO %s" % city_name.to_upper())
-	g.show_msg("Flights to %s start soon" % city_name)
+	if not g.city.CITIES.has(to):
+		g.show_msg("Flights to %s start soon" % city_name)
+		return
+	leave()
+	g.city.travel(to)
 
 func floor_name(n: int) -> String:
 	return "LOBBY" if n == 0 else "FLOOR %d" % (n + 1)
@@ -138,9 +146,21 @@ func enter(d: Dictionary) -> void:
 		"burrow":
 			g.hedgehog.start()
 			g.bump("burrow", true)
-		"nyse":  # M5-7 bell podium + Fat Cat
+		"hq":  # NYC: the door gate (level 30 + every boss) is the whole test, so the clue waits inside
+			if g.city.id == "nyc" and not Story.has("ch1_clue"):
+				g.dialog.play("cs_ch1_clue")
+		"startup":  # first visit: Patch pitches the idea
+			g.bump("met_patch", true)  # shows the Good Boy AI quest line
+			if not Story.has("cs_startup_intro"):
+				g.dialog.play("cs_startup_intro")
+		"nyse", "pier":  # M5-7 bell podium + Fat Cat; M6-4 bait crate + Seagull King
 			var arena: Node2D = preload("res://scripts/world/nyse_arena.gd").new()
 			arena.g = g
+			if d.template == "pier":
+				arena.cfg = preload("res://scripts/data/bosses.gd").SEAGULL_KING
+				arena.pre = "cs_seagull_pre"
+				arena.ready_flags = ["cs_arrive_sf"]
+				arena.crate = true
 			room.add_child(arena)
 
 func leave() -> void:

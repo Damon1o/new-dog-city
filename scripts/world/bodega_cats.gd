@@ -9,7 +9,9 @@ const Keys := preload("res://scripts/systems/keys.gd")
 ## Shop door id (shop.gd door_id) -> [cat id, name].
 ## ponytail: NYC has 5 bodega doors and 4 cats, so nyc_bodega_4's counter cat is a plain prop.
 const CATS := {"nyc_bodega_0": ["nyc_mango", "Mango"], "nyc_bodega_1": ["nyc_pepper", "Pepper"],
-	"nyc_bodega_2": ["nyc_lotto", "Lotto"], "nyc_bodega_3": ["nyc_big_sal", "Big Sal"]}
+	"nyc_bodega_2": ["nyc_lotto", "Lotto"], "nyc_bodega_3": ["nyc_big_sal", "Big Sal"],
+	# M6-3 SF corner stores
+	"sf_bodega_0": ["sf_sourdough", "Sourdough"], "sf_bodega_1": ["sf_dim_sum", "Dim Sum"], "sf_bodega_2": ["sf_karl", "Karl"]}
 const GIFTS := {"rat": 4, "purina": 3, "treats": 2}  # treats gift = 5 treats
 const MAX_GIFTS := 3  # per cat per in-game day
 const MAX_POINTS := 50

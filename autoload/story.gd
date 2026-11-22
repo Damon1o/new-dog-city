@@ -54,6 +54,9 @@ func gate_block(id: String, level: int) -> String:
 		return "%s HQ keycard required (beat %s)" % [c[0], c[1]]
 	if gate.has("flag") and not has(gate.flag):
 		return "Find the clue first"
+	var left: Array = gate.get("flags", []).filter(func(f): return not has(f))
+	if left:
+		return "Beat first: " + ", ".join(left.map(func(f): return Gates.BOSS_NAMES.get(f, f)))
 	for f: String in gate.get("floors", []):
 		if not floors.has(f):
 			return "Clear Tower floors T1-T4 first"

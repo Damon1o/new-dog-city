@@ -189,6 +189,26 @@ const ROOMS := {
 		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "desk": Vector2(384, 250), "elevator": Vector2(712, 140)},
 		"door": ["HACK CLUB HQ", "[F]  Go inside"], "exit": ["HACK CLUB HQ LOBBY", "[F]  Back to the street"],
 	},
+	# M6-4 SF pier (spec 06 Seagull King): planks over the bay; scripts/world/nyse_arena.gd puts the
+	# bait crate at "podium" and the Seagull King at "boss".
+	"pier": {
+		"size": Vector2(1152, 640), "kind": "pier", "tint": Color(0.95, 0.97, 1),
+		"paint": [[Rect2(0, 0, 1152, 640), Color(0.22, 0.42, 0.6)], [Rect2(96, 0, 960, 640), "platform", Color(0.62, 0.48, 0.34)],
+			[Rect2(96, 0, 960, 8), Color(0.3, 0.22, 0.14)], [Rect2(536, 616, 80, 24), Color(0.3, 0.22, 0.14)]],
+		"props": [["bench", Vector2(220, 560), 1.5, Vector2(80, 20)], ["bench", Vector2(932, 560), 1.5, Vector2(80, 20)],
+			["trashcan", Vector2(160, 200), 1.0, Vector2(20, 12)], ["trashcan", Vector2(992, 200), 1.0, Vector2(20, 12)]],
+		"spots": {"exit": Vector2(576, 624), "start": Vector2(576, 560), "podium": Vector2(576, 470), "boss": Vector2(576, 260)},
+		"door": ["THE PIER", "[F]  Walk out on the pier"], "exit": ["THE PIER", "[F]  Back to the street"],
+	},
+	# Ch 2 SF: Good Boy AI startup garage (scripts/systems/startup.gd runs the founder's desk at "pitch")
+	"startup": {
+		"size": Vector2(768, 448), "kind": "startup", "tint": Color(0.95, 0.98, 1),
+		"paint": [[Rect2(0, 0, 768, 448), "platform", Color(0.7, 0.72, 0.78)], [Rect2(0, 0, 768, 96), "station_wall", Color(0.35, 0.55, 0.85)],
+			[Rect2(344, 424, 80, 24), Color(0.2, 0.3, 0.5)]],
+		"props": [["su_founder", Vector2(384, 220), 2.0, Vector2(128, 40)], ["water_bowl", Vector2(450, 330), 1.25, Vector2.ZERO]],  # desks, racks, perks: startup.gd
+		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "pitch": Vector2(384, 260)},
+		"door": ["GOOD BOY AI   startup garage", "[F]  Go inside"], "exit": ["GOOD BOY AI GARAGE", "[F]  Back to the street"],
+	},
 }
 
 ## Generic building sprite -> its template.

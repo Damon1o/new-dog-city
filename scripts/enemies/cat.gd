@@ -27,7 +27,14 @@ const TYPES := {
 		"tint": Color(0.72, 0.72, 0.75), "trick": "play_dead", "hiss": "possum_hiss", "yowl": "possum_yowl"},
 	"rat": {"name": "Rat", "hp": 8.0, "dmg": 3.0, "xp": 4, "treats": 1, "speed": 170.0,
 		"tint": Color(0.45, 0.4, 0.38), "trick": "", "hiss": "rat_squeak", "yowl": "rat_squeak"},
+	# SF foes (M6 "SF Pest Patrol"): SF is skunk-and-coyote country, and coyotes can't legally be relocated.
+	"skunk": {"name": "Skunk", "hp": 45.0, "dmg": 3.0, "xp": 18, "treats": 4, "speed": 115.0,
+		"tint": Color(0.12, 0.12, 0.14), "trick": "spray", "hiss": "skunk_hiss", "yowl": "skunk_yowl"},
+	"coyote": {"name": "Coyote", "hp": 70.0, "dmg": 9.0, "xp": 24, "treats": 5, "speed": 175.0,
+		"tint": Color(0.72, 0.58, 0.4), "trick": "dash", "hiss": "coyote_hiss", "yowl": "coyote_yowl"},
 }
+const SPRAY_POISON := 2.0  # skunk stink: hp a second for player.POISON_TIME
+const SPRAY_SCARE := 260.0  # prey this close flee the stink
 ## Facing right. X = fur (tint), E = eye, P = pink (nose / tail).
 const CAT := [
 	"........X..X",
@@ -44,6 +51,27 @@ const RAT := [
 	"..XXXXEX",
 	"PXXXXXXP",
 	"...X.X..",
+]
+## W = white stripe. Skunk: low, big tail up over the back.
+const SKUNK := [
+	"..WW........",
+	".XWWX.......",
+	"XXXWXX..X..X",
+	"XX.XWWWXXXXX",
+	".....XXWWWEX",
+	"....XXXXXXXP",
+	"....X.X..X.X",
+]
+## Coyote: long legs, pointy ears, long snout, low bushy tail.
+const COYOTE := [
+	"..........X.X",
+	"..........XXX",
+	"..........XEXX",
+	"X.........XXXP",
+	".XXXXXXXXXXX..",
+	"..XXXXXXXXX...",
+	"..X.X...X.X...",
+	"..X.X...X.X...",
 ]
 const STEALTH_DIST := 120.0
 
@@ -94,9 +122,10 @@ func setup(p_kind: String, pos: Vector2, p_game: Node2D, bonus := 0) -> void:
 ## Sprite from the string grid, tint baked in so hit flashes (modulate) still read. Cached per kind.
 static func art(k: String) -> Texture2D:
 	if not cache.has(k):
-		var rows: Array = RAT if k == "rat" else CAT  # ponytail: possum borrows the cat grid; own snouty grid later
-		var pal := {"X": TYPES[k].tint, "E": Color(0.95, 0.85, 0.2), "P": Color(0.95, 0.6, 0.65)}
-		var img := Image.create(rows[0].length(), rows.size(), false, Image.FORMAT_RGBA8)
+		var rows: Array = {"rat": RAT, "skunk": SKUNK, "coyote": COYOTE}.get(k, CAT)  # ponytail: possum borrows the cat grid
+		var pal := {"X": TYPES[k].tint, "E": Color(0.95, 0.85, 0.2), "P": Color(0.95, 0.6, 0.65), "W": Color(0.95, 0.95, 0.95)}
+		var w: int = rows.map(func(r): return r.length()).max()
+		var img := Image.create(w, rows.size(), false, Image.FORMAT_RGBA8)
 		for y in rows.size():
 			for x in rows[y].length():
 				img.set_pixel(x, y, pal.get(rows[y][x], Color(0, 0, 0, 0)))
@@ -163,7 +192,13 @@ func swipe(to: Vector2) -> void:
 	atk_dir = to.normalized()
 	game.scratch(player.position, to)  # claw marks on the dog
 	var crit: bool = cfg.trick == "stealth" and randf() < 0.3
-	player.take_damage(stats.dmg * (1.75 if crit else 1.0))
+	player.take_damage(stats.dmg * (1.75 if crit else 1.0), SPRAY_POISON if cfg.trick == "spray" else 0.0)
+	if cfg.trick == "spray":  # stink: Byte reeks for a few seconds and every critter nearby bolts
+		game.float_text(player.position, "PU!", Color(0.6, 0.9, 0.3))
+		game.poof(player.position, Color(0.6, 0.8, 0.3))
+		for p in game.get_tree().get_nodes_in_group("prey"):
+			if p.position.distance_to(player.position) < SPRAY_SCARE and not p.flock.is_empty():
+				game.spawner.scatter(p.flock)
 	if cfg.trick == "knock":  # ponytail: shoves the body straight; can nudge Byte into a wall edge
 		player.position += to.normalized() * 40.0
 	elif cfg.trick == "retreat":
@@ -216,6 +251,8 @@ func beaten() -> void:
 	remove_from_group("foe")
 	if kind == "black" and game.Spawns.phase(game.sun()) == "night":
 		game.bump("black_cats_night")  # Old Rex quest (M4-7)
+	if kind in ["skunk", "coyote"]:
+		game.bump(kind + "s")  # SF Pest Patrol
 	player.treats += stats.treats
 	XP.award(game, stats.xp, self)
 	game.float_text(position, "%s beaten! +%d treats" % [cfg.name, stats.treats], Color(1, 0.85, 0.5))

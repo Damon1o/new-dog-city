@@ -17,6 +17,7 @@ const V2 := {
 	"territory/markers": [], "territory/rep": {},
 	"wardrobe/owned": [], "wardrobe/equipped": {"collar": "name", "hat": "", "overlay": ""},
 	"stocks/prices": {}, "stocks/history": {}, "stocks/held": {},
+	"startup/state": {},
 	"ui/reduce_motion": false, "ui/large_text": false, "ui/hotbar": ["purina", "water", "", ""], "ui/keys": {},
 }
 const VOLS := {"Music": "vol_music", "SFX": "vol_sfx", "Ambience": "vol_amb"}
@@ -70,6 +71,16 @@ static func read(g: Node) -> void:
 		var sk := k.split("/")
 		var d: Variant = V2[k]
 		g.save_extra[k] = cfg.get_value(sk[0], sk[1], d.duplicate(true) if d is Dictionary or d is Array else d)
+	var city_id: String = str(g.save_extra["world/city"])
+	if not g.city.CITIES.has(city_id):
+		city_id = "nyc"
+	if city_id != g.city.id:  # M6-1: saved in another city
+		g.city.build(city_id)
+		g.spawn_park_bosses()
+		var port: Array = g.doors.filter(func(d): return d.template == "airport")
+		if port:
+			g.player.position = g.city.fix_pos(port[0].pos + Vector2(0, 60))
+			g.player.spawn_point = g.player.position
 	var pos: Variant = cfg.get_value("world", "pos", false)
 	if pos is Vector2 and g.inside == "":  # no pos (v1 save): stay at the park spawn
 		g.player.position = g.city.fix_pos(pos)
