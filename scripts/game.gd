@@ -59,7 +59,8 @@ const SHOP_INFO := Items.SHOP_INFO
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
 	"empire_state", "chrysler", "transamerica", "coit_tower",
-	"golden_gate", "painted_ladies", "lombard", "ferry_building", "salesforce",  # SF sights (tools/gen_sf_sights.py) "bodega", "subway", "trashcan", "manhole", "water_bowl",
+	"golden_gate", "painted_ladies", "lombard", "ferry_building", "salesforce",  # SF sights (tools/gen_sf_sights.py)
+	"bodega", "subway", "trashcan", "manhole", "water_bowl",
 	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant", "purina",
 	"cat", "shop_floor", "shop_wall", "shelf", "counter", "station_wall", "platform", "track",
 	"pillar", "stairs", "map_board", "train", "subway_wall", "subway_floor", "platform_edge",
