@@ -5,8 +5,10 @@ extends Node2D
 
 const SPEED := 230.0
 ## half length / half width per body, car pointing +x. Also the hit box.
-const HALF := {"sedan": Vector2(30, 14), "taxi": Vector2(30, 14), "hatch": Vector2(25, 13), "van": Vector2(36, 15)}
-const KIND_ODDS := [["taxi", 0.3], ["sedan", 0.35], ["hatch", 0.2], ["van", 0.15]]
+const HALF := {"sedan": Vector2(30, 14), "taxi": Vector2(30, 14), "hatch": Vector2(25, 13), "van": Vector2(36, 15), "bus": Vector2(56, 17)}
+const KIND_ODDS := [["taxi", 0.3], ["sedan", 0.3], ["hatch", 0.2], ["van", 0.12], ["bus", 0.08]]
+const BUS := Color(0.93, 0.94, 0.95)
+const BUS_STRIPE := Color(0.1, 0.35, 0.75)
 const PAINT := [Color(0.75, 0.77, 0.8), Color(0.12, 0.13, 0.15), Color(0.92, 0.92, 0.9), Color(0.72, 0.12, 0.12),
 	Color(0.14, 0.24, 0.48), Color(0.2, 0.4, 0.28), Color(0.78, 0.7, 0.55), Color(0.3, 0.55, 0.75), Color(0.85, 0.45, 0.12)]
 const TAXI := Color(1.0, 0.78, 0.1)
@@ -31,7 +33,7 @@ func setup(p_dir: Vector2, p_game: Node2D) -> void:
 		kind = k[0]
 		if r < 0.0:
 			break
-	color = TAXI if kind == "taxi" else PAINT.pick_random()
+	color = TAXI if kind == "taxi" else BUS if kind == "bus" else PAINT.pick_random()
 	add_to_group("car")
 
 func _process(delta: float) -> void:
@@ -64,6 +66,8 @@ func _draw() -> void:
 	draw_rect(Rect2(-h.x + 7, -h.y + 2, h.x * 2 - 14, 2.5), color.lightened(0.3))  # sun glint on one flank
 	if kind == "van":
 		draw_van(h)
+	elif kind == "bus":
+		draw_bus(h)
 	else:
 		draw_cabin(h, -h.x + 4.0 if kind == "hatch" else -14.0, 8.0 if kind == "hatch" else 12.0)
 	for s: float in [-1.0, 1.0]:
@@ -84,6 +88,16 @@ func draw_cabin(h: Vector2, back: float, front: float) -> void:
 		for i in range(int((front - back) / 4.0)):  # checker stripe down both sides
 			for s: float in [-1.0, 1.0]:
 				draw_rect(Rect2(back + i * 4, s * (h.y - 3.0) - 1.25, 4, 2.5), Color.BLACK if i % 2 else Color.WHITE)
+
+## City bus: blue side stripes, wide windshield, roof AC unit and two escape hatches.
+func draw_bus(h: Vector2) -> void:
+	for s: float in [-1.0, 1.0]:
+		draw_rect(Rect2(-h.x + 3, s * (h.y - 4) - 1.5, h.x * 2 - 6, 3), BUS_STRIPE)
+		draw_rect(Rect2(h.x - 7, s * (h.y + 1) - 1.5, 4, 3), color.darkened(0.3))  # mirrors
+	draw_rect(Rect2(h.x - 7, -h.y + 3, 4, h.y * 2 - 6), GLASS)
+	rrect(Rect2(-14, -6, 24, 12), 2, color.darkened(0.15))  # AC unit
+	for x: float in [20.0, -38.0]:
+		draw_rect(Rect2(x, -4, 8, 8), color.darkened(0.25))
 
 ## Box van: short cab up front, cargo box with roof ribs behind it.
 func draw_van(h: Vector2) -> void:
