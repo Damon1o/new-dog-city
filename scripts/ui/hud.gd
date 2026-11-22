@@ -550,7 +550,7 @@ func draw_ability(n: String) -> void:
 	var key: String = Keys.label("bite" if n == "pounce" else n).get_slice(" / ", 0).left(5)  # follows rebinding
 	var w := maxf(font.get_string_size(key, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x + 12, 26)
 	var pill := Rect2(mid.x - w / 2.0, 74, w, 16)
-	var sb := Look.box(Color(0.12, 0.13, 0.18, 0.95), 4, Color(1, 1, 1, 0.35), 0)
+	var sb := Look.box(Color(Look.SLOT, 0.95), 4, Color(1, 1, 1, 0.35), 0)
 	sb.shadow_size = 0
 	c.draw_style_box(sb, pill)
 	c.draw_string(font, Vector2(pill.position.x, 86), key, HORIZONTAL_ALIGNMENT_CENTER, w, 11, Look.TEXT)
@@ -787,8 +787,8 @@ func corner_pressed(a: String) -> void:
 
 func draw_corner(b: Button, a: String) -> void:
 	var c := b.size / 2.0 + Vector2(0, -3)
-	var col := Color(0.85, 0.9, 1) if a != "map" or g.inside == "" else Color(0.5, 0.5, 0.55)
-	var dark := Color(0.1, 0.12, 0.18)
+	var col := Look.TEXT if a != "map" or g.inside == "" else Color(0.5, 0.5, 0.55)
+	var dark := Color(Look.SLOT, 1.0)
 	match a:
 		"stats":  # bar chart
 			for i in 3:
