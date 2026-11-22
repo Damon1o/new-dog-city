@@ -115,6 +115,8 @@ func next_station(off: float) -> void:
 	g.interior.door = g.stations[n].door  # the stairs now lead up to this station
 	g.return_pos = g.stations[n].pos
 	g.bump("rides")
+	if g.city.id == "sf":
+		g.bump("sf_rides")  # SF dog park quests count cable car rides only
 	g.train.position.x = O.x - 600
 	last_x = g.train.position.x
 	g.player.position = Vector2(g.train.position.x + off, O.y + RIDE_Y)

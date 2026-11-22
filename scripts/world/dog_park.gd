@@ -9,8 +9,9 @@ const RACE_TIME := 60.0
 const TALK_DIST := 50.0
 const GATE := 96.0  # gap in the middle of each fence side
 # spec 07 dogs per city: [name (= its quest line), breed art (assets/dog_<breed>.png), player.gd BREEDS scale].
-# ponytail: NYC only until SF / Tokyo / Shenzhen exist.
-const DOGS := {"nyc": [["Biscuit", "chihuahua", 2.0], ["Duchess", "husky", 3.0], ["Old Rex", "mastiff", 3.6]]}
+# ponytail: NYC + SF until Tokyo / Shenzhen exist.
+const DOGS := {"nyc": [["Biscuit", "chihuahua", 2.0], ["Duchess", "husky", 3.0], ["Old Rex", "mastiff", 3.6]],
+	"sf": [["Pixel", "pug", 2.6], ["Fogarty", "husky", 3.0], ["Captain", "great_dane", 3.6]]}
 # What each dog says at quest steps 1..3 of its line, then once the line is done.
 const LINES := {
 	"Biscuit": ["My ball rolled off into another park! Follow your GPS and sniff it out?",
@@ -25,6 +26,19 @@ const LINES := {
 		"Not bad. Black cats rule the alleys at night. Beat 3 of them after dark.",
 		"Last lesson: see the pound for yourself. Know what you're running from.",
 		"You've seen it all now. Take these bones."],
+	# M6-6 SF dog park
+	"Pixel": ["New in town? Ride the cable car. Three times. It's the law. Probably.",
+		"A sea lion took over a park by the water. Sal. Loud. Go be louder.",
+		"Last thing: the corgi in the garage is building an AI that finds lost humans. Help ship it?",
+		"PawFinder is live! You're basically a tech founder now. Hoodie optional."],
+	"Fogarty": ["Karl the Fog and me go way back. Something howls up on Twin Peaks. Shut it up?",
+		"Nice. Now mark your turf. 8 blocks, any city. Show the hills who's boss.",
+		"Fog hunting time: catch 60 critters, lifetime. You can't see them, but you can smell them.",
+		"You've got a fog nose now. Take these bones."],
+	"Captain": ["Ahoy. A seagull wearing a backpack rules my pier. Bring me his crown.",
+		"Shore leave! Buy 10 things in the shops. The prices here bite harder than I do.",
+		"One more: ride the cable car 8 times. Every stop, every hill, matey.",
+		"You're crew now. Here, sailor's pay."],
 }
 
 var g: Node2D

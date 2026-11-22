@@ -407,6 +407,10 @@ func _initialize() -> void:
 	var sf_store: Dictionary = game.doors.filter(func(d): return d.template == "bodega" and d.pos == game.bodega_doors[0])[0]
 	game.interior.enter(sf_store)
 	assert(game.cats.here() == ["sf_sourdough", "Sourdough"], "M6-3: SF corner store 0 has Sourdough")
+	var sf_park: Node = get_nodes_in_group("dog_park")[0]
+	assert(sf_park.dogs.keys() == ["Pixel", "Fogarty", "Captain"], "M6-6: SF dog park dogs")
+	assert(sf_park.lines_for("Pixel")[0].contains("cable car") and game.stats.get("met_pixel") == 1, "Pixel starts the cable car line")
+	game.stats.erase("met_pixel")
 	game.interior.leave()
 	await frames(2)
 	var sf_bosses: Array = game.park_bosses.get_children().map(func(b): return b.cfg.name)
