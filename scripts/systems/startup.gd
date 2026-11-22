@@ -251,6 +251,7 @@ func choose(i: int) -> void:
 		if i == 0 and pay(FOUND_COST):
 			s.merge({"founded": true, "staff": {}, "perks": [], "office": 0, "servers": 0, "version": 0,
 				"dev": 0.0, "users": 0.0, "bank": 0.0, "hype": 0.0, "round": 0}, true)
+			g.bump("su_found", true)
 			done("GOOD BOY AI FOUNDED", "cs_startup_found")
 		return
 	if page == "hire":
@@ -262,6 +263,7 @@ func choose(i: int) -> void:
 				g.show_msg("The office is full. Move somewhere bigger")
 			elif pay(hire_cost(r)):
 				s.staff[r] = staff(r) + 1
+				g.bump("su_hires")
 				done("HIRED A " + str(ROLES[r][0]).to_upper())
 		return
 	if page == "up":
@@ -273,6 +275,7 @@ func choose(i: int) -> void:
 				g.show_msg("The landlord wants to see a " + ROUNDS[o[3] - 1][0])
 			elif pay(o[2]):
 				s.office = n("office") + 1
+				g.bump("su_moves")
 				done("MOVED TO " + str(o[0]).to_upper(), "cs_startup_campus" if n("office") == OFFICES.size() - 1 else "")
 		elif i == 1 and n("servers") + 1 < SERVERS.size():
 			if pay(SERVERS[n("servers") + 1][2]):
@@ -297,6 +300,7 @@ func choose(i: int) -> void:
 			s.version = n("version") + 1
 			s.users = maxf(f("users"), 10.0)  # launch-day users
 			s.hype = f("hype") + 1.0
+			g.bump("su_ships")
 			done("SHIPPED " + version_name(n("version")).to_upper(), "cs_startup_beta" if n("version") == 1 else "")
 		3:
 			if n("version") == 0:
@@ -310,6 +314,7 @@ func choose(i: int) -> void:
 				return
 			var rd: Array = ROUNDS[n("round")]
 			s.round = n("round") + 1
+			g.bump("su_rounds")
 			s.bank = f("bank") + rd[3]
 			done(str(rd[0]).to_upper() + " CLOSED", rd[4])
 		5:

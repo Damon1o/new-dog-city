@@ -150,6 +150,7 @@ func enter(d: Dictionary) -> void:
 			if g.city.id == "nyc" and not Story.has("ch1_clue"):
 				g.dialog.play("cs_ch1_clue")
 		"startup":  # first visit: Patch pitches the idea
+			g.bump("met_patch", true)  # shows the Good Boy AI quest line
 			if not Story.has("cs_startup_intro"):
 				g.dialog.play("cs_startup_intro")
 		"nyse", "pier":  # M5-7 bell podium + Fat Cat; M6-4 bait crate + Seagull King

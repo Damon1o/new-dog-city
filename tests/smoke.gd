@@ -489,6 +489,7 @@ func _initialize() -> void:
 	game.on_number(1)
 	game.on_number(0)  # move to the loft
 	assert(su.n("office") == 1 and su.team_cap() == 8, "moved to the SoMa loft")
+	assert(int(game.quest_step.get("Good Boy AI", 0)) == 6, "Good Boy AI quest line follows the company")
 	game.on_number(5)
 	var su_bank: int = su.owed()
 	var su_before: int = player.treats
@@ -500,6 +501,9 @@ func _initialize() -> void:
 	assert(su.headcount() == 3, "out of runway: a hire quits")
 	player.treats = su_treats
 	game.save_extra.erase("startup/state")
+	game.quest_step.erase("Good Boy AI")
+	for k: String in ["met_patch", "su_found", "su_hires", "su_ships", "su_rounds", "su_moves"]:
+		game.stats.erase(k)
 	for f: String in ["cs_startup_intro", "cs_startup_found", "startup_lead", "cs_startup_seed"]:
 		st.flags.erase(f)
 	game.interior.leave()

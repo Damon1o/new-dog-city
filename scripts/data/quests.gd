@@ -46,6 +46,17 @@ const QUESTS := {
 		["Race Duchess to the
 Empire State Building", "race", 1, 20, 100],
 	],
+	# Good Boy AI startup tycoon (systems/startup.gd), shows once Patch has pitched it in SF
+	"Good Boy AI": [
+		["Meet Patch in the SF startup garage", "met_patch", 1, 0, 0],
+		["Found Good Boy AI at the desk", "su_found", 1, 0, 40],
+		["Hire 3 dogs", "su_hires", 3, 30, 60],
+		["Ship the PawFinder beta", "su_ships", 1, 40, 100],
+		["Close a Seed round", "su_rounds", 1, 60, 150],
+		["Move into the SoMa Loft", "su_moves", 1, 80, 200],
+		["Ship PawFinder Pro", "su_ships", 3, 150, 400],
+		["Take Good Boy AI public", "su_rounds", 4, 500, 1000],
+	],
 	"Old Rex": [
 		["Meet Old Rex at the dog park", "met_old_rex", 1, 0, 0],
 		["Beat the King of Raccoons", "park_boss_raccoon", 1, 0, 100],
