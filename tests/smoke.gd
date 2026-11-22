@@ -405,6 +405,27 @@ func _initialize() -> void:
 	game.dialog.skip()
 	await frames(2)
 	assert(st.has("cs_arrive_sf"), "skip still sets the arrival flag")
+	var sal: Node2D = game.park_bosses.get_child(0)
+	sal.special_n = -1
+	sal.special(Vector2.RIGHT)  # wave_splash
+	assert(sal.marks.size() == 24, "wave splash: 3 rings of 8")
+	sal.clear_shots()
+	var yote: Node2D = game.park_bosses.get_child(1)
+	yote.special_n = -1
+	yote.special(Vector2.RIGHT)  # fog_cloak
+	await frames(2)
+	assert(yote.cloak_t > 0.0 and yote.sprite.self_modulate.a < 0.5, "coyote fades into the fog")
+	yote.hurt(1.0, player.position)
+	assert(yote.cloak_t == 0.0 and yote.sprite.self_modulate.a == 1.0, "a hit reveals it")
+	if game.dialog.playing():  # the hit woke it: intro
+		game.dialog.skip()
+	yote.special(Vector2.RIGHT)  # charge
+	yote.special(Vector2.RIGHT)  # howl
+	assert(yote.minions.size() == 2 and yote.shots.size() == 10, "howl: 2 pups + a ring")
+	yote.clear_shots()
+	yote.state = yote.State.IDLE
+	game.on_boss_left(yote)
+	st.flags.erase("cs_coyote_pre")
 	# Good Boy AI: SF startup garage, Patch's pitch once, found it, profit by the day, beta cutscene
 	var garage: Array = game.doors.filter(func(d): return d.template == "startup")
 	assert(garage.size() == 1, "one startup garage in SF")
@@ -449,8 +470,31 @@ func _initialize() -> void:
 	game.dialog.skip()
 	await frames(2)
 	assert(gull[0].state == gull[0].State.CHASE, "then the fight starts")
+	for i in 3:  # dive, feathers, gust (any order)
+		gull[0].special(Vector2.RIGHT)
+	gull[0].state = gull[0].State.CHASE
+	var gust_from: Vector2 = player.position
+	assert(gull[0].gust_t > 0.0, "gust blows")
+	await frames(10)
+	assert(player.position.x > gust_from.x + 20.0, "gust pushes the dog back")
 	gull[0].hurt(gull[0].max_hp * 0.45, player.position)
 	assert(gull[0].phase == 1 and "storm" in gull[0].specials(), "phase 2 below 60%")
+	for i in 4:  # fish_rain, dive, flock_call, storm
+		gull[0].special(Vector2.RIGHT)
+	gull[0].state = gull[0].State.CHASE
+	assert(gull[0].marks.any(func(m): return m.fish == 2) and gull[0].minions.size() == 3, "fish rain + flock")
+	for m in gull[0].minions:  # only the fish matter here: no flock, no feathers, boss held still
+		m.queue_free()
+	gull[0].minions.clear()
+	for sh in gull[0].shots:
+		sh.s.queue_free()
+	gull[0].shots.clear()
+	gull[0].stun_t = 5.0
+	player.position = game.interior.rect.position + Vector2(60, 60)  # far corner while the fish land
+	await frames(int((gull[0].MARK_WARN + 0.7) * 60.0))
+	assert(gull[0].shots.any(func(s): return s.s.texture == gull[0].fish()), "landed fish flop out")
+	player.position = game.interior.spots.podium
+	player.hp = player.max_hp
 	gull[0].hurt(1e9, player.position)
 	assert(st.has_keycard("sf") and "backpack" in st.items and st.has("ch2_boss"), "SF keycard + backpack")
 	assert(game.dialog.id == "cs_seagull_post", "post-fight cutscene")
@@ -467,13 +511,17 @@ func _initialize() -> void:
 		st.flags.erase(f)
 	st.keycards.erase("sf")
 	st.items.erase("backpack")
+	player.points = 0  # the Seagull's XP levels the dog; close the stat picker (it pauses the tree)
+	game.show_stats()
+	await frames(1)
 	game.interior.enter(sfo[0])
 	player.position = game.interior.spots.gates
 	await frames(1)
 	assert(game.interior.gate_rows()[1][0].contains("here"), "SF gate is where you are")
+	assert(game.ctx == "airport", "gate menu up: ctx=%s inside=%s dialog=%s paused=%s act=%s" % [game.ctx, game.inside, game.dialog.playing(), paused, game.act])
 	game.on_number(0)
 	await frames(50)
-	assert(game.city.id == "nyc" and game.park_bosses.get_child_count() == 3, "flew home to NYC, its 3 park bosses back")
+	assert(game.city.id == "nyc" and game.park_bosses.get_child_count() == 3, "flew home to NYC, its 3 park bosses back: %s %s stars=%d frozen=%s" % [game.city.id, game.park_bosses.get_children().map(func(n): return n.name), game.wanted.stars(), player.frozen])
 	assert(game.doors.filter(func(d): return d.template == "hq")[0].pos == nyc_hq, "NYC rebuilt the same")
 	assert(not game.dialog.playing(), "no arrival cutscene for NYC")
 	st.flags.erase("ch1_clue")

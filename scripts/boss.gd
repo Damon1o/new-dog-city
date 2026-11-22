@@ -19,6 +19,9 @@ const TICKER := "PURR-40 KIBL+5 BARK-12 MEOW+8 "
 const ART_SCALE := 2.5     # assets/boss_<tex>.png (tools/gen_bosses.py); critter PNGs fall back to 7x
 const MARK_R := 42.0       # ground hits: a red circle fills in, then it lands
 const MARK_WARN := 0.9
+const GUST_PUSH := 520.0   # gust: px/s the dog is blown back
+const GUST_TIME := 0.6
+const CLOAK_TIME := 2.5    # fog_cloak: nearly invisible this long, or until hit
 
 const Levels := preload("res://scripts/systems/levels.gd")
 const Raccoon := preload("res://scripts/raccoon.gd")
@@ -48,6 +51,10 @@ var game: Node2D
 var player: CharacterBody2D
 var sprite: Sprite2D
 var coin_tex: Texture2D  # per boss: a static ref would leak at exit
+var fish_tex: Texture2D  # fish_rain flopping fish, drawn in code like coin_tex
+var gust_t := 0.0        # gust: seconds left pushing the dog along gust_dir
+var gust_dir := Vector2.ZERO
+var cloak_t := 0.0       # fog_cloak: seconds left nearly invisible
 var critter: Texture2D   # small critter PNG: shots and summons
 var body_col := Color.WHITE  # sprite modulate at rest: white over boss art, cfg.tint over the critter fallback
 
@@ -78,6 +85,13 @@ func _process(delta: float) -> void:
 	if game.dialog.playing():  # boss intro / outro lines: everyone holds still
 		return
 	bite_cd = maxf(bite_cd - delta, 0.0)
+	if gust_t > 0.0:  # walls stop the push (move_and_collide), a dash rides through it
+		gust_t -= delta
+		if player.dash_t <= 0.0:
+			player.move_and_collide(gust_dir * GUST_PUSH * delta)
+	if cloak_t > 0.0:
+		cloak_t -= delta
+		sprite.self_modulate.a = 0.12 if cloak_t > 0.0 else 1.0
 	update_shots(delta)
 	if not marks.is_empty():
 		update_marks(delta)
@@ -278,6 +292,40 @@ func special(dir: Vector2) -> void:
 			wave_x = arena.position.x if wave_dir > 0.0 else arena.end.x
 			game.float_text(position, "SELL!", Color(1, 0.3, 0.3))
 			special_cd = 4.0
+		"fish_rain":  # fish drop on marked spots round the dog, then flop outward
+			game.float_text(position, "FISH!", Color(0.6, 0.8, 1))
+			for i in 7:
+				var off := Vector2.ZERO if i == 0 else Vector2.RIGHT.rotated(randf() * TAU) * randf_range(50.0, 140.0)
+				mark(player.position + off, Color(0.6, 0.75, 0.9), i * 0.1, 2)
+			special_cd = 4.0
+		"gust":  # wing flap: blows the dog back, feathers ride the wind
+			game.float_text(position, "GUST!", Color(0.8, 0.9, 1))
+			gust_dir = dir
+			gust_t = GUST_TIME
+			for a in [-0.2, -0.1, 0.0, 0.1, 0.2]:
+				shoot(dir.rotated(a) * 420.0, false, 1.5)
+			game.poof(position + dir * 40.0, Color(0.9, 0.95, 1), 20, 260.0)
+			special_cd = 4.5
+		"flock_call":  # seagull minions, up to 3
+			game.float_text(position, "FLOCK!", Color(1, 0.3, 0.3))
+			summon(3, critter, maxi(level - 4, 1), "Seagull", Color(1, 1, 1))
+			special_cd = 5.0
+		"wave_splash":  # belly flop: three rings of splashes roll outward
+			game.float_text(position, "SPLASH!", Color(0.4, 0.7, 1))
+			for r in 3:
+				for i in 8:
+					mark(position + Vector2.RIGHT.rotated(TAU * i / 8.0 + r * 0.4) * (90.0 + 80.0 * r), Color(0.4, 0.65, 0.95), r * 0.3)
+			special_cd = 4.5
+		"fog_cloak":  # fades into the fog; a hit (or 2.5 s) brings it back
+			game.poof(position, Color(0.8, 0.82, 0.86), 30, 120.0)
+			cloak_t = CLOAK_TIME
+			special_cd = 4.0
+		"howl":  # calls two pups and sends out a ring of sound
+			game.float_text(position, "AWOOO!", Color(1, 0.8, 0.4))
+			summon(2, critter, maxi(level - 4, 1), "Coyote pup", Color(0.95, 0.7, 0.45))
+			for i in 10:
+				shoot(Vector2.RIGHT.rotated(TAU * i / 10.0) * 160.0, false, 2.0)
+			special_cd = 5.0
 		"golden_parachute":  # jumps off screen, lands where the dog stood
 			game.poof(position, cfg.tint)
 			position = player.position
@@ -305,9 +353,9 @@ func summon(cap: int, tex: Texture2D, lv: int, label: String, col: Color) -> voi
 		minions.append(m)
 		game.poof(m.position, col, 12, 140.0)
 
-## A ground hit at `p`: warns for MARK_WARN (+ delay) seconds, then lands once.
-func mark(p: Vector2, col: Color, delay := 0.0) -> void:
-	marks.append({"p": p, "t": MARK_WARN + delay, "col": col})
+## A ground hit at `p`: warns for MARK_WARN (+ delay) seconds, then lands once; `fish` flop out after.
+func mark(p: Vector2, col: Color, delay := 0.0, fish := 0) -> void:
+	marks.append({"p": p, "t": MARK_WARN + delay, "col": col, "fish": fish})
 
 func update_marks(delta: float) -> void:
 	for i in range(marks.size() - 1, -1, -1):
@@ -317,6 +365,8 @@ func update_marks(delta: float) -> void:
 			continue
 		marks.remove_at(i)
 		game.poof(m.p, m.col, 14, 170.0)
+		for k in m.fish:
+			shoot(Vector2.RIGHT.rotated(randf() * TAU) * 140.0, false, 1.2, fish(), m.p)
 		if m.p.distance_to(player.position) < MARK_R:
 			var dmg: float = cfg.dmg
 			player.take_damage(dmg * 1.3, cfg.get("poison", 0.0))
@@ -334,12 +384,26 @@ func coin() -> Texture2D:
 		coin_tex = ImageTexture.create_from_image(img)
 	return coin_tex
 
-func shoot(vel: Vector2, homing: bool, life: float, tex: Texture2D = null) -> void:
+## Silver fish drawn in code (fish_rain).
+func fish() -> Texture2D:
+	if not fish_tex:
+		var img := Image.create_empty(9, 5, false, Image.FORMAT_RGBA8)
+		for x in 9:
+			for y in 5:
+				var body := Vector2((x - 3.5) / 3.5, (y - 2.0) / 2.2).length() < 1.0 and x < 7
+				var tail := x >= 7 and absi(y - 2) <= x - 6
+				if body or tail:
+					img.set_pixel(x, y, Color(0.55, 0.7, 0.85) if y > 2 else Color(0.8, 0.88, 0.95))
+		img.set_pixel(1, 1, Color(0.1, 0.1, 0.15))
+		fish_tex = ImageTexture.create_from_image(img)
+	return fish_tex
+
+func shoot(vel: Vector2, homing: bool, life: float, tex: Texture2D = null, at := Vector2.INF) -> void:
 	var s := Sprite2D.new()
 	s.texture = tex if tex else critter
 	s.scale = Vector2(2, 2)
 	s.modulate = Color.WHITE if tex else cfg.tint
-	s.position = position
+	s.position = position if at == Vector2.INF else at
 	game.add_child(s)  # world space, so shots don't follow the boss
 	shots.append({"s": s, "vel": vel, "t": life, "homing": homing})
 
@@ -377,6 +441,10 @@ func clear_shots() -> void:
 	shots.clear()
 	marks.clear()
 	wave_x = INF
+	gust_t = 0.0
+	cloak_t = 0.0
+	if sprite:
+		sprite.self_modulate.a = 1.0
 	for m in minions:
 		if is_instance_valid(m):
 			m.queue_free()
@@ -410,6 +478,9 @@ func hurt(dmg: float, from: Vector2, crit := false) -> void:
 	if state != State.WINDUP:  # windup owns the flash
 		sprite.modulate = Color(1, 0.4, 0.4)
 		create_tween().tween_property(sprite, "modulate", body_col, 0.2)
+	if cloak_t > 0.0:  # fog_cloak: a hit shakes it out of the fog
+		cloak_t = 0.0
+		sprite.self_modulate.a = 1.0
 	game.float_text(position, str(int(dmg)), Color.WHITE, crit)
 	game.poof(position.move_toward(from, 30.0), Color(1, 0.85, 0.4) if crit else cfg.tint, 10, 160.0)  # hit sparks
 	if hp <= 0.0:

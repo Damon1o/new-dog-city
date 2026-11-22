@@ -13,10 +13,10 @@ const BOSSES := [
 	# texture their shots use when tex has no critter PNG of its own.
 	{"name": "Sea Lion Sal", "tex": "sealion", "critter": "rat", "city": "sf", "intro": "cs_sealion_pre", "outro": "cs_sealion_post",
 		"park": 2, "level": 34, "hp": 520.0, "speed": 120.0, "dmg": 16.0,
-		"specials": ["slam", "charge", "sewer"], "tint": Color(0.7, 0.82, 1), "treats": 90, "xp": 260},
+		"specials": ["wave_splash", "charge", "slam", "sewer"], "tint": Color(0.7, 0.82, 1), "treats": 90, "xp": 260},
 	{"name": "The Twin Peaks Coyote", "tex": "coyote", "critter": "rat", "city": "sf", "intro": "cs_coyote_pre", "outro": "cs_coyote_post",
 		"park": 4, "level": 38, "hp": 460.0, "speed": 200.0, "dmg": 15.0,
-		"specials": ["charge", "burrow", "pack", "slam"], "tint": Color(1, 0.75, 0.5), "treats": 110, "xp": 300},
+		"specials": ["fog_cloak", "charge", "howl", "burrow", "slam"], "tint": Color(1, 0.75, 0.5), "treats": 110, "xp": 300},
 ]
 
 # M5-7 story boss (spec 06 Fat Cat): lives in the NYSE room, not a park; scripts/world/nyse_arena.gd
@@ -33,9 +33,9 @@ const FAT_CAT := {"name": "Fat Cat", "tex": "cat", "level": 20, "hp": 300.0, "sp
 # M6-4 Ch 2 story boss (spec 06 Seagull King): on the SF pier (scripts/world/nyse_arena.gd runs both
 # story arenas). Drops the SF keycard and Sam's backpack.
 const SEAGULL_KING := {"name": "Seagull King", "tex": "seagull", "critter": "pigeon", "level": 36, "hp": 420.0, "speed": 190.0, "dmg": 13.0,
-	"specials": ["dive", "feathers"], "tint": Color(1, 1, 1), "treats": 140, "xp": 320,
+	"specials": ["dive", "feathers", "gust"], "tint": Color(1, 1, 1), "treats": 140, "xp": 320,
 	"aggro": 0.0, "leash": 5000.0,  # the bait crate wakes him
-	"phases": [{"at": 1.0, "specials": ["dive", "feathers"], "speed_mult": 1.0},
-		{"at": 0.6, "specials": ["droppings", "dive", "storm"], "speed_mult": 1.15},
-		{"at": 0.3, "specials": ["storm", "droppings", "dive", "feathers"], "speed_mult": 1.3}],
+	"phases": [{"at": 1.0, "specials": ["dive", "feathers", "gust"], "speed_mult": 1.0},
+		{"at": 0.6, "specials": ["fish_rain", "dive", "flock_call", "storm"], "speed_mult": 1.15},
+		{"at": 0.3, "specials": ["storm", "fish_rain", "gust", "droppings", "flock_call"], "speed_mult": 1.3}],
 	"bones": 6, "keycard": "sf", "item": "backpack", "flag": "ch2_boss", "post": "cs_seagull_post"}
