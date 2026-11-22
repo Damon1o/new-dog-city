@@ -938,6 +938,7 @@ func _initialize() -> void:
 	assert(not story.gate_open("G1", 29) and story.gate_block("G1", 29) == "Level 30 required (you are 29)")
 	assert(story.gate_open("G1", 30), "G1 open at 30 with every boss beaten")
 	assert(not story.gate_open("G2", 99) and story.gate_open("G0", 1))
+	assert(story.gate_block("G3", 49) == "Level 50 required (you are 49)", "SF HQ opens at 50")
 	player.level = 19
 	var GatePopup: GDScript = load("res://scripts/ui/gate_popup.gd")
 	var popup: Node = GatePopup.open(game, "G1")

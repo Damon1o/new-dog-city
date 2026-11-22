@@ -8,7 +8,7 @@ const GATES := {
 	"G1": {"level": 30, "flags": ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "cs_hedgehog_post", "ch1_boss"],
 		"opens": "NYC Hack Club HQ"},  # level 30 + every NYC boss beaten
 	"G2": {"flag": "ch1_clue", "opens": "Airport gate to San Francisco"},
-	"G3": {"level": 40, "keycard": "sf", "opens": "SF HQ floors 1-3"},
+	"G3": {"level": 50, "keycard": "sf", "opens": "SF Hack Club HQ"},
 	"G4": {"flag": "ch2_clue", "opens": "Airport gate to Tokyo"},
 	"G5": {"level": 60, "keycard": "tokyo", "opens": "Tokyo HQ floors 1-3"},
 	"G6": {"flag": "ch3_clue", "opens": "Airport gate to Shenzhen"},
@@ -40,7 +40,7 @@ const OBJECTIVES := [
 	["ch1_boss", "Beat the Fat Cat at the NYSE", "nyse"],
 	["ch1_clue", "Reach level 30, beat every NYC boss, enter the Hack Club HQ", "hq_nyc"],
 	["ch2_boss", "Beat the Seagull King at the pier", "sf_pier"],
-	["ch2_clue", "Reach level 40 and climb the SF HQ", "hq_sf"],
+	["ch2_clue", "Reach level 50 and enter the SF Hack Club HQ", "hq_sf"],
 	["ch3_boss", "Beat the Claw King in the arcade", "tokyo_arcade"],
 	["ch3_clue", "Reach level 60 and climb the Tokyo HQ", "hq_tokyo"],
 	["ch4_boss", "Beat the Mecha-Cat", "shenzhen_market"],
