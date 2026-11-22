@@ -64,6 +64,7 @@ func _process(delta: float) -> void:
 			position += step
 		goal = position  # rest where the run ends
 		scale.x = -1.0 if flee.x < 0.0 else 1.0
+		anim_t += delta * 14.0  # sprinting legs
 		return
 	if scream_cd <= 0.0:
 		var src = threat()
@@ -74,11 +75,13 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var scared := scream_t > 0.0
-	draw_rect(Rect2(-5, 0, 4, 12), Color(0.2, 0.22, 0.35))   # legs
-	draw_rect(Rect2(1, 0, 4, 12), Color(0.2, 0.22, 0.35))
+	var swing := sin(anim_t * PI / 2.0) * 3.0                 # npc.gd anim_t ticks 8/s walking, 14/s running
+	draw_rect(Rect2(-5 + swing, 0, 4, 12), Color(0.2, 0.22, 0.35))  # legs
+	draw_rect(Rect2(1 - swing, 0, 4, 12), Color(0.2, 0.22, 0.35))
 	draw_rect(Rect2(-7, -16, 14, 16), color)                  # shirt
-	for s in [-1.0, 1.0]:                                     # arms: up when screaming
-		draw_line(Vector2(6 * s, -14), Vector2(12 * s, -30) if scared else Vector2(8 * s, -2), skin, 3.0)
+	for s in [-1.0, 1.0]:                                     # arms: flailing up when screaming, swinging otherwise
+		var hand := Vector2(12 * s + swing, -30 + swing * s) if scared else Vector2(8 * s - swing * s, -2)
+		draw_line(Vector2(6 * s, -14), hand, skin, 3.0)
 	draw_circle(Vector2(0, -22), 6.0, skin)                   # head
 	draw_rect(Rect2(-6, -29, 12, 4), hair)
 	if scared:

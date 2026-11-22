@@ -20,6 +20,8 @@ var grab_t := 0.0
 var broke_free := false  # spec 08: mashing C breaks a grab once per officer
 var net_cd := 1.5
 var fence_t := 0.0  # waiting at a dog park fence
+var walk := 0.0     # seconds spent running: leg swing
+var kick := 0.0     # 1 -> 0 after a net shot: recoil
 var face := 1.0     # 1 = facing right (art below is drawn facing right), -1 = left
 
 func setup(p_game: Node2D, at: Vector2) -> void:
@@ -37,6 +39,7 @@ func _process(delta: float) -> void:
 		return  # officers wait on the street
 	var p: CharacterBody2D = g.player
 	stun_t -= delta
+	kick = maxf(kick - delta / 0.25, 0.0)
 	queue_redraw()
 	if stun_t > 0.0:
 		return
@@ -58,6 +61,7 @@ func _process(delta: float) -> void:
 	net_cd -= delta
 	if net and net_cd <= 0.0 and to.length() < NET_RANGE:
 		net_cd = NET_CD
+		kick = 1.0
 		var n := Net.new()
 		n.position = position
 		n.vel = to.normalized() * 200.0
@@ -79,20 +83,26 @@ func _process(delta: float) -> void:
 		position.y += step.y
 	if absf(position.x - was) > 0.01:
 		face = signf(position.x - was)
+	walk += delta
 
 func _draw() -> void:
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(face, 1.0))  # mirror the body, not the grab bar
+	var swing := sin(walk * 14.0) * 3.0 if stun_t <= 0.0 else 0.0
+	var lean := -3.0 * kick + (4.0 if grab_t > 0.0 else 0.0)  # net recoil back, grab lunges in
+	draw_set_transform(Vector2(lean * face, -absf(swing) * 0.5), 0.0, Vector2(face, 1.0))  # mirror the body, not the grab bar
 	var navy := Color(0.12, 0.2, 0.4) if stun_t <= 0.0 else Color(0.5, 0.5, 0.7)
+	draw_rect(Rect2(-8 + swing, 8, 6, 8), Color(0.1, 0.1, 0.12))  # legs, scissoring as he runs
+	draw_rect(Rect2(2 - swing, 8, 6, 8), Color(0.1, 0.1, 0.12))
 	draw_rect(Rect2(-9, -14, 18, 22), navy)                 # uniform
-	draw_rect(Rect2(-8, 8, 6, 8), Color(0.1, 0.1, 0.12))    # legs
-	draw_rect(Rect2(2, 8, 6, 8), Color(0.1, 0.1, 0.12))
+	var hand := Vector2(20, -12) if grab_t > 0.0 else Vector2(4 - swing, 4)  # arms out to grab
+	draw_line(Vector2(6, -11), hand, navy.darkened(0.2), 4.0)
+	draw_circle(hand, 2.5, Color(0.95, 0.78, 0.62))
 	draw_circle(Vector2(0, -20), 7, Color(0.95, 0.78, 0.62))  # head
 	draw_rect(Rect2(-8, -29, 16, 5), navy.darkened(0.3))      # cap
 	draw_rect(Rect2(-2, -25, 12, 2), navy.darkened(0.5))      # brim
 	draw_circle(Vector2(-4, -8), 2.5, Color(1, 0.85, 0.2))    # badge
 	draw_rect(Rect2(-6, -2, 12, 3), Color(0.9, 0.5, 0.1))     # hi-vis stripe
 	if net:
-		draw_rect(Rect2(8, -6, 14, 5), Color(0.45, 0.45, 0.5))  # net gun
+		draw_rect(Rect2(8 - 4.0 * kick, -6 - 3.0 * kick, 14, 5), Color(0.45, 0.45, 0.5))  # net gun, kicks up on a shot
 	draw_set_transform(Vector2.ZERO)
 	if grab_t > 0.0:  # grab bar over the dog
 		var at: Vector2 = g.player.position - position + Vector2(-20, -40)

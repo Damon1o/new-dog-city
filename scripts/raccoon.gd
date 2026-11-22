@@ -11,6 +11,7 @@ const BITE_DIST := 24.0
 const BASE := {"hp": 28.0, "dmg": 8.0, "xp": 21, "treats": 3}  # level 1
 const Levels := preload("res://scripts/systems/levels.gd")
 const EnemyTag := preload("res://scripts/ui/enemy_tag.gd")
+const Anim := preload("res://scripts/world/anim.gd")
 
 var state := State.HIDDEN
 var home := Vector2.ZERO
@@ -25,6 +26,9 @@ var stats: Dictionary = BASE  # BASE scaled to level
 var hp := 0.0
 var max_hp := 1.0
 var knock := Vector2.ZERO
+var walk := 0.0  # world/anim.gd pose clocks
+var atk := 0.0
+var atk_dir := Vector2.ZERO
 var game: Node2D
 var player: CharacterBody2D
 var sprite: Sprite2D
@@ -71,6 +75,8 @@ func _process(delta: float) -> void:
 			if to_player.length() < BITE_DIST and bite_cooldown <= 0.0:
 				player.take_damage(stats.dmg, stats.get("poison", 0.0))
 				bite_cooldown = 1.0
+				atk = 1.0
+				atk_dir = to_player.normalized()
 			special_cd -= delta
 			if special_cd <= 0.0 and to_player.length() > 50.0 and to_player.length() < 170.0:
 				state = State.WINDUP  # special: pounce at a dog that keeps its distance
@@ -112,6 +118,11 @@ func _process(delta: float) -> void:
 				position += to_home.normalized() * CHASE_SPEED * 0.7 * delta
 	if absf(position.x - was.x) > 0.01:  # face where it's going (knockback excluded)
 		sprite.flip_h = position.x < was.x
+	walk = walk + delta if position != was else 0.0
+	atk = maxf(atk - delta / 0.25, 0.0)
+	var lunging := state == State.LUNGE
+	Anim.pose(sprite, Vector2(2.5, 2.5), walk, 1.0 if state == State.WINDUP else 0.0,
+		0.5 if lunging else atk, lunge_dir if lunging else atk_dir, state == State.STUN)
 
 func go_home(cooldown: float) -> void:
 	position = home

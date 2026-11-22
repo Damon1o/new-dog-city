@@ -3,6 +3,7 @@ extends Node2D
 ## Pigeons take wing while fresh and move as a flock (spawner.gd); squirrels escape up trees.
 
 const Levels := preload("res://scripts/systems/levels.gd")
+const Anim := preload("res://scripts/world/anim.gd")
 
 var kind := "pigeon"
 var level := 1
@@ -15,6 +16,8 @@ var retarget_in := 0.0
 var tired := 0.0
 var flock := {}  # spawner.gd flock {members, center, scatter}; {} = on its own
 var fleeing := false
+var walk := 0.0  # world/anim.gd hop clock
+var fly_y := 0.0
 
 func setup(p_kind: String, p_cfg: Dictionary, tex: Texture2D, p_game: Node2D, bonus := 0) -> void:
 	kind = p_kind
@@ -63,7 +66,9 @@ func _process(delta: float) -> void:
 			target = (flock.center if not flock.is_empty() else position) + Vector2(randf_range(-r, r), randf_range(-r, r))
 		vel = position.direction_to(target) * spd * 0.4
 	var airborne := kind == "pigeon" and fleeing and fresh
-	sprite.position.y = lerpf(sprite.position.y, -16.0 if airborne else 0.0, delta * 10.0)
+	fly_y = lerpf(fly_y, -16.0 if airborne else 0.0, delta * 10.0)
+	walk = walk + delta * (1.6 if fleeing else 1.0) if vel != Vector2.ZERO and not airborne else 0.0
+	Anim.pose(sprite, Vector2(2.5, 2.5), walk, 0.0, 0.0, Vector2.ZERO, false, fly_y)
 	var step := vel * delta
 	if not game.blocked(position + step):
 		position += step

@@ -1480,7 +1480,7 @@ func _initialize() -> void:
 	assert(fc_boss.state == fc_boss.State.PARACHUTE, "golden parachute jumps")
 	player.position += Vector2(400, 0)  # out of the landing ring
 	await frames(int(fc_boss.AIR_TIME * 60.0) + 5)
-	assert(fc_boss.state != fc_boss.State.PARACHUTE and fc_boss.sprite.position.y == 0.0, "and lands")
+	assert(fc_boss.state != fc_boss.State.PARACHUTE and fc_boss.sprite.position.y > -10.0, "and lands")  # walk hop (world/anim.gd) is a few px
 	var fc_bones: int = game.economy.bones
 	var fc_purr: float = game.stocks.price("PURR")
 	player.hp = player.max_hp
