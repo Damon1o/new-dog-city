@@ -850,6 +850,31 @@ func _initialize() -> void:
 	assert(player.roll_crit(), "crit chance grows with stat_atk")
 	player.stat_atk = 0
 	assert(target.state == target.State.STUN, "pounce stuns")
+	# specials: crunch bite (Q) = 2.5x bite + stun; tail whip (T) hits all round, shoves far
+	player.stamina = 100.0
+	player.level = 4
+	assert(not player.crunch(), "crunch needs level 5")
+	player.level = 30
+	target.position = player.position + Vector2(26, 0)
+	target.hp = 1000.0
+	target.state = target.State.CHASE
+	assert(player.crunch(), "crunch fires")
+	assert(not player.crunch(), "crunch on cooldown")
+	dealt = 1000.0 - target.hp
+	assert(is_equal_approx(dealt, player.attack_damage() * 2.5) or is_equal_approx(dealt, player.attack_damage() * 2.5 * 1.75),
+		"crunch lands 2.5x bite, got %f" % dealt)
+	assert(target.state == target.State.STUN, "crunch stuns")
+	target.position = player.position + Vector2(-50, 0)  # behind the dog
+	target.hp = 1000.0
+	assert(player.tail_whip(), "tail whip fires")
+	assert(target.hp < 1000.0, "tail whip hits behind")
+	assert(target.knock.x < -400.0, "tail whip knocks foes away twice as far")
+	assert(not player.tail_whip(), "tail whip on cooldown")
+	await frames(20)
+	player.crunch_cd = 0.0
+	player.tail_cd = 0.0
+	player.stamina = 100.0
+	player.bark_cd = player.BARK_CD  # the frames above drained it; the ability-bar check wants a fresh one
 	# ability bar (M1-7): exists, cooldown sweep follows <name>_cd, pounce hidden below level 30
 	await frames(1)
 	assert(game.abilities.has("dash") and game.abilities.has("bark"), "ability bar built")
