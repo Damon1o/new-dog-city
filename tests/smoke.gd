@@ -399,6 +399,7 @@ func _initialize() -> void:
 	await frames(50)
 	assert(game.city.id == "sf" and game.inside == "", "landed in SF on the street")
 	assert(game.save_extra["world/city"] == "sf", "save knows the city")
+	assert(ThemeDB.fallback_font == game.city.SANS and game.hud.theme.default_font == game.city.SANS, "Balsamiq Sans outside NY")
 	assert(game.landmarks.size() == 2 and game.landmarks.any(func(l): return l.name == "Coit Tower"), "SF landmarks")
 	assert(game.stations.size() == 4 and game.bodega_doors.size() == 3, "4 cable car stops, 3 corner stores")
 	var sfo: Array = game.doors.filter(func(d): return d.template == "airport")
@@ -1306,6 +1307,7 @@ func _initialize() -> void:
 	game.city.build("nyc")
 	assert(Performance.get_monitor(Performance.OBJECT_NODE_COUNT) == nodes, "build twice, same node count")
 	assert(game.building_rects.size() == rects and game.landmarks[0].seen, "same city, sights kept")
+	assert(ThemeDB.fallback_font == game.city.NY_FONT and game.hud.theme.default_font == game.city.NY_FONT, "NY blackletter font")
 	paused = false  # the shop checks above leave the tree paused
 	game.city.travel("nyc")
 	await frames(45)

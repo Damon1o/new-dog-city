@@ -37,6 +37,8 @@ static func box(bg := BG, radius := 10, edge := EDGE, pad := 10) -> StyleBoxFlat
 static func make() -> Theme:
 	var t := Theme.new()
 	t.default_font_size = 15
+	t.default_font = ThemeDB.fallback_font  # city_builder.build() swaps it per city
+	t.default_font = ThemeDB.fallback_font  # city_builder.build() swaps it per city
 	t.set_stylebox("panel", "PanelContainer", box())
 	t.set_stylebox("panel", "Panel", box())
 	t.set_color("font_color", "Label", TEXT)

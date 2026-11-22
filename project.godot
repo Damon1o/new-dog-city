@@ -27,3 +27,7 @@ textures/canvas_textures/default_texture_filter=0
 
 Sound="*res://autoload/sound.gd"
 Story="*res://autoload/story.gd"
+
+[gui]
+
+theme/custom_font="res://fonts/BalsamiqSans-Regular.ttf"
