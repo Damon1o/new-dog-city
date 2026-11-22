@@ -49,6 +49,7 @@ var keybinds: Node  # scripts/ui/keybinds.gd (Settings > Key bindings)
 var inventory: Node  # scripts/ui/inventory.gd (E bag, K stats)
 var wardrobe: Node  # scripts/ui/wardrobe.gd (B)
 var stocks: Node  # scripts/systems/stocks.gd: NYSE ticks, news, trades, stock app (P)
+var startup: Node  # scripts/systems/startup.gd: Good Boy AI, the SF startup garage
 const DialogUi := preload("res://scripts/ui/dialog.gd")
 var dialog: Node  # scripts/ui/dialog.gd (dialog box + cutscenes)
 const BOSSES := preload("res://scripts/data/bosses.gd").BOSSES
@@ -184,7 +185,7 @@ func _ready() -> void:
 	for n in TEX_NAMES:
 		tex[n] = load("res://assets/%s.png" % n)
 	for m: Array in [["city", CityBuilder], ["interior", Interior], ["subway", Subway], ["fx", Fx], ["spawner", Spawner], ["street", Street], ["weather", Weather], ["economy", Economy], ["wanted", Wanted], ["pound", Pound], ["territory", Territory], ["flashback", preload("res://scripts/world/flashback.gd")],
-			["stocks", preload("res://scripts/systems/stocks.gd")]]:
+			["stocks", preload("res://scripts/systems/stocks.gd")], ["startup", preload("res://scripts/systems/startup.gd")]]:
 		var n: Node = m[1].new()
 		n.g = self
 		add_child(n)
@@ -429,7 +430,11 @@ func interact() -> void:
 		return
 	match act:
 		"enter":
-			interior.enter(door)
+			var hq_gate: String = Story.Gates.HQ_GATE.get(city.id, "G1")
+			if door.template == "hq" and not Story.gate_open(hq_gate, player.level):
+				interior.GatePopup.open(self, hq_gate)  # what's missing, with "Find XP"
+			else:
+				interior.enter(door)
 		"enter_boss":  # shortcut tools/smoke_test.gd uses
 			interior.enter(doors.filter(func(d): return d.template == "burrow")[0])
 		"exit":
@@ -640,6 +645,8 @@ func on_number(n: int) -> void:
 		interior.ride(n)
 	elif ctx == "airport":
 		interior.fly(n)
+	elif ctx == "startup":
+		startup.choose(n)
 	elif ctx == "" and not player.frozen and n < 4:
 		inventory.use_slot(n)  # hotbar
 	elif ctx == "subway" and n < stations.size():

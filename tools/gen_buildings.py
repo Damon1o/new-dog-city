@@ -506,11 +506,32 @@ def hq():
     rect(px, 0, h - 2, w, 2, CURB)
     return px
 
+def startup():
+    """SF: Good Boy AI startup garage. Pastel stucco, roll-up door half open, laptop glow."""
+    w, h = 84, 96
+    px = blank(w, h)
+    stucco, trim = (236, 214, 222, 255), (150, 170, 210, 255)
+    rect(px, 4, 14, w - 8, h - 14, stucco)
+    rect(px, 2, 12, w - 4, 3, trim)  # roof line
+    rect(px, 8, 20, w - 16, 9, (40, 60, 110, 255))  # sign
+    text(px, "GOOD BOY AI", w // 2, 22, (255, 255, 255, 255))
+    for i in (12, w - 24):  # bay windows
+        rect(px, i, 34, 12, 14, trim)
+        rect(px, i + 2, 36, 8, 10, GLASS)
+    rect(px, 18, 56, w - 36, 38, (90, 96, 110, 255))  # garage bay
+    for j in range(56, 72, 3):  # roll-up door, half open
+        rect(px, 18, j, w - 36, 2, (176, 182, 196, 255))
+    rect(px, 20, 74, w - 40, 20, (24, 28, 40, 255))  # dark inside
+    rect(px, 36, 82, 12, 7, (120, 210, 255, 255))  # laptop glow
+    rect(px, 34, 89, 16, 2, (70, 74, 84, 255))
+    rect(px, 0, h - 2, w, 2, CURB)
+    return px
+
 if __name__ == "__main__":
     for n in range(VARIANTS):
         write_png(f"apartment_{n}.png", apartment(n))
         write_png(f"office_{n}.png", office(n))
         write_png(f"shop_{n}.png", shop(n))
-    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse), ("hq", hq)]:
+    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse), ("hq", hq), ("startup", startup)]:
         write_png(f"{name}.png", fn())
     print(f"wrote {VARIANTS * 3 + 6} buildings to {os.path.normpath(OUT)}")

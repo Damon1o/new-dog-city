@@ -189,6 +189,17 @@ const ROOMS := {
 		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "desk": Vector2(384, 250), "elevator": Vector2(712, 140)},
 		"door": ["HACK CLUB HQ", "[F]  Go inside"], "exit": ["HACK CLUB HQ LOBBY", "[F]  Back to the street"],
 	},
+	# Ch 2 SF: Good Boy AI startup garage (scripts/systems/startup.gd runs the founder's desk at "pitch")
+	"startup": {
+		"size": Vector2(768, 448), "kind": "startup", "tint": Color(0.95, 0.98, 1),
+		"paint": [[Rect2(0, 0, 768, 448), "platform", Color(0.7, 0.72, 0.78)], [Rect2(0, 0, 768, 96), "station_wall", Color(0.35, 0.55, 0.85)],
+			[Rect2(344, 424, 80, 24), Color(0.2, 0.3, 0.5)]],
+		"props": [["counter", Vector2(384, 220), 2.0, Vector2(128, 40)], ["shelf", Vector2(90, 150), 2.0, Vector2(96, 24)],
+			["shelf", Vector2(200, 150), 2.0, Vector2(96, 24)], ["bench", Vector2(620, 330), 1.5, Vector2(80, 20)],
+			["water_bowl", Vector2(560, 200), 1.25, Vector2.ZERO]],
+		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "pitch": Vector2(384, 260)},
+		"door": ["GOOD BOY AI   startup garage", "[F]  Go inside"], "exit": ["GOOD BOY AI GARAGE", "[F]  Back to the street"],
+	},
 }
 
 ## Generic building sprite -> its template.

@@ -255,7 +255,7 @@ func desk() -> void:
 	else:
 		for k in 4:
 			if not Story.floors.has(it.hq_id(k)):
-				line = "Floor 4 is the clue room. It isn't ready yet." if k == 3 \
+				line = "Floor 4 is the clue room: Sam's old desk." if k == 3 \
 					else "Floor %d today. Tip: %s" % [k + 1, PUZZLES[it.hq_id(k)].params.get("hint", "")]
 				break
 	g.dialog.play("hq_desk", [{"say": "Receptionist", "text": line}])

@@ -51,19 +51,19 @@ func hq_id(n: int) -> String:
 func hq_block(n: int) -> String:
 	if n == 3:
 		return "" if range(3).all(func(k): return Story.floors.has(hq_id(k))) else "Clear floors 1-3 first"
-	return Story.gate_block("G1", g.player.level)
+	return Story.gate_block(Gates.HQ_GATE.get(g.city.id, "G1"), g.player.level)
 
 func ride_hq(n: int) -> void:
 	if n < 0 or n > 3 or g.player.frozen:
 		return
 	if hq_block(n) != "":
 		if n < 3:
-			GatePopup.open(g, "G1")  # level + keycard, with "Find XP"
+			GatePopup.open(g, Gates.HQ_GATE.get(g.city.id, "G1"))  # what's missing, with "Find XP"
 		else:
 			g.show_msg(hq_block(n))
 		return
-	if n == 3:  # ponytail: clue room placeholder until M5-8 adds Sam's sticker
-		g.show_msg("Floor 4: the clue room. The doors are still being fixed. Come back soon.")
+	if n == 3:  # ponytail: the clue plays in the lobby (cs_ch1_clue); floor 4 just replays it
+		g.dialog.play("cs_ch1_clue")
 		return
 	g.player.frozen = true
 	var tw := g.create_tween()
@@ -146,6 +146,12 @@ func enter(d: Dictionary) -> void:
 		"burrow":
 			g.hedgehog.start()
 			g.bump("burrow", true)
+		"hq":  # NYC: the door gate (level 30 + every boss) is the whole test, so the clue waits inside
+			if g.city.id == "nyc" and not Story.has("ch1_clue"):
+				g.dialog.play("cs_ch1_clue")
+		"startup":  # first visit: Patch pitches the idea
+			if not Story.has("cs_startup_intro"):
+				g.dialog.play("cs_startup_intro")
 		"nyse":  # M5-7 bell podium + Fat Cat
 			var arena: Node2D = preload("res://scripts/world/nyse_arena.gd").new()
 			arena.g = g

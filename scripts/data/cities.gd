@@ -36,7 +36,8 @@ const CITIES := {
 		"landmarks": {Vector2i(4, 2): ["transamerica", "Transamerica Pyramid"],
 			Vector2i(6, 5): ["coit_tower", "Coit Tower"]},
 		"shops": {Vector2i(0, 2): "cafe", Vector2i(3, 6): "pizza", Vector2i(7, 0): "gas",
-			Vector2i(5, 3): "hq"},  # SF Hack Club HQ
+			Vector2i(5, 3): "hq",  # SF Hack Club HQ
+			Vector2i(2, 3): "startup"},  # Good Boy AI garage (systems/startup.gd)
 		"airport": Vector2i(8, 6),
 		"airport_name": "SFO Airport",
 		"stations": {Vector2i(1, 0): "Powell St", Vector2i(4, 1): "Nob Hill",
