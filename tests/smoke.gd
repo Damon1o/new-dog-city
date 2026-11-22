@@ -1365,7 +1365,12 @@ func _initialize() -> void:
 	assert(pound.stage == "sneak", "break out")
 	player.position = pound.guard.position + pound.guard_dir * 60.0
 	await frames(1)
-	assert(player.position == game.interior.spots.out, "guard sees the dog: sneak restarts")
+	assert(pound.stage == "fight" and pound.guard.state != pound.guard.State.IDLE and game.boss == pound.guard, "warden's light on the dog: boss fight")
+	assert(pound.guard.max_hp >= 300.0 and pound.guard.level >= 8, "the warden is boss-strong")
+	player.take_damage(1e6)
+	await frames(1)
+	assert(game.inside == "pound" and pound.stage == "" and not player.dead and pound.guard.state == pound.guard.State.IDLE and game.boss == null, "downed by the warden: back in the cell, he resets")
+	pound.choose(1)
 	player.position = game.interior.spots.fence
 	await frames(1)
 	assert(pound.stage == "dig" and player.frozen, "fence reached: dig")
@@ -1392,15 +1397,35 @@ func _initialize() -> void:
 	assert(game.inside == "" and game.stat("escapes") == 1 and player.xp + player.level * 1000 > xp0 and not player.frozen, "breakout: out, +XP, escapes +1")
 	while player.points > 0:
 		game.pick_stat(0)
-	# pizza steal (M4-5): +25 heat; unwatched = free slice, watched = pushed out
+	# beating Warden Brutus = his keys: straight out
+	pound.jail(1)
+	await frames(1)
+	pound.choose(1)
+	pound.guard.hurt(1e6, player.position)
+	while player.points > 0:
+		game.pick_stat(0)
+	await frames(2)
+	assert(game.inside == "" and game.stat("escapes") == 2 and game.stat("warden") == 1 and game.boss == null, "beat the warden: out, escapes +1")
+	while player.points > 0:
+		game.pick_stat(0)
+	# pizza steal (M4-5): +25 heat; unwatched = a free slice in the bag, watched = pushed out
 	game.interior.enter(game.doors.filter(func(d): return d.template == "pizza")[0])
 	game.shop.watch_t = 0.0
 	game.shop.turn_t = 99.0
-	player.buffs.erase("food")
+	var slices: int = game.inventory.count("pizza")
 	game.shop.buy(game.shop.stock().size())
-	assert(wanted.heat == 25.0 and player.buffs.food.id == "pizza" and game.inside == "shop", "steal adds 25 heat, free slice")
+	assert(wanted.heat == 25.0 and game.inventory.count("pizza") == slices + 1 and game.inside == "shop", "steal adds 25 heat, slice in the bag")
+	# the clerk is a person: bite him down and nobody watches the counter (5 stars)
+	await frames(1)
+	var clerk: Node2D = game.shop.clerk
+	assert(clerk.is_in_group("person"), "pizza clerk is biteable")
+	clerk.hurt(1e6)
+	await frames(1)
+	assert(not is_instance_valid(clerk) and wanted.stars() == 5 and game.shop.watch_t == 0.0, "clerk killed: 5 stars, counter unwatched")
+	assert(game.shop.steal() and game.inventory.count("pizza") == slices + 2, "no clerk: every steal works")
+	wanted.clear()
 	game.shop.watch_t = 1.0
-	assert(not game.shop.steal() and wanted.heat == 50.0 and game.inside == "", "watched: +25 heat, pushed out")
+	assert(not game.shop.steal() and wanted.heat == 25.0 and game.inside == "", "watched: +25 heat, pushed out")
 	wanted.clear()
 	# territory (M3-6): 3 markers claim a block (+2 each, +10 claim), markers fade after 3 days
 	var terr: Node2D = game.territory

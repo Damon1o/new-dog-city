@@ -248,6 +248,9 @@ func _ready() -> void:
 		shake_amt = 6.0
 		sfx("hurt"))
 	player.died.connect(func():
+		if inside == "pound":  # downed by Warden Brutus: back in the cell, no death screen
+			pound.knocked_out()
+			return
 		if wanted.jails_on_death():  # spec 08: HP 0 at 1+ stars = the pound, no death screen
 			player.respawn()
 			wanted.caught()
@@ -582,7 +585,7 @@ func on_bite(center: Vector2, radius: float, dmg: float) -> void:
 	for p in get_tree().get_nodes_in_group("prey"):
 		if p.position.distance_to(center) < radius:
 			on_prey_caught(p)
-	for h in get_tree().get_nodes_in_group("human"):
+	for h in get_tree().get_nodes_in_group("person"):  # pedestrians, officers, the pizza clerk
 		if not h.is_queued_for_deletion() and h.position.distance_to(center) < radius + 10.0:
 			h.hurt(dmg)
 

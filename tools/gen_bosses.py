@@ -4,7 +4,7 @@ Daven the Hedgehog. Pure stdlib, reuses gen_props' helpers. Run: python tools/ge
 Every sprite faces right (boss.gd flips it toward the dog) and is drawn untinted; boss.gd shows
 it at ART_SCALE and keeps the small critter PNGs for shots."""
 import math
-from gen_props import blank, ball, ellipse, shadow, selout, glow, write_png, K
+from gen_props import blank, ball, ellipse, ring, shadow, selout, glow, write_png, K
 from gen_buildings import rect, dot, shade
 
 GOLD, GOLD_D = (240, 196, 60, 255), (178, 128, 30, 255)
@@ -240,8 +240,48 @@ def coyote():
     finish(px)
     return px
 
+def warden():
+    """Warden Brutus, pound guard boss: burly human in a khaki uniform, cap, baton, net gun
+    on the back, keys on the belt. Faces right like the animal bosses."""
+    px = blank(48, 62)
+    shadow(px, 24, 59, 16, 3)
+    SKIN, SKIN_D = (236, 190, 150, 255), (196, 146, 110, 255)
+    KH, KH_D, KH_L = (150, 128, 80, 255), (104, 88, 52, 255), (186, 164, 110, 255)
+    NAVY, NAVY_D = (44, 56, 92, 255), (28, 34, 58, 255)
+    BOOT = (40, 30, 24, 255)
+    rect(px, 15, 52, 8, 6, BOOT)            # boots
+    rect(px, 26, 52, 9, 6, BOOT)
+    rect(px, 16, 38, 7, 15, NAVY)            # trousers
+    rect(px, 26, 38, 8, 15, NAVY_D)
+    rect(px, 22, 38, 4, 4, NAVY)
+    rect(px, 4, 20, 8, 16, (90, 96, 104, 255))  # net gun slung on the back
+    rect(px, 2, 22, 4, 4, (60, 64, 70, 255))
+    ellipse(px, 25, 29, 13, 11, KH)          # big khaki torso
+    ellipse(px, 22, 27, 7, 6, KH_L)
+    rect(px, 13, 36, 24, 3, (60, 40, 24, 255))  # belt + buckle + keys
+    rect(px, 24, 36, 3, 3, GOLD)
+    ring(px, 16, 41, 2.2, 2.2, (200, 200, 210, 255), 0.5)
+    rect(px, 28, 24, 4, 4, GOLD)             # badge
+    dot(px, 29, 25, GOLD_D)
+    rect(px, 20, 30, 10, 2, (240, 150, 40, 255))  # hi-vis stripe
+    ellipse(px, 37, 28, 4, 7, KH_D)          # front arm
+    ball(px, 40, 35, 3, SKIN)                # fist
+    line(px, 40, 35, 46, 22, (30, 30, 34, 255))  # raised baton
+    line(px, 41, 35, 47, 23, (30, 30, 34, 255))
+    rect(px, 21, 13, 6, 4, SKIN_D)           # thick neck
+    ball(px, 26, 10, 7, SKIN)                # head
+    rect(px, 30, 9, 2, 2, K)                 # eye
+    rect(px, 28, 7, 5, 1, (70, 50, 30, 255))  # angry brow
+    rect(px, 29, 14, 4, 1, (120, 60, 50, 255))  # scowl
+    rect(px, 18, 11, 4, 4, (80, 56, 36, 255))  # sideburn
+    ellipse(px, 25, 4, 9, 3, NAVY)           # cap
+    rect(px, 28, 4, 9, 2, NAVY_D)            # brim
+    dot(px, 25, 3, GOLD)
+    finish(px)
+    return px
+
 if __name__ == "__main__":
     for name, fn in [("raccoon", raccoon), ("pigeon", pigeon), ("rat", rat), ("cat", fat_cat), ("hedgehog", hedgehog),
-                     ("seagull", seagull), ("sealion", sealion), ("coyote", coyote)]:
+                     ("seagull", seagull), ("sealion", sealion), ("coyote", coyote), ("warden", warden)]:
         write_png(f"boss_{name}.png", fn())
     print("bosses done")

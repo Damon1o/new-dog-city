@@ -39,3 +39,13 @@ const SEAGULL_KING := {"name": "Seagull King", "tex": "seagull", "critter": "pig
 		{"at": 0.6, "specials": ["fish_rain", "dive", "flock_call", "storm"], "speed_mult": 1.15},
 		{"at": 0.3, "specials": ["storm", "fish_rain", "gust", "droppings", "flock_call"], "speed_mult": 1.3}],
 	"bones": 6, "keycard": "sf", "item": "backpack", "flag": "ch2_boss", "post": "cs_seagull_post"}
+
+# Pound guard (scripts/world/pound.gd): patrols the corridor with a flashlight; spotting the dog
+# (or a bite) starts the fight. Spawned at the dog's level + 2 (min 8), so he's always boss-strong.
+# Beating him = the gate keys: straight out of the pound. A new warden every stay.
+const WARDEN := {"name": "Warden Brutus", "tex": "warden", "critter": "rat", "level": 8, "hp": 300.0, "speed": 165.0, "dmg": 13.0,
+	"specials": ["net_volley", "charge", "slam"], "tint": Color(0.95, 0.85, 0.6), "treats": 60, "xp": 180,
+	"aggro": 0.0, "leash": 5000.0,
+	"phases": [{"at": 1.0, "specials": ["net_volley", "charge", "slam"], "speed_mult": 1.0},
+		{"at": 0.6, "specials": ["taser", "net_volley", "charge", "slam"], "speed_mult": 1.15},
+		{"at": 0.3, "specials": ["taser", "charge", "net_volley", "taser", "slam"], "speed_mult": 1.35}]}

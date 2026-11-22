@@ -54,6 +54,7 @@ var player: CharacterBody2D
 var sprite: Sprite2D
 var coin_tex: Texture2D  # per boss: a static ref would leak at exit
 var fish_tex: Texture2D  # fish_rain flopping fish, drawn in code like coin_tex
+var net_tex: Texture2D   # net_volley nets (Warden Brutus)
 var gust_t := 0.0        # gust: seconds left pushing the dog along gust_dir
 var gust_dir := Vector2.ZERO
 var cloak_t := 0.0       # fog_cloak: seconds left nearly invisible
@@ -365,6 +366,16 @@ func special(dir: Vector2) -> void:
 			for i in 10:
 				shoot(Vector2.RIGHT.rotated(TAU * i / 10.0) * 160.0, false, 2.0)
 			special_cd = 5.0
+		"net_volley":  # Warden Brutus: three nets; one that lands roots the dog 1 s
+			game.float_text(position, "NET!", Color(0.9, 0.9, 0.8))
+			for a in [-0.3, 0.0, 0.3]:
+				shoot(dir.rotated(a) * 260.0, false, 2.0, net())
+			special_cd = 3.0
+		"taser":  # Warden Brutus: sparks crackle along the floor in a line through the dog
+			game.float_text(position, "ZAP!", Color(1, 0.95, 0.3))
+			for i in 8:
+				mark(position + dir * (50.0 + 50.0 * i), Color(1, 0.95, 0.3), i * 0.05)
+			special_cd = 3.5
 		"golden_parachute":  # jumps off screen, lands where the dog stood
 			game.poof(position, cfg.tint)
 			position = player.position
@@ -425,6 +436,17 @@ func coin() -> Texture2D:
 		coin_tex = ImageTexture.create_from_image(img)
 	return coin_tex
 
+## Net drawn in code (net_volley): a 9 px grey mesh.
+func net() -> Texture2D:
+	if not net_tex:
+		var img := Image.create_empty(9, 9, false, Image.FORMAT_RGBA8)
+		for x in 9:
+			for y in 9:
+				if x % 4 == 0 or y % 4 == 0:
+					img.set_pixel(x, y, Color(0.85, 0.85, 0.8))
+		net_tex = ImageTexture.create_from_image(img)
+	return net_tex
+
 ## Silver fish drawn in code (fish_rain).
 func fish() -> Texture2D:
 	if not fish_tex:
@@ -462,6 +484,8 @@ func update_shots(delta: float) -> void:
 		if hit:
 			var dmg: float = cfg.dmg
 			player.take_damage(dmg * 0.6, cfg.get("poison", 0.0))
+			if net_tex and s.texture == net_tex:
+				game.wanted.root(1.0)
 		if hit or sh.t <= 0.0:
 			s.queue_free()
 			shots.remove_at(i)
