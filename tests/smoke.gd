@@ -1203,6 +1203,12 @@ func _initialize() -> void:
 	cats.rat = false
 	game.ctx = "bodega"
 	game.act = ""
+	story.flags.erase("ch1_bodega")
+	game.interact()  # first F with Mango: the chapter 1 story scene
+	assert(game.dialog.id == "cs_bodega_find", "Mango tells the story first")
+	game.dialog.skip()
+	assert(story.has("ch1_bodega"), "Mango's scene finishes the bodega step")
+	game.ctx = "bodega"
 	game.interact()  # F at the counter goes through game.gd's hook
 	assert(cats.points("nyc_mango") == 1 and game.dialog.playing(), "talk +1, the cat speaks")
 	assert(game.dialog.portrait.texture == game.tex.cat and not game.dialog.face_fn.is_valid(), "a cat speaker shows the cat")
