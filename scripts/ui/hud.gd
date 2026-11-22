@@ -339,11 +339,22 @@ func build_hud() -> void:
 	buff_row = HBoxContainer.new()
 	buff_row.add_theme_constant_override("separation", 8)
 	buff_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	dock(buff_row, true, 12)
+	buff_row.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	g.boss_box.get_parent().add_child(buff_row)  # top centre, under the boss bar (moves up when no boss)
+	g.boss_box.get_parent().move_child(buff_row, g.boss_box.get_index() + 1)
 	for slot in ["food", "drink"]:
 		var chip := panel(0.8)
 		chip.name = slot
-		hud_label(chip, 13, Look.ACCENT.lightened(0.4))
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 6)
+		chip.add_child(hb)
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(28, 28)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		hb.add_child(icon)
+		hud_label(hb, 13, Look.ACCENT.lightened(0.4)).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		chip.hide()
 		buff_row.add_child(chip)
 
@@ -501,7 +512,9 @@ func update_hud(delta: float) -> void:
 		var b: Dictionary = g.player.buffs.get(chip.name, {})
 		chip.visible = not b.is_empty()
 		if chip.visible:
-			(chip.get_child(0) as Label).text = "%s  %ds" % [Items.ITEM_INFO[b.id].name, ceili(b.t)]
+			var hb := chip.get_child(0)
+			(hb.get_child(0) as TextureRect).texture = g.tex.get(Items.ITEM_INFO[b.id].icon)
+			(hb.get_child(1) as Label).text = "%ds" % ceili(b.t)
 
 	for b: Button in corner.values():
 		b.queue_redraw()
