@@ -187,6 +187,7 @@ func spawn_van() -> void:
 	v.position = Vector2(x, fposmod(g.player.position.y - 700.0, g.WORLD.y))
 	g.add_child(v)
 	v.setup(Vector2.DOWN, g)
+	v.kind = "van"
 	v.color = Color(0.95, 0.95, 0.95)
 	v.remove_from_group("car")  # not traffic: tests count cars
 	v.add_to_group("van")
