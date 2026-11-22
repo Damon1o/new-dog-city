@@ -76,6 +76,7 @@ static func read(g: Node) -> void:
 		city_id = "nyc"
 	if city_id != g.city.id:  # M6-1: saved in another city
 		g.city.build(city_id)
+		g.spawn_park_bosses()
 		var port: Array = g.doors.filter(func(d): return d.template == "airport")
 		if port:
 			g.player.position = g.city.fix_pos(port[0].pos + Vector2(0, 60))

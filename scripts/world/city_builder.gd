@@ -36,17 +36,14 @@ func build(city_id: String) -> void:
 	root.y_sort_enabled = true
 	root.modulate = c.get("tint", Color.WHITE)
 	g.ground.modulate = c.get("ground_tint", Color.WHITE)
-	if g.park_bosses:  # ponytail: park bosses (and the hedgehog burrow) are NYC only until other cities get theirs
-		g.park_bosses.visible = id == "nyc"
-		g.park_bosses.process_mode = Node.PROCESS_MODE_INHERIT if id == "nyc" else Node.PROCESS_MODE_DISABLED
 	g.add_child(root)
 	seed(CITIES[id].seed)
 	build_bounds()
 	build_blocks()
 	place_manholes()
 	for d: Dictionary in g.doors:  # story spots for Story.target() (scent trail, M5-3)
-		if d.template in ["nyse", "hq"]:
-			Story.spots["nyse" if d.template == "nyse" else "hq_" + id] = d.pos
+		if d.template in ["nyse", "hq", "pier"]:
+			Story.spots[{"nyse": "nyse", "pier": "sf_pier"}.get(d.template, "hq_" + id)] = d.pos
 	if g.bodega_doors:  # ponytail: Sam's bodega = the first one built until M5-8 picks one
 		Story.spots["bodega"] = g.bodega_doors[0]
 	for l in g.landmarks:
@@ -67,6 +64,7 @@ func travel(city_id: String) -> void:
 	tw.tween_callback(func():
 		g.save_extra["world/city"] = city_id  # door ids (add_door) carry the city
 		build(city_id)
+		g.spawn_park_bosses()
 		randomize()
 		for grp in ["prey", "foe", "human"]:  # street life stood on the old city's layout
 			for n in g.get_tree().get_nodes_in_group(grp):

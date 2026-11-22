@@ -137,6 +137,38 @@ const CUTSCENES := {
 		{"say": "Byte", "text": "Gulls hang out by the pier. Hold V, find the trail. Then find that bird."},
 		{"flag": "cs_arrive_sf"},
 	],
+	# M6-4 Seagull King (story boss, the pier)
+	"cs_seagull_pre": [
+		{"music": "boss_fatcat"},
+		{"say": "Seagull King", "text": "SKREE! Who dares sniff MY fish crate? I am the Seagull King, lord of every french fry on this pier!"},
+		{"say": "Byte", "text": "Nice backpack. It's Sam's. Give it back."},
+		{"say": "Seagull King", "text": "Finders keepers, landlubber! Flock, it's mine! Everything is MINE!"},
+	],
+	"cs_seagull_post": [
+		{"say": "Seagull King", "text": "Mine... mine... fine. Take your sack of human stuff. It smelled like coffee anyway."},
+		{"say": "Byte", "text": "Sam's backpack! Laptop charger, a granola bar, and... a keycard. SF Hack Club HQ."},
+		{"say": "Byte", "text": "Sam was working on something there. Whatever got loose, the answer's in that building."},
+		{"flag": "cs_seagull_post"},
+	],
+	# SF park bosses (data/bosses.gd intro / outro)
+	"cs_sealion_pre": [
+		{"say": "Sea Lion Sal", "text": "ARF ARF. This park is my sunning spot, kid. Nobody naps here but Sal."},
+		{"say": "Byte", "text": "I'm not here to nap. I'm here to win."},
+		{"flag": "cs_sealion_pre"},
+	],
+	"cs_sealion_post": [
+		{"say": "Sea Lion Sal", "text": "Arf... okay, okay. Saw your human jog by once. Hoodie. Talking to their laptop like it talked back."},
+		{"flag": "cs_sealion_post"},
+	],
+	"cs_coyote_pre": [
+		{"say": "The Twin Peaks Coyote", "text": "Heh heh. City dog. Up here, the fog hides everything. Even you."},
+		{"say": "Byte", "text": "I don't need to see you. I can smell you from three blocks away."},
+		{"flag": "cs_coyote_pre"},
+	],
+	"cs_coyote_post": [
+		{"say": "The Twin Peaks Coyote", "text": "Fast nose, city dog. Your human's machines hum at night. The whole hill can hear them."},
+		{"flag": "cs_coyote_post"},
+	],
 	# Good Boy AI, the SF startup side story (scripts/systems/startup.gd)
 	"cs_startup_intro": [
 		{"say": "Patch", "text": "Whoa, a customer! Patch. Corgi. Serial founder. This garage is for rent."},

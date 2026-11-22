@@ -83,7 +83,7 @@ var PARKS: Array = NYC.parks
 var BODEGAS: Array = NYC.bodegas
 var LANDMARKS: Dictionary = NYC.landmarks
 var STATIONS: Dictionary = NYC.stations
-var park_bosses: Node2D  # NYC park bosses; hidden and paused in other cities
+var park_bosses: Node2D  # the current city's park bosses (spawn_park_bosses), rebuilt on travel
 
 var tex := {}
 var building_rects: Array[Rect2] = []
@@ -225,10 +225,7 @@ func _ready() -> void:
 		seed(rng_seed)
 	else:
 		randomize()
-	for b in BOSSES:
-		var boss_node: Node2D = BossScript.new()
-		park_bosses.add_child(boss_node)
-		boss_node.setup(b, block_origin(PARKS[b.park]) + BLOCK / 2.0 + Vector2(0, 110), tex[b.tex], self)
+	spawn_park_bosses()
 	for lane in 2:  # one car per lane, keep-right traffic
 		for i in NX + 1:
 			add_car(Vector2(i * (BLOCK.x + ROAD) + 32 + lane * 64, randf() * WORLD.y), [Vector2.DOWN, Vector2.UP][lane])
@@ -443,6 +440,17 @@ func interact() -> void:
 			stocks.toggle(true)
 		"desk":  # Hack Club HQ front desk (scripts/world/hq_floor.gd sets the prompt)
 			hq.desk()
+
+## Park bosses of the current city (data/bosses.gd `city`, default nyc). Only this city's bosses
+## exist, so the "boss" group (HUD, bark, targeting) never sees another city's.
+func spawn_park_bosses() -> void:
+	for n in park_bosses.get_children():
+		n.free()
+	for b in BOSSES:
+		if b.get("city", "nyc") == city.id:
+			var boss_node: Node2D = BossScript.new()
+			park_bosses.add_child(boss_node)
+			boss_node.setup(b, block_origin(PARKS[b.park]) + BLOCK / 2.0 + Vector2(0, 110), tex[b.get("critter", b.tex)], self)
 
 ## F prompt shown through the context menu; "door" keeps the POI tag out of the way.
 func set_act(a: String, head: String, row: String) -> void:

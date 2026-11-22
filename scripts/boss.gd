@@ -454,6 +454,8 @@ func drop() -> void:
 	game.economy.add_bones(cfg.get("bones", 0))
 	if cfg.has("keycard"):
 		Story.add_keycard(cfg.keycard)
+	if cfg.has("item"):  # Sam's things (Seagull King: the backpack)
+		Story.add_item(cfg.item)
 	if cfg.has("shock"):
 		game.stocks.shock(cfg.shock[0], cfg.shock[1], cfg.shock[2])
 	game.float_text(position + Vector2(0, -40), "+%s keycard  +%d bones" % [str(cfg.get("keycard", "")).to_upper(), cfg.get("bones", 0)], Color(1, 0.85, 0.3))

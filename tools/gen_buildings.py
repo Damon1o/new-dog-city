@@ -527,11 +527,31 @@ def startup():
     rect(px, 0, h - 2, w, 2, CURB)
     return px
 
+def pier():
+    """SF: pier gateway arch over the water, sign and lamp posts."""
+    w, h = 84, 96
+    px = blank(w, h)
+    wood, sea = (150, 110, 70, 255), (60, 110, 160, 255)
+    rect(px, 0, 60, w, 36, sea)
+    for j in range(64, 94, 6):
+        rect(px, 4 + (j % 12), j, 14, 1, (150, 190, 220, 255))
+    rect(px, 24, 56, 36, 40, wood)  # planks
+    for j in range(58, 96, 4):
+        rect(px, 24, j, 36, 1, shade(wood, -30))
+    for x in (18, 62):  # arch posts
+        rect(px, x, 18, 5, 78, (230, 226, 214, 255))
+    rect(px, 14, 14, 56, 12, (40, 70, 110, 255))  # sign
+    text(px, "THE PIER", w // 2, 17, (255, 255, 255, 255))
+    for x in (8, 74):  # lamps
+        rect(px, x, 30, 2, 30, IRON)
+        rect(px, x - 2, 28, 6, 3, (250, 220, 140, 255))
+    return px
+
 if __name__ == "__main__":
     for n in range(VARIANTS):
         write_png(f"apartment_{n}.png", apartment(n))
         write_png(f"office_{n}.png", office(n))
         write_png(f"shop_{n}.png", shop(n))
-    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse), ("hq", hq), ("startup", startup)]:
+    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse), ("hq", hq), ("startup", startup), ("pier", pier)]:
         write_png(f"{name}.png", fn())
     print(f"wrote {VARIANTS * 3 + 6} buildings to {os.path.normpath(OUT)}")

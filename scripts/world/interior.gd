@@ -152,9 +152,14 @@ func enter(d: Dictionary) -> void:
 		"startup":  # first visit: Patch pitches the idea
 			if not Story.has("cs_startup_intro"):
 				g.dialog.play("cs_startup_intro")
-		"nyse":  # M5-7 bell podium + Fat Cat
+		"nyse", "pier":  # M5-7 bell podium + Fat Cat; M6-4 bait crate + Seagull King
 			var arena: Node2D = preload("res://scripts/world/nyse_arena.gd").new()
 			arena.g = g
+			if d.template == "pier":
+				arena.cfg = preload("res://scripts/data/bosses.gd").SEAGULL_KING
+				arena.pre = "cs_seagull_pre"
+				arena.ready_flags = ["cs_arrive_sf"]
+				arena.crate = true
 			room.add_child(arena)
 
 func leave() -> void:
