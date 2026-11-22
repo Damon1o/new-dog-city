@@ -61,6 +61,7 @@ var page := "main"  # main | hire | up
 var acc := 0.0
 var office: Node2D  # y-sorted child of the startup room, rebuilt after every purchase
 var rng := RandomNumberGenerator.new()
+var front: Sprite2D  # the street front (city_builder.gd sets it); swaps art when the company moves
 
 # ---------- state ----------
 func state() -> Dictionary:
@@ -94,6 +95,10 @@ func hire_cost(role: String) -> int:
 
 func dev_need() -> float:
 	return 30.0 * pow(1.8, n("version"))
+
+## Street front art per office: garage, SoMa loft, Market St tower, Presidio campus (tools/gen_buildings.py).
+func front_look() -> String:
+	return "startup" if n("office") == 0 else "startup_%d" % n("office")
 
 func version_name(v: int) -> String:
 	return VERSIONS[v] if v < VERSIONS.size() else "PawFinder %d" % (v - 2)
@@ -276,6 +281,8 @@ func choose(i: int) -> void:
 			elif pay(o[2]):
 				s.office = n("office") + 1
 				g.bump("su_moves")
+				if is_instance_valid(front):
+					front.texture = load("res://assets/bld/%s.png" % front_look())
 				done("MOVED TO " + str(o[0]).to_upper(), "cs_startup_campus" if n("office") == OFFICES.size() - 1 else "")
 		elif i == 1 and n("servers") + 1 < SERVERS.size():
 			if pay(SERVERS[n("servers") + 1][2]):

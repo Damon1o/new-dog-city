@@ -547,11 +547,80 @@ def pier():
         rect(px, x - 2, 28, 6, 3, (250, 220, 140, 255))
     return px
 
+def startup_loft():
+    """Good Boy AI, office 1: SoMa brick loft, tall factory windows, pink neon over a glass door."""
+    w, h = 84, 120
+    px = blank(w, h)
+    rng = random.Random(5101)
+    brick = (150, 78, 60, 255)
+    rect(px, 4, 10, w - 8, h - 10, brick)
+    bricks(px, 4, 10, w - 8, h - 12, brick, rng)
+    cornice(px, 2, 8, w - 4, (110, 56, 44, 255))
+    for j in (20, 52):  # two floors of steel-frame factory windows
+        for i in (10, 32, 54):
+            rect(px, i, j, 20, 24, IRON)
+            for a in range(2):
+                for b in range(3):
+                    rect(px, i + 1 + a * 10, j + 1 + b * 8, 8, 6, GLASS if rng.random() < 0.6 else (250, 220, 150, 255))
+    rect(px, 12, 82, w - 24, 9, (30, 20, 40, 255))  # neon sign
+    text(px, "GOOD BOY AI", w // 2, 84, (255, 120, 220, 255))
+    door(px, w // 2, h - 3, 18, 22, (40, 45, 55, 255), glass=True)
+    rect(px, 0, h - 2, w, 2, CURB)
+    return px
+
+def startup_tower():
+    """Good Boy AI, office 2: Market St glass tower, paw logo crown, blue curtain wall."""
+    w, h = 84, 160
+    px = blank(w, h)
+    rng = random.Random(5102)
+    rect(px, 8, 14, w - 16, h - 14, (70, 96, 130, 255))
+    for j in range(20, h - 28, 6):
+        for i in range(10, w - 10, 6):
+            c = (140, 190, 230, 255) if (i + j) % 18 < 6 else GLASS
+            rect(px, i, j, 5, 5, (250, 230, 160, 255) if rng.random() < 0.18 else c)
+    rect(px, 6, 12, w - 12, 4, (200, 210, 225, 255))
+    rect(px, 30, 2, 24, 12, (40, 60, 110, 255))  # crown with a paw
+    for x, y in [(36, 4), (40, 3), (44, 3), (48, 4)]:
+        rect(px, x, y, 2, 2, (255, 255, 255, 255))
+    rect(px, 38, 7, 8, 5, (255, 255, 255, 255))
+    rect(px, 8, h - 30, w - 16, 8, (40, 60, 110, 255))
+    text(px, "GOOD BOY AI", w // 2, h - 29, (255, 255, 255, 255))
+    rect(px, 10, h - 22, w - 20, 20, GLASS_DARK)
+    door(px, w // 2, h - 3, 20, 18, (40, 45, 55, 255), glass=True)
+    rect(px, 0, h - 2, w, 2, CURB)
+    return px
+
+def startup_campus():
+    """Good Boy AI, office 3: Presidio campus, low timber-and-glass hall, green roof, trees."""
+    w, h = 84, 104
+    px = blank(w, h)
+    wood = (186, 140, 96, 255)
+    rect(px, 2, 30, w - 4, h - 30, wood)
+    for i in range(2, w - 2, 4):
+        rect(px, i, 30, 1, h - 34, shade(wood, -22))
+    rect(px, 0, 22, w, 9, (90, 150, 80, 255))  # green roof
+    for i in range(0, w, 3):
+        dot(px, i, 21, (70, 130, 64, 255)); dot(px, i + 1, 20, (110, 170, 90, 255))
+    for i in (8, 46):
+        rect(px, i, 40, 30, 30, IRON)
+        rect(px, i + 1, 41, 28, 28, (150, 200, 230, 255))
+        rect(px, i + 14, 41, 1, 28, IRON)
+    rect(px, 14, 74, w - 28, 8, (40, 60, 40, 255))
+    text(px, "GOOD BOY AI", w // 2, 75, (230, 250, 210, 255))
+    door(px, w // 2, h - 3, 18, 18, (40, 45, 55, 255), glass=True)
+    for cx in (6, w - 7):  # cypress trees either side
+        for j in range(4, 30):
+            r = max(1, 5 - abs(j - 18) // 3)
+            rect(px, cx - r, j, 2 * r, 1, (50, 110, 60, 255) if j % 3 else (70, 140, 76, 255))
+    rect(px, 0, h - 2, w, 2, CURB)
+    return px
+
 if __name__ == "__main__":
     for n in range(VARIANTS):
         write_png(f"apartment_{n}.png", apartment(n))
         write_png(f"office_{n}.png", office(n))
         write_png(f"shop_{n}.png", shop(n))
-    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse), ("hq", hq), ("startup", startup), ("pier", pier)]:
+    for name, fn in [("pizza", pizza), ("cafe", cafe), ("gas", gas), ("airport", airport), ("nyse", nyse), ("hq", hq), ("startup", startup), ("pier", pier),
+                     ("startup_1", startup_loft), ("startup_2", startup_tower), ("startup_3", startup_campus)]:
         write_png(f"{name}.png", fn())
     print(f"wrote {VARIANTS * 3 + 6} buildings to {os.path.normpath(OUT)}")

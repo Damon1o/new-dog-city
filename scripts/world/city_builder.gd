@@ -208,12 +208,13 @@ func design(look: String) -> Texture2D:
 	return load("res://assets/bld/%s.png" % look)
 
 ## foot = fraction of sprite height that is solid footprint (rest is walk-behind).
-func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := Color.WHITE) -> void:
-	add_prop(t, base, scl, tint)
+func add_building(t: Texture2D, base: Vector2, scl: float, foot: float, tint := Color.WHITE) -> Sprite2D:
+	var spr := add_prop(t, base, scl, tint)
 	var size := t.get_size() * scl
 	var foot_size := Vector2(size.x, size.y * foot)
 	add_static_box(base - Vector2(0, foot_size.y / 2.0), foot_size)
 	g.building_rects.append(Rect2(base - Vector2(size.x / 2.0, foot_size.y), foot_size))
+	return spr
 
 func add_tree(pos: Vector2) -> void:
 	add_prop(g.tex.tree, pos, 1.25)  # textures are 2x res (tools/gen_props.py)
@@ -284,7 +285,11 @@ func build_block(b: Vector2i) -> void:
 				# variant hashed from the slot, so it costs no random rolls either; rand_from_seed
 				# mixes the bits (string hash mod 16 is just the char sum, so neighbours repeated)
 				var look: String = special if special != "" else "%s_%d" % [DESIGN[kind], rand_from_seed(hash("%s:%d,%d:%d" % [id, b.x, b.y, i]))[0] % VARIANTS]
-				add_building(design(look), o + Vector2(96 + i * 160, 236), 1.5, 0.6)
+				if look == "startup":  # Good Boy AI's front follows its office (systems/startup.gd)
+					look = g.startup.front_look()
+				var spr := add_building(design(look), o + Vector2(96 + i * 160, 236), 1.5, 0.6)
+				if special == "startup":
+					g.startup.front = spr
 				add_door(o + Vector2(96 + i * 160, 256), special if special != "" else g.Rooms.BY_BUILDING[kind], b, i)
 				special = ""
 		add_can(o + Vector2(randf_range(40, 170), randf_range(285, 360)))
