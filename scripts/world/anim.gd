@@ -14,8 +14,9 @@ static func pose(s: Node2D, base: Vector2, walk: float, windup := 0.0, strike :=
 		dizzy := false, y := 0.0) -> void:
 	var k := sin(clampf(strike, 0.0, 1.0) * PI)  # 0 -> 1 -> 0 as strike runs down
 	var hop := absf(sin(walk * 11.0)) * 3.0 if walk > 0.0 else 0.0
-	s.position = dir * REACH * k + Vector2(randf_range(-1.5, 1.5) * windup, y - hop)
+	var ms := Time.get_ticks_msec()  # not randf(): the global rng is seeded for tests and the city
+	s.position = dir * REACH * k + Vector2(sin(ms * 0.11) * 1.5 * windup, y - hop)
 	s.rotation = sin(walk * 11.0) * 0.07
 	if dizzy:
-		s.rotation = sin(Time.get_ticks_msec() / 70.0) * 0.18
+		s.rotation = sin(ms / 70.0) * 0.18
 	s.scale = base * Vector2(1.0 + 0.18 * windup + 0.22 * k, 1.0 - 0.2 * windup - 0.14 * k)
