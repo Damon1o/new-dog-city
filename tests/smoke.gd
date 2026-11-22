@@ -211,7 +211,14 @@ func _initialize() -> void:
 	await frames(60)
 	assert(weather.scent_range() < 1400.0 and weather.scent_range() > 700.0, "rain blends in over 10 s")
 	assert(weather.roll("nyc") in ["clear", "snow", "rain"])
+	# M6-2 fog: veil around the dog, fog banks roll, sight drops to 260
+	weather.set_weather("fog", false)
+	await frames(2)
+	assert(weather.fog.visible and weather.banks.emitting and weather.fog.position == player.position, "fog veil follows the dog")
+	assert(is_equal_approx(weather.sight_radius(), 260.0), "fog limits sight")
 	weather.set_weather("clear", false)
+	await frames(2)
+	assert(not weather.fog.visible and not weather.banks.emitting, "clear skies, no fog")
 	# M3-5 audio: surface lookup (grass inside a park), one step sound per step, ambience ducks indoors
 	var au_steps: Node = game.steps
 	var au_park: Rect2 = game.parks[0]
