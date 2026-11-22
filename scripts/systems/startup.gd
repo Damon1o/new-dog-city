@@ -383,7 +383,7 @@ func build_office() -> void:
 	if has_perk("espresso"):
 		prop("su_espresso", Vector2(36, 140), 1.25)
 	if has_perk("snacks"):
-		prop("shelf", Vector2(130, 140), 1.5)
+		prop("su_treatbar", Vector2(130, 140), 1.25)
 	if has_perk("ballpit"):
 		prop("su_ballpit", Vector2(620, 446), 1.5)
 	for k in tier:  # nicer offices get plants

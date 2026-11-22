@@ -66,7 +66,8 @@ const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "bu
 	# themed shop interiors (tools/gen_interiors.py, rooms.gd gas / pizza / cafe / shop_small)
 	"gas_floor", "gas_wall", "pizza_floor", "pizza_wall", "cafe_floor", "cafe_wall", "store_floor", "store_wall",
 	"cooler", "snack_rack", "gas_counter", "price_board", "pizza_oven", "pizza_counter", "pizza_table", "pizza_sign",
-	"espresso_counter", "pastry_case", "cafe_table", "plant", "chalk_menu", "gondola", "shop_counter", "sale_sign"]
+	"espresso_counter", "pastry_case", "cafe_table", "plant", "chalk_menu", "gondola", "shop_counter", "sale_sign",
+	"su_founder"]  # Good Boy AI founder desk (tools/gen_startup.py); the rest of su_* load in startup.gd
 
 const BOSS_COLOR := Color(0.85, 0.3, 1)
 const TRAIN_EVERY := 20.0  # seconds between through-trains in the subway

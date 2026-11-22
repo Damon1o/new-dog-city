@@ -159,10 +159,50 @@ def wall(name, base, kind):
             px[j][i] = shade(base, d)
     return px
 
+def founder_desk():
+    """64x36 CEO desk (drawn at 2x like the counter it replaces): walnut top, two monitors, paw laptop, CEO plate."""
+    px = blank(64, 36)
+    shadow(px, 32, 33, 31, 3)
+    wood = (110, 70, 44, 255)
+    rect(px, 1, 16, 62, 15, wood); rect(px, 1, 16, 62, 2, shade(wood, 34)); rect(px, 1, 30, 62, 1, shade(wood, -40))
+    for x in (8, 32, 56):  # panel grooves
+        rect(px, x, 20, 1, 9, shade(wood, -28))
+    rect(px, 24, 22, 16, 5, (60, 38, 24, 255)); text2(px, "CEO", 32, 23, (240, 200, 90, 255), 1)
+    for mx in (6, 40):  # monitors
+        rect(px, mx, 2, 18, 12, (36, 38, 46, 255)); rect(px, mx + 1, 3, 16, 9, (20, 34, 52, 255))
+        rect(px, mx + 7, 14, 4, 2, (60, 62, 70, 255))
+    for j, c in [(4, (110, 220, 140)), (6, (120, 180, 255)), (8, (250, 200, 90)), (10, (110, 220, 140))]:
+        rect(px, 8, j, 6 + j % 5, 1, rgba(c))
+    for i, h in enumerate([2, 4, 3, 6, 8]):  # growth chart on the right screen
+        rect(px, 43 + i * 3, 11 - h, 2, h, (90, 230, 130, 255))
+    rect(px, 26, 10, 12, 6, (190, 194, 204, 255)); rect(px, 27, 11, 10, 4, (230, 232, 238, 255))  # laptop
+    dot(px, 31, 12, (200, 120, 60, 255)); dot(px, 33, 12, (200, 120, 60, 255)); rect(px, 31, 13, 3, 1, (200, 120, 60, 255))
+    rect(px, 58, 11, 3, 5, (240, 200, 70, 255)); rect(px, 57, 10, 5, 1, (240, 200, 70, 255))  # trophy
+    selout(px, -50)
+    return px
+
+def treat_bar():
+    """48x40 treat bar: glass jars of biscuits, bones and kibble on a counter."""
+    px = blank(48, 40)
+    shadow(px, 24, 37, 22, 3)
+    rect(px, 2, 22, 44, 14, (220, 120, 60, 255)); rect(px, 2, 22, 44, 2, (250, 170, 100, 255))
+    for i in range(4, 44, 6):
+        rect(px, i, 26, 3, 9, (200, 100, 50, 255))
+    rng = random.Random(5)
+    for k, (x, fill) in enumerate([(5, (200, 150, 90)), (17, (240, 230, 210)), (29, (150, 90, 50)), (39, (230, 180, 80))]):
+        w = 10 if k < 3 else 7
+        rect(px, x, 8, w, 14, (200, 230, 240, 255)); rect(px, x + 1, 6, w - 2, 2, (180, 60, 60, 255))
+        for _ in range(14):
+            dot(px, x + 1 + rng.randrange(w - 2), 11 + rng.randrange(10), shade(rgba(fill), rng.randrange(-30, 20)))
+        rect(px, x + 1, 9, 1, 12, (240, 250, 255, 255))
+    text2(px, "TREATS", 24, 0, (250, 230, 120, 255), 1)
+    selout(px, -50)
+    return px
+
 if __name__ == "__main__":
     for name, fn in [("su_desk", desk), ("su_server", server_rack), ("su_espresso", espresso),
                      ("su_ballpit", ball_pit), ("su_board", whiteboard), ("su_neon", neon), ("su_bell", bell),
-                     ("su_plant", plant)]:
+                     ("su_plant", plant), ("su_founder", founder_desk), ("su_treatbar", treat_bar)]:
         write_png(f"{name}.png", fn())
     for n, (base, kind) in enumerate([((128, 130, 136, 255), "concrete"), ((170, 118, 74, 255), "wood"),
                                       ((70, 90, 130, 255), "carpet"), ((226, 224, 218, 255), "marble")]):
