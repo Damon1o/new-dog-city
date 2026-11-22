@@ -404,6 +404,11 @@ func _initialize() -> void:
 	var sfo: Array = game.doors.filter(func(d): return d.template == "airport")
 	assert(sfo.size() == 1 and sfo[0].name == "SFO Airport" and player.position.distance_to(sfo[0].pos) < 200.0, "dog at SFO")
 	assert(not game.doors.any(func(d): return d.template in ["burrow", "nyse"]), "no NYC-only doors in SF")
+	var sf_store: Dictionary = game.doors.filter(func(d): return d.template == "bodega" and d.pos == game.bodega_doors[0])[0]
+	game.interior.enter(sf_store)
+	assert(game.cats.here() == ["sf_sourdough", "Sourdough"], "M6-3: SF corner store 0 has Sourdough")
+	game.interior.leave()
+	await frames(2)
 	var sf_bosses: Array = game.park_bosses.get_children().map(func(b): return b.cfg.name)
 	assert(sf_bosses == ["Sea Lion Sal", "The Twin Peaks Coyote"], "SF park bosses, NYC's stay home: %s" % [sf_bosses])
 	assert(st.spots.get("sf_pier", Vector2.ZERO) != Vector2.ZERO, "the pier is a story spot")
