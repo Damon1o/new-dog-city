@@ -7,6 +7,7 @@ extends Node2D
 const Levels := preload("res://scripts/systems/levels.gd")
 const EnemyTag := preload("res://scripts/ui/enemy_tag.gd")
 const XP := preload("res://scripts/systems/xp.gd")
+const Anim := preload("res://scripts/world/anim.gd")
 
 const AGGRO := 220.0
 const SWIPE_DIST := 26.0
@@ -60,6 +61,9 @@ var cd := 0.0  # swipe cooldown
 var dir := Vector2.ZERO
 var knock := Vector2.ZERO
 var dodged := false
+var walk := 0.0  # world/anim.gd pose clocks
+var atk := 0.0
+var atk_dir := Vector2.ZERO
 var played := false
 var revealed := false
 var game: Node2D
@@ -147,9 +151,17 @@ func _process(delta: float) -> void:
 				t = 0.3
 	if absf(position.x - was.x) > 0.01:  # face where it's going (knockback excluded)
 		sprite.flip_h = position.x < was.x
+	walk = walk + delta if position != was and state != "dead" else 0.0
+	atk = maxf(atk - delta / 0.25, 0.0)
+	var dashing := state == "dash"
+	Anim.pose(sprite, Vector2(2.5, 2.5), walk, 0.0, 0.5 if dashing else atk,
+		dir if dashing else atk_dir, state == "stun")
 
 func swipe(to: Vector2) -> void:
 	cd = 1.0
+	atk = 1.0  # paw swipe pose
+	atk_dir = to.normalized()
+	game.scratch(player.position, to)  # claw marks on the dog
 	var crit: bool = cfg.trick == "stealth" and randf() < 0.3
 	player.take_damage(stats.dmg * (1.75 if crit else 1.0))
 	if cfg.trick == "knock":  # ponytail: shoves the body straight; can nudge Byte into a wall edge

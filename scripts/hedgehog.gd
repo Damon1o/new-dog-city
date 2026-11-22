@@ -56,6 +56,8 @@ var roll := Vector2.ZERO
 var mode_t := 0.0    # wave 3: time left in the current roll or rest
 var touch_cd := 0.0
 var flash := 0.0
+var atk := 0.0    # 1 -> 0: puff-and-lunge pose after a quill burst or a spike stomp
+var walk := 0.0   # seconds spent walking: the hop
 
 func setup(p_game: Node2D, p_room: Rect2) -> void:
 	game = p_game
@@ -179,6 +181,8 @@ func _process(delta: float) -> void:
 		return
 	queue_redraw()
 	flash = maxf(flash - delta, 0.0)
+	atk = maxf(atk - delta / 0.3, 0.0)
+	var was_pos := pos
 	touch_cd = maxf(touch_cd - delta, 0.0)
 	var dmg: float = stats.dmg
 	for i in range(quills.size() - 1, -1, -1):
@@ -207,6 +211,7 @@ func _process(delta: float) -> void:
 	if spike_cd <= 0.0 and not rolling:
 		spike_cd = SPIKE_CD[wave]
 		spike_attack()
+		atk = 1.0  # stomps
 	shot_cd -= delta
 	var to_dog := pos.angle_to_point(player.position)
 	match wave:
@@ -216,6 +221,7 @@ func _process(delta: float) -> void:
 				shot_cd = 0.8
 				for a in [-0.5, -0.25, 0.0, 0.25, 0.5]:
 					fire(to_dog + a, 250.0)
+				atk = 1.0
 		1:
 			pos = pos.move_toward(room.get_center(), WALK_SPEED * 2.0 * delta)
 			if shot_cd <= 0.0:
@@ -223,6 +229,7 @@ func _process(delta: float) -> void:
 				aim += 0.2  # half a gap: last burst's safe lanes are this burst's quills
 				for k in 16:
 					fire(aim + TAU * k / 16.0, 185.0)
+				atk = 1.0
 		2:
 			mode_t -= delta
 			if rolling:
@@ -258,6 +265,7 @@ func _process(delta: float) -> void:
 	if bounced and rolling:
 		game.poof(pos, Color(0.95, 0.9, 0.75), 12, 180.0)
 	pos = pos.clamp(lo, hi)
+	walk = walk + delta if pos.distance_to(was_pos) > 0.05 and not rolling else 0.0
 
 	if touch_cd <= 0.0 and pos.distance_to(player.position) < RADIUS + 10.0:
 		touch_cd = 0.8
@@ -320,7 +328,10 @@ func _draw() -> void:
 		if flash > 0.0:
 			mod = Color(2, 2, 2)
 		mod.a = body.a
-		draw_set_transform(c - Vector2(0, 10), 0.0, Vector2(-2.0 if look.x < 0.0 else 2.0, 2.0))
+		var k := sin(atk * PI)  # quills bristle: puffs wide and lunges at the dog
+		var hop := absf(sin(walk * 9.0)) * 4.0
+		draw_set_transform(c - Vector2(0, 10 + hop) + look * 8.0 * k, sin(walk * 9.0) * 0.06,
+			Vector2(-2.0 if look.x < 0.0 else 2.0, 2.0) * Vector2(1.0 + 0.2 * k, 1.0 - 0.12 * k))
 		draw_texture(art, -art.get_size() / 2.0, mod)
 		draw_set_transform(Vector2.ZERO)
 		return

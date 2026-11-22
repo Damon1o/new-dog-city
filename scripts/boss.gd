@@ -22,6 +22,8 @@ const MARK_WARN := 0.9
 
 const Levels := preload("res://scripts/systems/levels.gd")
 const Raccoon := preload("res://scripts/raccoon.gd")
+const Anim := preload("res://scripts/world/anim.gd")
+const ATK_TIME := 0.3  # strike pose length: bites, throws, landings
 
 var cfg: Dictionary  # data/bosses.gd entry scaled to its level
 var level := 1
@@ -49,6 +51,11 @@ var player: CharacterBody2D
 var sprite: Sprite2D
 var coin_tex: Texture2D  # per boss: a static ref would leak at exit
 var critter: Texture2D   # small critter PNG: shots and summons
+var walk := 0.0       # seconds spent moving: the waddle (world/anim.gd)
+var atk := 0.0        # 1 -> 0 over ATK_TIME: the strike pose
+var atk_dir := Vector2.ZERO
+var last_pos := Vector2.ZERO
+var base_scale := Vector2.ONE
 var body_col := Color.WHITE  # sprite modulate at rest: white over boss art, cfg.tint over the critter fallback
 
 func setup(p_cfg: Dictionary, p_home: Vector2, tex: Texture2D, p_game: Node2D) -> void:
@@ -69,7 +76,8 @@ func setup(p_cfg: Dictionary, p_home: Vector2, tex: Texture2D, p_game: Node2D) -
 		sprite.texture = tex
 		sprite.scale = Vector2(7, 7)
 		body_col = cfg.tint
-	sprite.offset = Vector2(0, -sprite.texture.get_height() / 2.0)
+	sprite.offset = Vector2(0, -sprite.texture.get_height() / 2.0)  # origin at the feet: squash keeps them planted
+	base_scale = sprite.scale
 	sprite.modulate = body_col
 	add_child(sprite)
 	add_to_group("boss")
@@ -86,6 +94,7 @@ func _process(delta: float) -> void:
 	if wave_x != INF:
 		update_wave(delta)
 	queue_redraw()  # slam ring
+	animate(delta)
 	position += knock * delta
 	knock = knock.lerp(Vector2.ZERO, minf(delta * 8.0, 1.0))
 	if stun_t > 0.0:  # bark / pounce: frozen in place, timers paused
@@ -144,16 +153,17 @@ func _process(delta: float) -> void:
 				state = State.CHASE
 				game.shake_amt = 10.0
 				game.poof(position, cfg.tint)
+				strike(Vector2.ZERO)  # lands: squashes flat
 				if d < SLAM_R:
 					var dmg: float = cfg.dmg
 					player.take_damage(dmg * 1.8, cfg.get("poison", 0.0))
 		State.PARACHUTE:  # off screen; the shadow marks where he lands
 			t -= delta
-			sprite.position.y = -1000.0 * maxf(t, 0.0) / AIR_TIME
 			if t <= 0.0:
 				state = State.CHASE
 				game.shake_amt = 10.0  # game.gd zeroes shake under ui/reduce_motion
 				game.poof(position, cfg.tint, 30, 200.0)
+				strike(Vector2.ZERO)
 				if d < SLAM_R:
 					var dmg: float = cfg.dmg
 					player.take_damage(dmg * 1.8, cfg.get("poison", 0.0))
@@ -165,6 +175,35 @@ func _process(delta: float) -> void:
 		var dmg: float = cfg.dmg
 		player.take_damage(dmg * (2.0 if state == State.CHARGE else 1.0), cfg.get("poison", 0.0))
 		bite_cd = 1.0
+		strike(to_player / maxf(d, 1.0))
+
+func strike(dir: Vector2) -> void:
+	atk = 1.0
+	atk_dir = dir
+
+## Pose for this frame from the state (world/anim.gd): waddle when moving, crouch on the windup,
+## stretched out on a charge, crouch-then-leap on a slam, falling from the sky on a parachute.
+func animate(delta: float) -> void:
+	walk = walk + delta if position.distance_to(last_pos) > 0.05 and stun_t <= 0.0 else 0.0
+	last_pos = position
+	atk = maxf(atk - delta / ATK_TIME, 0.0)
+	var wind := 0.0
+	var y := 0.0
+	var a := atk
+	var dir := atk_dir
+	match state:
+		State.WINDUP:
+			wind = 1.0
+		State.CHARGE:
+			a = 0.5  # held at full stretch, leaning into the run
+			dir = charge_dir
+		State.SLAM:  # crouch, then rise as the ring fills; the landing squash is strike()
+			var k := 1.0 - t / SLAM_TIME
+			wind = clampf(1.0 - absf(k - 0.15) / 0.15, 0.0, 1.0)
+			y = -40.0 * smoothstep(0.3, 0.95, k)
+		State.PARACHUTE:
+			y = -1000.0 * maxf(t, 0.0) / AIR_TIME
+	Anim.pose(sprite, base_scale, walk, wind, a, dir, stun_t > 0.0, y)
 
 func wake() -> void:
 	if state == State.IDLE:
@@ -284,6 +323,8 @@ func special(dir: Vector2) -> void:
 			state = State.PARACHUTE
 			t = AIR_TIME
 			special_cd = 4.5
+	if state == State.CHASE:  # throws, summons, burrows: a quick strike toward the dog
+		strike(dir)
 
 ## Tops minions up to `cap` (raccoon AI wearing `tex`), placed in a ring around the boss.
 func summon(cap: int, tex: Texture2D, lv: int, label: String, col: Color) -> void:
