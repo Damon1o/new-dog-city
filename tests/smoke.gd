@@ -1123,10 +1123,10 @@ func _initialize() -> void:
 	story.set_flag("ch1_bodega")
 	assert(story.objective().contains("Fat Cat"))
 	assert(not story.gate_open("G1", 30) and story.gate_block("G1", 30).contains("Fat Cat"), "names the bosses left")
-	for f: String in ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "cs_hedgehog_post", "ch1_boss"]:
+	for f: String in ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "ch1_boss"]:
 		story.set_flag(f)
 	assert(not story.gate_open("G1", 29) and story.gate_block("G1", 29) == "Level 30 required (you are 29)")
-	assert(story.gate_open("G1", 30), "G1 open at 30 with every boss beaten")
+	assert(story.gate_open("G1", 30), "G1 open at 30 with every boss beaten, hedgehog optional")
 	assert(not story.gate_open("G2", 99) and story.gate_open("G0", 1))
 	assert(story.gate_block("G3", 49) == "Level 50 required (you are 49)", "SF HQ opens at 50")
 	player.level = 19
@@ -1585,7 +1585,7 @@ func _initialize() -> void:
 	player.level = 1
 	assert(not hqb_it.floor_rows()[0][1] and not hqb_it.floor_rows()[3][1], "G1 shut: every floor locked")
 	player.level = 30
-	for f: String in ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "cs_hedgehog_post", "ch1_boss"]:
+	for f: String in ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "ch1_boss"]:
 		pz_story.set_flag(f)
 	assert(hqb_it.floor_rows()[0][1] and not hqb_it.floor_rows()[3][1], "G1 open: floors 1-3, not 4")
 	pz_story.floors = {"nyc_1": 50.0, "nyc_2": 50.0}

@@ -5,8 +5,8 @@ extends RefCounted
 ## flags: story flags that must all be set (BOSS_NAMES names the boss behind each).
 const GATES := {
 	"G0": {"opens": "NYC streets"},
-	"G1": {"level": 30, "flags": ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "cs_hedgehog_post", "ch1_boss"],
-		"opens": "NYC Hack Club HQ"},  # level 30 + every NYC boss beaten
+	"G1": {"level": 30, "flags": ["cs_raccoon_post", "cs_pigeon_post", "cs_rat_post", "ch1_boss"],
+		"opens": "NYC Hack Club HQ"},  # level 30 + every NYC park boss + Fat Cat; Daven the Hedgehog is optional
 	"G2": {"flag": "ch1_clue", "opens": "Airport gate to San Francisco"},
 	"G3": {"level": 50, "keycard": "sf", "opens": "SF Hack Club HQ"},
 	"G4": {"flag": "ch2_clue", "opens": "Airport gate to Tokyo"},
@@ -19,7 +19,7 @@ const GATES := {
 
 ## Beaten-boss flag -> boss name, for "Beat first: ...".
 const BOSS_NAMES := {"cs_raccoon_post": "King of Raccoons", "cs_pigeon_post": "The Pideon Queen",
-	"cs_rat_post": "The Rat Meister", "cs_hedgehog_post": "Daven the Hedgehog", "ch1_boss": "Fat Cat"}
+	"cs_rat_post": "The Rat Meister", "ch1_boss": "Fat Cat"}
 
 ## City id -> the gate on its Hack Club HQ door.
 const HQ_GATE := {"nyc": "G1", "sf": "G3", "tokyo": "G5", "shenzhen": "G7"}
