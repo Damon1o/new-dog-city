@@ -96,8 +96,9 @@ func owns(id: String) -> bool:
 		return g.player.collar != ""  # bought at the bodega
 	return Wardrobe.ITEMS[id].get("start", false) or id in owned_list()
 
+## Owned too: the default "name" collar sits in the save before the dog has a name.
 func is_worn(id: String) -> bool:
-	return equipped().get(Wardrobe.ITEMS[id].slot, "") == id
+	return owns(id) and equipped().get(Wardrobe.ITEMS[id].slot, "") == id
 
 func price(id: String) -> Array:
 	return Wardrobe.ITEMS[id].get("cost", [])

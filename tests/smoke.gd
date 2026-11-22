@@ -682,6 +682,8 @@ func _initialize() -> void:
 	wr.toggle()
 	assert(wr.is_open() and player.frozen and wr.tabs.get_child_count() == 3, "B opens the wardrobe (no skin tab)")
 	assert(not wr.Wardrobe.SLOTS.has("skin") and not game.Keys.DEFAULTS.has("breed"), "no breed swapping")
+	if player.collar == "":
+		assert(wr.tag("name") == "?", "unnamed dog: Name collar not shown as worn")
 	player.treats = 50
 	wr.pick("bodega_cap")
 	wr.press()
