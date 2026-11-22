@@ -872,6 +872,7 @@ func _initialize() -> void:
 	player.crunch_cd = 0.0
 	player.tail_cd = 0.0
 	player.stamina = 100.0
+	player.bark_cd = player.BARK_CD  # the frames above drained it; the ability-bar check wants a fresh one
 	# ability bar (M1-7): exists, cooldown sweep follows <name>_cd, pounce hidden below level 30
 	await frames(1)
 	assert(game.abilities.has("dash") and game.abilities.has("bark"), "ability bar built")
