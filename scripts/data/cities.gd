@@ -33,8 +33,14 @@ const CITIES := {
 		"parks": [Vector2i(1, 1), Vector2i(6, 1), Vector2i(3, 4), Vector2i(0, 6), Vector2i(7, 4)],
 		"dog_park": 0,
 		"bodegas": [Vector2i(2, 0), Vector2i(5, 5), Vector2i(8, 2)],  # the 3 corner stores
+		# [texture, name, door template ("" = no door; default office with 6 floors + roof)]
 		"landmarks": {Vector2i(4, 2): ["transamerica", "Transamerica Pyramid"],
-			Vector2i(6, 5): ["coit_tower", "Coit Tower"]},
+			Vector2i(6, 5): ["coit_tower", "Coit Tower"],
+			Vector2i(0, 0): ["golden_gate", "Golden Gate Bridge", ""],
+			Vector2i(1, 3): ["painted_ladies", "Painted Ladies", "apartment"],
+			Vector2i(5, 1): ["lombard", "Lombard Street", ""],
+			Vector2i(8, 4): ["ferry_building", "Ferry Building Marketplace", "shop_small"],
+			Vector2i(6, 3): ["salesforce", "Salesforce Tower"]},
 		"shops": {Vector2i(0, 2): "cafe", Vector2i(3, 6): "pizza", Vector2i(7, 0): "gas",
 			Vector2i(5, 3): "hq",  # SF Hack Club HQ
 			Vector2i(2, 3): "startup",  # Good Boy AI garage (systems/startup.gd)
