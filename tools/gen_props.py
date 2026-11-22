@@ -479,6 +479,58 @@ def chrysler():
     selout(px, -45)
     return px
 
+def transamerica():
+    """SF: white four-sided pyramid with its two 'wings' and the lit spire."""
+    rng = random.Random(600)
+    px = blank(128, 320)
+    white = (226, 226, 220, 255)
+    top, base = 18, 300
+    for j in range(top, base):
+        f = (j - top) / (base - top)
+        hw = int(6 + f * 48)
+        for i in range(64 - hw, 64 + hw):
+            lit = i < 64 + hw // 3
+            c = white if lit else shade(white, -40)
+            if (j - top) % 7 in (4, 5) and (i - (64 - hw)) % 5 in (1, 2) and abs(i - 64) < hw - 2:
+                c = lit_window(rng, 0.25) if lit else shade(lit_window(rng, 0.25), -25)
+            dot(px, i, j, c)
+    for side in (-1, 1):  # elevator / stair wings near the top
+        x = 64 + side * 9 - (4 if side < 0 else 0)
+        rect(px, x, 60, 4, 70, shade(white, 10 if side < 0 else -46))
+    for j in range(0, top + 1):  # aluminium spire
+        rect(px, 63, j, 2, 1, (210, 216, 224, 255))
+    glow(px, 64, 4, 6, (255, 250, 220), 0.5)
+    rect(px, 38, 290, 52, 10, shade(white, -20))  # podium
+    rect(px, 52, 292, 24, 8, (60, 70, 84, 255))
+    rect(px, 0, 316, 128, 4, (110, 106, 100, 255))
+    for j in range(300, 316):
+        rect(px, 24, j, 80, 1, shade(white, -10 - (j - 300)))
+    selout(px, -45)
+    return px
+
+def coit_tower():
+    """SF: fluted concrete column on a green hill, open arcade at the top."""
+    px = blank(128, 320)
+    conc = (222, 212, 192, 255)
+    for j in range(250, 320):  # Telegraph Hill
+        hw = int(30 + (j - 250) * 0.5)
+        for i in range(64 - hw, 64 + hw):
+            dot(px, i, j, shade((86, 142, 76, 255), ((i * 7 + j * 3) % 9) - 4 - (8 if i > 64 + hw // 3 else 0)))
+    for i, x in enumerate(range(46, 82, 4)):  # flutes
+        rect(px, x, 70, 4, 184, shade(conc, 18 - i * 6))
+        rect(px, x + 3, 70, 1, 184, shade(conc, -30 - i * 3))
+    rect(px, 42, 52, 44, 20, shade(conc, 8))  # crown with arcade windows
+    for x in range(46, 82, 7):
+        rect(px, x, 56, 4, 11, (52, 60, 76, 255))
+        rect(px, x, 56, 4, 2, (240, 210, 140, 255))
+    rect(px, 40, 50, 48, 3, shade(conc, 24))
+    rect(px, 46, 44, 36, 6, shade(conc, 4))
+    glow(px, 64, 60, 24, (255, 232, 170), 0.2)
+    rect(px, 54, 230, 20, 24, (60, 52, 44, 255))  # door
+    rect(px, 56, 232, 16, 3, (200, 170, 100, 255))
+    selout(px, -45)
+    return px
+
 # ---------- dogs (16x10 frames x2; head must stay at x9-14, y0-4 for hats / collars) ----------
 # W body, H highlight, D shade, S saddle, M mask/ears, B belly, K black, P pink
 DOGS = {
@@ -618,7 +670,8 @@ def critter(name):
 if __name__ == "__main__":
     for name, fn in [("tree", tree), ("fountain", fountain), ("hydrant", hydrant), ("trashcan", trashcan),
                      ("manhole", manhole), ("water_bowl", water_bowl), ("subway", subway), ("bodega", bodega),
-                     ("empire_state", empire), ("chrysler", chrysler)]:
+                     ("empire_state", empire), ("chrysler", chrysler),
+                     ("transamerica", transamerica), ("coit_tower", coit_tower)]:
         write_png(f"{name}.png", fn())
     for breed, (rows, colors) in DOGS.items():
         write_png(f"dog_{breed}.png", dog_sheet(rows, colors, DOG_LEGS.get(breed, DOG_LEGS["default"])))

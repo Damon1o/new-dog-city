@@ -25,10 +25,20 @@ func build(city_id: String) -> void:
 	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.doors, g.stations, g.landmarks, g.manholes]:
 		list.clear()
 	id = city_id
+	var c: Dictionary = CITIES[id]
+	g.PARKS = c.parks
+	g.BODEGAS = c.bodegas
+	g.LANDMARKS = c.landmarks
+	g.STATIONS = c.stations
 	dog_park = Rect2()
 	root = Node2D.new()
 	root.name = "City"
 	root.y_sort_enabled = true
+	root.modulate = c.get("tint", Color.WHITE)
+	g.ground.modulate = c.get("ground_tint", Color.WHITE)
+	if g.park_bosses:  # ponytail: park bosses (and the hedgehog burrow) are NYC only until other cities get theirs
+		g.park_bosses.visible = id == "nyc"
+		g.park_bosses.process_mode = Node.PROCESS_MODE_INHERIT if id == "nyc" else Node.PROCESS_MODE_DISABLED
 	g.add_child(root)
 	seed(CITIES[id].seed)
 	build_bounds()
@@ -47,18 +57,38 @@ func build(city_id: String) -> void:
 func in_dog_park(p: Vector2) -> bool:
 	return dog_park.has_point(p)
 
-## Swap cities behind a fade (spec 02: only the current city is in the tree).
+## Fly to another city behind a fade (spec 02: only the current city is in the tree). The dog lands
+## at that city's airport door; the first visit plays cs_arrive_<id> if the story has one.
+## ponytail: the fade + banner stand in for the 3 s plane-over-map cutscene.
 func travel(city_id: String) -> void:
 	g.player.frozen = true
 	var tw := g.create_tween()
 	tw.tween_property(g.fade, "color:a", 1.0, 0.3)
 	tw.tween_callback(func():
+		g.save_extra["world/city"] = city_id  # door ids (add_door) carry the city
 		build(city_id)
 		randomize()
-		g.player.position = fix_pos(g.player.position)
-		g.cam.reset_smoothing())
+		for grp in ["prey", "foe", "human"]:  # street life stood on the old city's layout
+			for n in g.get_tree().get_nodes_in_group(grp):
+				n.free()
+		for s in g.treat_sprites:
+			s.free()
+		g.treat_sprites.clear()
+		for i in 12:
+			g.spawn_treat()
+		for i in g.MAX_HUMANS:
+			g.spawn_human()
+		var port: Array = g.doors.filter(func(d): return d.template == "airport")
+		g.player.position = fix_pos(port[0].pos + Vector2(0, 60) if port else g.player.position)
+		g.player.spawn_point = g.player.position
+		g.cam.reset_smoothing()
+		g.ui.show_loading(str(CITIES[id].name).to_upper()))
 	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
-	tw.tween_callback(func(): g.player.frozen = false)
+	tw.tween_callback(func():
+		g.player.frozen = false
+		if not Story.has("cs_arrive_" + id) and g.dialog.CUTSCENES.has("cs_arrive_" + id):
+			g.dialog.play("cs_arrive_" + id)
+		g.save_game())
 
 ## Street nodes go under the city root; interiors (built before the first city) stay on game.
 func holder() -> Node:
@@ -145,8 +175,9 @@ func draw_ground() -> void:
 				g.ground.draw_rect(Rect2(g.ROAD + i * step.x + k * 32 + 6, j * step.y + 62, 20, 4), yellow)
 	for p in g.parks:
 		g.ground.draw_texture_rect(g.tex.grass, p.grow(-8), true)
-	g.ground.draw_circle(g.burrow, 30.0, Color(0.35, 0.25, 0.15))
-	g.ground.draw_circle(g.burrow, 22.0, Color(0.05, 0.04, 0.03))
+	if id == "nyc":
+		g.ground.draw_circle(g.burrow, 30.0, Color(0.35, 0.25, 0.15))
+		g.ground.draw_circle(g.burrow, 22.0, Color(0.05, 0.04, 0.03))
 
 func build_bounds() -> void:
 	for wall in [[Vector2(g.WORLD.x / 2, -16), Vector2(g.WORLD.x, 32)], [Vector2(g.WORLD.x / 2, g.WORLD.y + 16), Vector2(g.WORLD.x, 32)],
@@ -218,7 +249,7 @@ func build_block(b: Vector2i) -> void:
 			var dp: Node2D = preload("res://scripts/world/dog_park.gd").new()
 			holder().add_child(dp)
 			dp.setup(g, dog_park, id)
-		if Rect2(o, g.BLOCK).has_point(g.burrow):
+		if id == "nyc" and Rect2(o, g.BLOCK).has_point(g.burrow):
 			add_door(g.burrow, "burrow", b, 0)
 		add_prop(g.tex.fountain, c, 1.25)
 		add_static_box(c - Vector2(0, 20), Vector2(90, 36))
@@ -236,7 +267,7 @@ func build_block(b: Vector2i) -> void:
 		add_tree(o + Vector2(452, 360))
 	elif b == CITIES[id].get("airport", Vector2i(-1, -1)):
 		add_building(design("airport"), o + Vector2(256, 260), 2.2, 0.6)
-		add_door(o + Vector2(256, 282), "airport", b, 0, 1, "JFK Airport")
+		add_door(o + Vector2(256, 282), "airport", b, 0, 1, CITIES[id].get("airport_name", "Airport"))
 	elif b in g.BODEGAS:
 		var base := o + Vector2(256, 240)
 		add_building(g.tex.bodega, base, 1.0, 0.6)

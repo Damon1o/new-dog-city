@@ -386,8 +386,34 @@ func _initialize() -> void:
 	var st: Node = root.get_node("Story")  # -s scripts can't see autoload names at compile time
 	st.set_flag("ch1_clue")
 	assert(game.interior.gate_rows()[1][1], "ch1_clue opens the SF gate")
+	# M6-1: fly to SF, land at SFO, arrival cutscene once, then fly home
+	var nyc_hq: Vector2 = game.doors.filter(func(d): return d.template == "hq")[0].pos
+	game.on_number(1)
+	await frames(50)
+	assert(game.city.id == "sf" and game.inside == "", "landed in SF on the street")
+	assert(game.save_extra["world/city"] == "sf", "save knows the city")
+	assert(game.landmarks.size() == 2 and game.landmarks.any(func(l): return l.name == "Coit Tower"), "SF landmarks")
+	assert(game.stations.size() == 4 and game.bodega_doors.size() == 3, "4 cable car stops, 3 corner stores")
+	var sfo: Array = game.doors.filter(func(d): return d.template == "airport")
+	assert(sfo.size() == 1 and sfo[0].name == "SFO Airport" and player.position.distance_to(sfo[0].pos) < 200.0, "dog at SFO")
+	assert(not game.doors.any(func(d): return d.template in ["burrow", "nyse"]), "no NYC-only doors in SF")
+	assert(not game.park_bosses.visible, "NYC park bosses stay home")
+	assert(st.spots.get("hq_sf", Vector2.ZERO) != Vector2.ZERO, "SF HQ is a story spot")
+	assert(game.dialog.playing(), "cs_arrive_sf plays on the first landing")
+	game.dialog.skip()
+	await frames(2)
+	assert(st.has("cs_arrive_sf"), "skip still sets the arrival flag")
+	game.interior.enter(sfo[0])
+	player.position = game.interior.spots.gates
+	await frames(1)
+	assert(game.interior.gate_rows()[1][0].contains("here"), "SF gate is where you are")
+	game.on_number(0)
+	await frames(50)
+	assert(game.city.id == "nyc" and game.park_bosses.visible, "flew home to NYC")
+	assert(game.doors.filter(func(d): return d.template == "hq")[0].pos == nyc_hq, "NYC rebuilt the same")
+	assert(not game.dialog.playing(), "no arrival cutscene for NYC")
 	st.flags.erase("ch1_clue")
-	game.interior.leave()
+	st.flags.erase("cs_arrive_sf")
 	# NYC shops (M4-2): gas / pizza / cafe exist; cafe locked at night; a buff times out
 	for t in ["gas", "pizza", "cafe"]:
 		assert(game.doors.any(func(d): return d.template == t), "NYC has a " + t)

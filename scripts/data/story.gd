@@ -120,4 +120,15 @@ const CUTSCENES := {
 		{"say": "Byte", "text": "Airport, here I come."},
 		{"flag": "ch1_clue"},
 	],
+	# Ch 2 San Francisco (M6-1): first landing at SFO
+	"cs_arrive_sf": [
+		{"say": "Byte", "text": "San Francisco. Everything's gray and wet and smells like fish."},
+		{"pan": Vector2(0, -300), "t": 1.5},
+		{"say": "Byte", "text": "Fog so thick I can't see past the next block. Good thing I've got a nose."},
+		{"pan": Vector2.ZERO, "t": 1.0},
+		{"sfx": "bark"},
+		{"say": "Byte", "text": "A seagull swooped past with a backpack. Sam's backpack. I know that zipper charm."},
+		{"say": "Byte", "text": "Gulls hang out by the pier. Hold V, find the trail. Then find that bird."},
+		{"flag": "cs_arrive_sf"},
+	],
 }

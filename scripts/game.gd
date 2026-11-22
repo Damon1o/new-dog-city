@@ -57,7 +57,7 @@ const SHOP := Items.SHOP
 const SHOP_INFO := Items.SHOP_INFO
 
 const TEX_NAMES := ["road", "sidewalk", "grass", "building_a", "building_b", "building_c",
-	"empire_state", "chrysler", "bodega", "subway", "trashcan", "manhole", "water_bowl",
+	"empire_state", "chrysler", "transamerica", "coit_tower", "bodega", "subway", "trashcan", "manhole", "water_bowl",
 	"pigeon", "rat", "squirrel", "raccoon", "treat", "tree", "fountain", "hydrant", "purina",
 	"cat", "shop_floor", "shop_wall", "shelf", "counter", "station_wall", "platform", "track",
 	"pillar", "stairs", "map_board", "train", "subway_wall", "subway_floor", "platform_edge",
@@ -77,10 +77,12 @@ const LOW_KEYS := ["hp", "hunger", "thirst"]
 const WALL_H := 96.0
 const BOSS_EXIT := Interior.O + Vector2(480, 624)  # burrow exit spot; tools/smoke_test.gd parks the dog by it
 
-const PARKS: Array = NYC.parks
-const BODEGAS: Array = NYC.bodegas
-const LANDMARKS: Dictionary = NYC.landmarks
-const STATIONS: Dictionary = NYC.stations
+# the current city's tables; city_builder.build() swaps them on travel (M6-1)
+var PARKS: Array = NYC.parks
+var BODEGAS: Array = NYC.bodegas
+var LANDMARKS: Dictionary = NYC.landmarks
+var STATIONS: Dictionary = NYC.stations
+var park_bosses: Node2D  # NYC park bosses; hidden and paused in other cities
 
 var tex := {}
 var building_rects: Array[Rect2] = []
@@ -210,6 +212,10 @@ func _ready() -> void:
 	add_child(night)
 
 	burrow = block_origin(PARKS[3]) + Vector2(110, 300)
+	park_bosses = Node2D.new()
+	park_bosses.name = "ParkBosses"
+	park_bosses.y_sort_enabled = true
+	add_child(park_bosses)
 	city.build("nyc")
 	hedgehog = HedgehogScript.new()
 	add_child(hedgehog)
@@ -220,7 +226,7 @@ func _ready() -> void:
 		randomize()
 	for b in BOSSES:
 		var boss_node: Node2D = BossScript.new()
-		add_child(boss_node)
+		park_bosses.add_child(boss_node)
 		boss_node.setup(b, block_origin(PARKS[b.park]) + BLOCK / 2.0 + Vector2(0, 110), tex[b.tex], self)
 	for lane in 2:  # one car per lane, keep-right traffic
 		for i in NX + 1:

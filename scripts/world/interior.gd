@@ -86,14 +86,22 @@ func gate_rows() -> Array:
 		rows.append(["[%d]  %s%s" % [k + 1, Gates.CITIES[gate[0]][0], note], not here and not locked])
 	return rows
 
-## Flight stub (M2-6): only NYC exists, so an open gate just announces the flight.
-## ponytail: 3 s plane-over-map cutscene + city.travel() once a second city is in data/cities.gd.
+## Board an open gate (spec 02): free in story mode, but security turns away a wanted dog.
+## Cities not built yet (no data/cities.gd entry) still just announce the flight.
 func fly(n: int) -> void:
-	if n < 0 or n >= Gates.AIRPORT.size() or not gate_rows()[n][1]:
+	if n < 0 or n >= Gates.AIRPORT.size() or not gate_rows()[n][1] or g.player.frozen:
 		return
-	var city_name: String = Gates.CITIES[Gates.AIRPORT[n][0]][0]
+	if g.wanted.stars() > 0:
+		g.show_msg("Security: lose the heat first")
+		return
+	var to: String = Gates.AIRPORT[n][0]
+	var city_name: String = Gates.CITIES[to][0]
 	g.show_banner("FLIGHT TO %s" % city_name.to_upper())
-	g.show_msg("Flights to %s start soon" % city_name)
+	if not g.city.CITIES.has(to):
+		g.show_msg("Flights to %s start soon" % city_name)
+		return
+	leave()
+	g.city.travel(to)
 
 func floor_name(n: int) -> String:
 	return "LOBBY" if n == 0 else "FLOOR %d" % (n + 1)
