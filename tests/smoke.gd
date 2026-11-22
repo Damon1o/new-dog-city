@@ -404,7 +404,13 @@ func _initialize() -> void:
 	game.interior.enter(cafe)
 	assert(game.shop.stock()[0][0] == "puppuccino", "cafe sells drinks")
 	player.treats = 100
-	assert(game.shop.buy(0) == 1 and player.buffs.drink.id == "puppuccino" and player.mod("stamina") == 1.5, "drink buff on")
+	assert(game.shop.buy(0) == 1 and game.inventory.count("puppuccino") == 1 and not player.buffs.has("drink"), "bought drink goes in the bag")
+	assert(game.inventory.icon_of("puppuccino") != null and game.inventory.icon_of("kevlar") != null, "shop items have icons")
+	game.inventory.bind("puppuccino", 2)
+	game.inventory.use_slot(2)  # in a shop 1-4 buy, so drive the slot directly
+	assert(game.inventory.count("puppuccino") == 0 and not player.bag.has("puppuccino"), "hotbar slot 3 uses it up")
+	assert(player.buffs.drink.id == "puppuccino" and player.mod("stamina") == 1.5, "drink buff on")
+	game.inventory.clear_slot(2)
 	await frames(1)
 	assert(game.ui.buff_row.get_node("drink").visible, "buff chip shows")
 	player.buffs.drink.t = 0.05

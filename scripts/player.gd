@@ -67,6 +67,7 @@ var armor := "":  # worn armor id (data/items.gd ARMOR), "" = none; drawn on the
 		if sprite:
 			apply_skin()
 var armor_owned: Array = []
+var bag := {}  # carried shop food / drinks beyond purina + water: id -> count
 
 var spawn_point := Vector2.ZERO
 var frozen := false  # true while typing the collar name

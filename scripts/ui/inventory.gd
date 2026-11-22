@@ -12,7 +12,7 @@ const Gates := preload("res://scripts/data/gates.gd")
 const Look := preload("res://scripts/ui/theme.gd")
 const Keys := preload("res://scripts/systems/keys.gd")
 const Album := preload("res://scripts/ui/album.gd")
-const CARRY := ["purina", "water"]  # bindable consumables so far
+const CARRY := Items.CARRY  # bindable consumables: every shop food and drink
 const ALBUM := 17
 const CELL := 54.0
 const GROUND_PX := 320.0
@@ -106,8 +106,29 @@ func bind(item: String, slot: int) -> void:
 	if root.visible:
 		refresh()
 
+## Carried count: purina / water are player fields, the other shop goods live in player.bag.
+func count(item: String) -> int:
+	return int(g.player.get(item)) if item in ["purina", "water"] else int(g.player.bag.get(item, 0))
+
+func add(item: String, n: int) -> void:
+	if item in ["purina", "water"]:
+		g.player.set(item, g.player.get(item) + n)
+	else:
+		g.player.bag[item] = count(item) + n
+
 func use(item: String) -> bool:
-	var ok: bool = g.player.use_purina() if item == "purina" else g.player.use_water() if item == "water" else false
+	var ok := false
+	if item == "purina":
+		ok = g.player.use_purina()
+	elif item == "water":
+		ok = g.player.use_water()
+	elif count(item) > 0:
+		add(item, -1)
+		if count(item) <= 0:
+			g.player.bag.erase(item)
+		g.player.consume(item)
+		g.show_msg("%s: %s" % [Items.ITEM_INFO[item].name, Items.ITEM_INFO[item].effect])
+		ok = true
 	if ok:
 		g.sfx("pickup")
 	return ok
@@ -133,7 +154,7 @@ func _process(_delta: float) -> void:
 	for s in hud_slots.size():
 		var item: String = hotbar()[s]
 		hud_slots[s].icon.texture = icon_of(item)
-		hud_slots[s].count.text = "x%d" % int(g.player.get(item)) if item != "" else ""
+		hud_slots[s].count.text = "x%d" % count(item) if item != "" else ""
 		hud_slots[s].key.text = " " + Keys.label("hot_%d" % (s + 1)).get_slice(" / ", 0).left(3)
 
 # ---------- cells ----------
@@ -235,10 +256,10 @@ func refresh_gear() -> void:
 	top.add_child(mid)
 	var right := VBoxContainer.new()
 	top.add_child(right)
-	cell(labeled(right, "Collar"), null, g.player.collar.left(6), "Name collar: %s" % (g.player.collar if g.player.collar != "" else "none"))
+	cell(labeled(right, "Collar"), icon_of("collar") if g.player.collar != "" else null, g.player.collar.left(6), "Name collar: %s" % (g.player.collar if g.player.collar != "" else "none"))
 	worn(right, "Outfit", "overlay")
 	var arm: String = g.player.armor
-	on_click(cell(labeled(left, "Armor"), g.wardrobe.Wardrobe.icon(arm), "",
+	on_click(cell(labeled(left, "Armor"), icon_of(arm), "",
 		("%s  -%d%% damage\nClick to swap, right-click to take off" % [Items.ARMOR[arm][0], roundi(g.player.defense() * 100)])
 		if arm != "" else "No armor - buy some at shops"), next_armor, wear.bind(""))
 	var hb := HBoxContainer.new()
@@ -248,7 +269,7 @@ func refresh_gear() -> void:
 	bar.add_child(hb)
 	for s in 4:
 		var item: String = hotbar()[s]
-		var p := cell(hb, icon_of(item), "x%d" % int(g.player.get(item)) if item != "" else "",
+		var p := cell(hb, icon_of(item), "x%d" % count(item) if item != "" else "",
 			Keys.label("hot_%d" % (s + 1)), 60.0)
 		g.ui.hud_label(p, 11, Look.DIM).text = " " + Keys.label("hot_%d" % (s + 1)).get_slice(" / ", 0)
 		p.get_child(-1).size_flags_vertical = Control.SIZE_SHRINK_BEGIN
@@ -317,10 +338,10 @@ func refresh_stats() -> void:
 func refresh_bag() -> void:
 	var n := 0
 	for item: String in CARRY:
-		if int(g.player.get(item)) <= 0:
+		if count(item) <= 0:
 			continue
 		var info: Dictionary = Items.ITEM_INFO[item]
-		var p := cell(bag, icon_of(item), "x%d" % int(g.player.get(item)),
+		var p := cell(bag, icon_of(item), "x%d" % count(item),
 			"%s  %s\nDrag to the hotbar, right-click to use" % [info.name, info.effect])
 		p.set_drag_forwarding(func(_at): return drag(item), Callable(), Callable())
 		on_click(p, Callable(), func(): use(item); refresh())
@@ -328,7 +349,7 @@ func refresh_bag() -> void:
 	for a: String in g.player.armor_owned:
 		if a == g.player.armor:
 			continue
-		var c := cell(bag, g.wardrobe.Wardrobe.icon(a), "", "%s  -%d%% damage\nRight-click to wear" % [Items.ARMOR[a][0], roundi(Items.ARMOR[a][1] * 100)])
+		var c := cell(bag, icon_of(a), "", "%s  -%d%% damage\nRight-click to wear" % [Items.ARMOR[a][0], roundi(Items.ARMOR[a][1] * 100)])
 		on_click(c, Callable(), wear.bind(a))
 		n += 1
 	for i: String in Story.items:
