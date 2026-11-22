@@ -135,7 +135,19 @@ const CUTSCENES := {
 		{"sfx": "bark"},
 		{"say": "Byte", "text": "A seagull swooped past with a backpack. Sam's backpack. I know that zipper charm."},
 		{"say": "Byte", "text": "Gulls hang out by the pier. Hold V, find the trail. Then find that bird."},
+		{"say": "Byte", "text": "And something's off. Skunks on the sidewalk. Parrots screaming on the hill. Gopher holes everywhere."},
+		{"say": "Byte", "text": "A sign on a pole: \"Coyote sighting. Do not feed wildlife.\" Somebody is feeding them anyway."},
 		{"flag": "cs_arrive_sf"},
+	],
+	# SF Pest Patrol finished (data/quests.gd): the critter boom was Sam's old hackathon project
+	"cs_done_sf_pest_patrol": [
+		{"say": "Byte", "text": "That's the last coyote. And it dropped something. A little plastic box with a treat chute."},
+		{"say": "Byte", "text": "Sticker on the side: \"TreatDrop v0.1. Feeds every stray in the city! by Sam.\""},
+		{"sfx": "bark"},
+		{"say": "Byte", "text": "Sam's hackathon feeder. Hundreds of them, bolted to poles. They were supposed to switch off after demo day."},
+		{"say": "Byte", "text": "But this one was updated last week. Not by Sam. The log says: \"UPDATED BY: PAWFINDER-CORE.\""},
+		{"say": "Byte", "text": "Sam's AI is running Sam's old code. \"Something I built got loose.\" This is what Sam meant."},
+		{"flag": "cs_done_sf_pest_patrol"},
 	],
 	# M6-4 Seagull King (story boss, the pier)
 	"cs_seagull_pre": [

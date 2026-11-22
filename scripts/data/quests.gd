@@ -65,6 +65,19 @@ Empire State Building", "race", 1, 20, 100],
 		["Buy 10 things in shops", "bought", 10, 30, 120],
 		["Ride the cable car 8 times", "sf_rides", 8, 80, 250, 3],
 	],
+	# SF critter boom (spawns.gd "sf", enemies/cat.gd skunk / coyote, weather.gd quakes). Shows on landing
+	# in SF; the last step plays cs_done_sf_pest_patrol (systems/quests.gd).
+	"SF Pest Patrol": [
+		["Land in San Francisco", "met_sf", 1, 0, 0],
+		["Run 5 skunks off the streets", "skunks", 5, 15, 80],
+		["Catch 4 gophers before they dig
+up the whole park", "gophers", 4, 15, 80],
+		["Scatter 20 wild parrots by
+Coit Tower", "parrots", 20, 15, 80],
+		["Ride out an earthquake", "quakes", 1, 20, 60],
+		["Beat 6 coyotes (packs roam
+at night)", "coyotes", 6, 40, 200, 2],
+	],
 	# Good Boy AI startup tycoon (systems/startup.gd), shows once Patch has pitched it in SF
 	"Good Boy AI": [
 		["Meet Patch in the SF startup garage", "met_patch", 1, 0, 0],

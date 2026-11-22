@@ -5,6 +5,9 @@ const PREY := {
 	"pigeon": {"speed": 120.0, "flee": 150.0, "treats": 2, "xp": 8, "food": 8.0},
 	"rat": {"speed": 105.0, "flee": 110.0, "treats": 1, "xp": 5, "food": 5.0},
 	"squirrel": {"speed": 150.0, "flee": 190.0, "treats": 4, "xp": 14, "food": 10.0},
+	# SF only (data/spawns.gd): Telegraph Hill's wild parrots flock like pigeons; gophers dig up the parks
+	"parrot": {"speed": 135.0, "flee": 170.0, "treats": 3, "xp": 11, "food": 6.0},
+	"gopher": {"speed": 95.0, "flee": 160.0, "treats": 3, "xp": 12, "food": 8.0},
 }
 
 const SHOP := [["purina", 5], ["water", 3], ["collar", 25], ["vest", 40]]

@@ -598,13 +598,13 @@ func on_prey_caught(prey: Node2D) -> void:
 	prey.queue_free()
 	if not prey.flock.is_empty():
 		spawner.scatter(prey.flock)  # spec 07: catch one, the flock flees
-	if prey.kind == "squirrel":
-		bump("squirrels")
+	if prey.kind in ["squirrel", "gopher"]:
+		bump(prey.kind + "s")
 	cats.rat = cats.rat or prey.kind == "rat"  # carried in as a bodega cat gift
 	bump("prey")
 
 func on_prey_escaped(prey: Node2D) -> void:
-	float_text(prey.position, "up the tree!", Color(0.7, 1, 0.7))
+	float_text(prey.position, "down the hole!" if prey.kind == "gopher" else "up the tree!", Color(0.7, 1, 0.7))
 	prey.queue_free()
 
 func on_raccoon_beaten(rac: Node2D) -> void:

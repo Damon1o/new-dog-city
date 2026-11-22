@@ -421,6 +421,42 @@ func _initialize() -> void:
 	game.dialog.skip()
 	await frames(2)
 	assert(st.has("cs_arrive_sf"), "skip still sets the arrival flag")
+	# SF Pest Patrol: SF critters, skunk stink, coyote packs, quakes, the line shows on landing
+	assert(game.stats.get("met_sf") == 1 and game.quest_step.get("SF Pest Patrol") == 1, "Pest Patrol starts on landing: %s %s" % [game.stats.get("met_sf"), game.quest_step.get("SF Pest Patrol")])
+	var sf_day: Dictionary = game.Spawns.SPAWNS.sf.day
+	assert(sf_day.has("parrot") and sf_day.has("gopher") and game.Spawns.SPAWNS.sf.night.has("coyotes"), "SF spawn table")
+	var pest_keep := [player.level, player.xp, player.treats]  # put back after: later checks count exact treats
+	var pack: Array = game.spawner.spawn_foe("coyotes", player.position + Vector2(900, 0))
+	assert(pack.size() == 3 and pack.all(func(c): return c.kind == "coyote"), "coyotes come in packs of 3")
+	var skunk: Node2D = game.spawner.spawn_foe("skunk", player.position + Vector2(900, 60))[0]
+	var skunk_hp0: float = player.hp
+	skunk.swipe(player.position - skunk.position)
+	assert(player.hp < skunk_hp0 and player.poison_t > 0.0, "skunk spray stinks (poison)")
+	player.poison_t = 0.0
+	player.hp = player.max_hp
+	skunk.hurt(9999.0, player.position)
+	assert(game.stats.get("skunks") == 1, "beaten skunk counts for the patrol")
+	for c in pack:
+		c.queue_free()
+	var parrots: Dictionary = game.spawner.spawn_flock(player.position + Vector2(-900, 0), 0, "parrot")
+	assert(parrots.members[0].kind == "parrot" and parrots.members[0].sprite.texture != null, "parrot flock, baked art")
+	var gopher: Node2D = game.PreyScript.new()
+	gopher.position = player.position + Vector2(-900, 200)
+	game.add_child(gopher)
+	gopher.setup("gopher", game.PREY.gopher, game.spawner.tex_for("gopher"), game)
+	assert(gopher.home == gopher.position, "gopher remembers its hole")
+	game.on_prey_caught(gopher)
+	assert(game.stats.get("gophers") == 1, "gopher catch counts")
+	var parrots_before := int(game.stats.get("parrots", 0))
+	game.weather.quake()
+	assert(game.weather.quake_t > 0.0 and game.stats.get("quakes") == 1, "SF quake")
+	assert(int(game.stats.get("parrots", 0)) == parrots_before + parrots.members.size(), "quake scatters the parrots")
+	game.weather.quake_t = 0.0
+	for p in parrots.members:
+		p.queue_free()
+	player.level = pest_keep[0]
+	player.xp = pest_keep[1]
+	player.treats = pest_keep[2]
 	var sal: Node2D = game.park_bosses.get_child(0)
 	sal.special_n = -1
 	sal.special(Vector2.RIGHT)  # wave_splash

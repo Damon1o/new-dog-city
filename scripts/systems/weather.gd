@@ -40,6 +40,12 @@ var snow: CPUParticles2D
 var rain: CPUParticles2D
 var fog: Sprite2D  # radial veil around the dog: clear inside sight_radius, white past it
 var banks: CPUParticles2D  # slow fog banks rolling across the view
+## SF quakes (not weather, but this is the per-city ticker): a short tremor every few minutes on the
+## street. Shakes the camera (reduce motion still gates it), scatters every flock, spooks the foes.
+const QUAKE_EVERY := Vector2(240.0, 480.0)  # seconds between tremors, random in this range
+const QUAKE_LEN := 3.0
+var quake_in := randf_range(QUAKE_EVERY.x, QUAKE_EVERY.y)
+var quake_t := 0.0  # > 0 while the ground is shaking
 var last_print := Vector2.ZERO
 var print_side := 1.0
 
@@ -96,6 +102,24 @@ func _process(delta: float) -> void:
 	last_tod = g.tod
 	blend_t += delta
 	_update_visuals()
+	if quake_t > 0.0:
+		quake_t -= delta
+		g.shake_amt = maxf(g.shake_amt, 5.0)
+	elif city() == "sf" and g.inside == "" and not g.dialog.playing():
+		quake_in -= delta
+		if quake_in <= 0.0:
+			quake()
+
+func quake() -> void:
+	quake_in = randf_range(QUAKE_EVERY.x, QUAKE_EVERY.y)
+	quake_t = QUAKE_LEN
+	g.show_msg("Earthquake! The whole block is rattling.")
+	g.sfx("bark_scare")  # ponytail: low rumble stand-in; real rumble when spec 12 audio lands
+	for f in g.spawner.flocks:
+		g.spawner.scatter(f)
+	for foe in g.get_tree().get_nodes_in_group("foe"):
+		foe.stun(1.0)
+	g.bump("quakes")  # SF Pest Patrol
 
 func city() -> String:
 	return str(g.save_extra.get("world/city", "nyc"))

@@ -22,46 +22,57 @@ func spawn_treat() -> void:
 func spawn_prey() -> void:
 	var kind := Spawns.pick(g.city.id, g.sun())
 	var pos = g.random_spot(350.0)
-	if kind == "squirrel":  # squirrels live in g.parks
+	if kind in ["squirrel", "gopher"]:  # squirrels and gophers live in g.parks
 		var r: Rect2 = g.parks.pick_random()
 		pos = r.position + Vector2(randf(), randf()) * r.size
+	elif kind == "parrot":  # Telegraph Hill's wild parrots stay round Coit Tower
+		var hill: Array = g.landmarks.filter(func(l): return l.name == "Coit Tower")
+		if hill:
+			pos = regroup_spot(hill[0].pos)
 	elif kind == "rat":  # rats by the trash
 		var can: Vector2 = g.cans.pick_random()
 		pos = can + Vector2(randf_range(-60, 60), randf_range(10, 50))
 	var bonus := Spawns.NIGHT_LEVELS if Spawns.phase(g.sun()) == "night" else 0
 	if pos.x < 0 or pos.distance_to(g.player.position) < 350.0:
 		return
-	if Cat.TYPES.has(kind) or kind == "rats":
+	if Cat.TYPES.has(kind) or kind in ["rats", "coyotes"]:
 		if g.get_tree().get_nodes_in_group("foe").size() < MAX_FOES and not g.city.in_dog_park(pos):  # safe zone (M4-7)
 			spawn_foe(kind, pos, bonus)
 		return
-	if kind == "pigeon":
-		spawn_flock(pos, bonus)
+	if kind in ["pigeon", "parrot"]:
+		spawn_flock(pos, bonus, kind)
 		return
 	var prey: Node2D = g.PreyScript.new()
 	prey.position = pos
 	g.add_child(prey)
-	prey.setup(kind, g.PREY[kind], g.tex[kind], g, bonus)
+	prey.setup(kind, g.PREY[kind], tex_for(kind), g, bonus)
 
-## Common foe (M3-2, enemies/cat.gd) at pos; "rats" is a swarm of 5 rats. Returns what it made.
+## PNG from game.tex, or baked pixel art for the SF critters (prey.gd ART).
+func tex_for(kind: String) -> Texture2D:
+	return g.tex[kind] if g.tex.has(kind) else g.PreyScript.art(kind)
+
+## Common foe (M3-2, enemies/cat.gd) at pos; "rats" is a swarm of 5 rats, "coyotes" a pack of 3.
+## Returns what it made.
 func spawn_foe(kind: String, pos: Vector2, bonus := 0) -> Array:
 	var out := []
-	for i in (5 if kind == "rats" else 1):
+	var packs := {"rats": ["rat", 5], "coyotes": ["coyote", 3]}
+	var one: String = packs[kind][0] if packs.has(kind) else kind
+	for i in (packs[kind][1] if packs.has(kind) else 1):
 		var f: Node2D = Cat.new()
 		g.add_child(f)
-		f.setup("rat" if kind == "rats" else kind, pos + Vector2(randf_range(-30, 30), randf_range(-30, 30)) * mini(i, 1), g, bonus)
+		f.setup(one, pos + Vector2(randf_range(-30, 30), randf_range(-30, 30)) * mini(i, 1), g, bonus)
 		out.append(f)
 	return out
 
-## Pigeon flock (spec 07): 5-12 birds round a center, a plain Dictionary the birds share.
-func spawn_flock(center: Vector2, bonus := 0) -> Dictionary:
-	var f := {"members": [], "center": center, "scatter": 0.0}
+## Pigeon / parrot flock (spec 07): 5-12 birds round a center, a plain Dictionary the birds share.
+func spawn_flock(center: Vector2, bonus := 0, kind := "pigeon") -> Dictionary:
+	var f := {"members": [], "center": center, "scatter": 0.0, "kind": kind}
 	for i in randi_range(5, 12):
 		var prey: Node2D = g.PreyScript.new()
 		prey.position = center + Vector2(randf_range(-60, 60), randf_range(-60, 60))
 		prey.flock = f
 		g.add_child(prey)
-		prey.setup("pigeon", g.PREY.pigeon, g.tex.pigeon, g, bonus)
+		prey.setup(kind, g.PREY[kind], tex_for(kind), g, bonus)
 		f.members.append(prey)
 	flocks.append(f)
 	return f
@@ -73,7 +84,7 @@ func scatter(f: Dictionary) -> void:
 	f.scatter = randf_range(15.0, 25.0)
 	g.sfx("pigeons_scatter")
 	for p in f.members:
-		g.bump("pigeons")  # Biscuit's "scatter 10 pigeons"
+		g.bump(f.get("kind", "pigeon") + "s")  # Biscuit's "scatter 10 pigeons", SF Pest Patrol parrots
 
 ## Bark (spec 05): every flock with a bird inside the ring scatters.
 func scatter_near(at: Vector2, radius: float) -> void:

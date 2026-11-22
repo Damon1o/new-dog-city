@@ -84,6 +84,7 @@ func travel(city_id: String) -> void:
 	tw.tween_property(g.fade, "color:a", 0.0, 0.3)
 	tw.tween_callback(func():
 		g.player.frozen = false
+		g.bump("met_" + id, true)  # city quest lines (SF Pest Patrol) show from the first landing
 		if not Story.has("cs_arrive_" + id) and g.dialog.CUTSCENES.has("cs_arrive_" + id):
 			g.dialog.play("cs_arrive_" + id)
 		g.save_game())
