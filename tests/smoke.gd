@@ -876,7 +876,7 @@ func _initialize() -> void:
 	player.stamina = 100.0
 	player.bark_cd = player.BARK_CD  # the frames above drained it; the ability-bar check wants a fresh one
 	# ability bar (M1-7): exists, cooldown sweep follows <name>_cd, pounce hidden below level 30
-	await frames(1)
+	await frames(2)  # 2: the HUD reads cooldowns before the player ticks them
 	assert(game.abilities.has("dash") and game.abilities.has("bark"), "ability bar built")
 	assert(game.abilities.bark.v > 0.9 and game.abilities.bark.v < 1.0, "bark cooldown on the bar")
 	assert(game.abilities.pounce.ctl.visible, "pounce shown at level 30")
