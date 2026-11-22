@@ -69,6 +69,9 @@ func interact() -> bool:
 	var c := here()
 	if c.is_empty():
 		return false
+	if c[0] == "nyc_mango" and not Story.has("ch1_bodega"):  # chapter 1 opener: Sam's things, sets ch1_bodega
+		g.dialog.play("cs_bodega_find")
+		return true
 	var t := today(c[0])
 	var line: String
 	if not t[2]:
