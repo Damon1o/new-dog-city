@@ -376,6 +376,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if player.bark():
 				spawner.scatter_near(player.position, 300.0)  # spec 05: pigeon flocks scatter at the sound
 				cats.on_bark()  # spec 07: barking in a bodega costs friendship
+		"crunch":
+			player.crunch()
+		"tail":
+			if player.tail_whip():
+				poof(player.position + Vector2(0, 12), Color(0.78, 0.74, 0.66, 0.7), 18, 160.0)
 		"interact":
 			interact()
 		"inventory", "stats":

@@ -322,13 +322,14 @@ func build_hud() -> void:
 	# bottom-left: ability cluster (spec 11 HUD) in a diamond - pounce on top, dash left, bark right.
 	# Locked ones hidden. Cooldown var = "<name>_cd".
 	var cluster := Control.new()
-	cluster.custom_minimum_size = Vector2(190, 176)
+	cluster.custom_minimum_size = Vector2(190, 272)  # diamond + crunch / tail row under it
 	cluster.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cluster.draw.connect(draw_cluster.bind(cluster))
 	dock(cluster, true, 8, Control.SIZE_SHRINK_BEGIN)
 	cluster.get_parent().offset_left = 8
 	for a in [["dash", Vector2(0, 76), g.player.DASH_CD], ["bark", Vector2(118, 76), g.player.BARK_CD],
-			["pounce", Vector2(59, 0), g.player.POUNCE_CD]]:
+			["pounce", Vector2(59, 0), g.player.POUNCE_CD], ["crunch", Vector2(0, 174), g.player.CRUNCH_CD],
+			["tail", Vector2(118, 174), g.player.TAIL_CD]]:
 		var c := Control.new()
 		c.size = Vector2(72, 98)
 		c.position = a[1]
@@ -550,12 +551,13 @@ func update_hud(delta: float) -> void:
 	for n in g.abilities:
 		var ab: Dictionary = g.abilities[n]
 		ab.v = float(g.player.get(n + "_cd")) / ab.max
-		ab.ctl.visible = n != "pounce" or g.player.level >= g.player.POUNCE_LEVEL
+		ab.ctl.visible = g.player.level >= g.player.UNLOCK.get(n, 0)
 		ab.ctl.queue_redraw()
 
 ## Ability orb: spiked dark ring, coloured core with an icon, gold rim when ready, dark sweep +
 ## seconds while cooling down, key pill under it.
-const AB_COLOR := {"dash": Color(0.25, 0.5, 0.95), "bark": Color(0.6, 0.3, 0.9), "pounce": Color(0.2, 0.75, 0.6)}
+const AB_COLOR := {"dash": Color(0.25, 0.5, 0.95), "bark": Color(0.6, 0.3, 0.9), "pounce": Color(0.2, 0.75, 0.6),
+	"crunch": Color(0.85, 0.25, 0.25), "tail": Color(0.9, 0.6, 0.2)}
 
 func draw_ability(n: String) -> void:
 	var ab: Dictionary = g.abilities[n]
@@ -602,6 +604,13 @@ func ab_icon(c: Control, n: String, m: Vector2, col: Color) -> void:
 			c.draw_circle(m + Vector2(0, 5), 6.5, col)
 			for p in [Vector2(-8, -3), Vector2(-3, -9), Vector2(3, -9), Vector2(8, -3)]:
 				c.draw_circle(m + p, 3.0, col)
+		"crunch":  # fangs
+			for s in [-1.0, 1.0]:
+				c.draw_colored_polygon(PackedVector2Array([m + Vector2(s * 9, -10), m + Vector2(s * 2, -10), m + Vector2(s * 5, 2)]), col)
+				c.draw_colored_polygon(PackedVector2Array([m + Vector2(s * 9, 10), m + Vector2(s * 2, 10), m + Vector2(s * 5, -2)]), col)
+		"tail":  # curled tail swoosh
+			c.draw_arc(m, 10.0, PI * 0.2, PI * 1.7, 16, col, 4.0)
+			c.draw_circle(m + Vector2.RIGHT.rotated(PI * 0.2) * 10.0, 3.5, col)
 
 ## Faint "+" hub between the orbs.
 func draw_cluster(c: Control) -> void:
@@ -860,7 +869,8 @@ const TIPS := ["Hotbar keys 1-4 use what's in each slot.", "E opens your bag; dr
 	"Every level gives 3 stat points. Spend them in Stats (K) whenever you like.",
 	"Armor from shops cuts the damage you take. Wear it in the bag's Armor slot.",
 	"M opens the full map with its key. Click a place to set a waypoint.",
-	"Bark (R) sends lower-level foes running.", "Elevators: stand by the doors and pick a floor."]
+	"Bark (R) sends lower-level foes running.", "Level 5: Crunch bite (Q). Level 12: Tail whip (T) hits all round.",
+	"Elevators: stand by the doors and pick a floor."]
 var loading: ColorRect
 var loading_title: Label
 var loading_tip: Label

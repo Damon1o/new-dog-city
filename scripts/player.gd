@@ -33,6 +33,18 @@ const POUNCE_PX := 160.0
 const POUNCE_TIME := 0.3
 const POUNCE_CD := 4.0
 const POUNCE_COST := 30.0
+# specials: crunch bite (Q, level 5) = 2.5x bite + 0.6 s stun; tail whip (T, level 12) =
+# spin hitting everything within 80 px for 1.2x bite, knocking foes twice as far
+const CRUNCH_LEVEL := 5
+const CRUNCH_DMG := 2.5
+const CRUNCH_CD := 5.0
+const CRUNCH_COST := 20.0
+const TAIL_LEVEL := 12
+const TAIL_DMG := 1.2
+const TAIL_RADIUS := 80.0
+const TAIL_CD := 7.0
+const TAIL_COST := 25.0
+const UNLOCK := {"pounce": POUNCE_LEVEL, "crunch": CRUNCH_LEVEL, "tail": TAIL_LEVEL}  # hud hides locked ones
 
 ## [var, label, gain per point]. 3 points per level, so each is a third of the old 10 HP / 2 bite / 1 mph.
 const STATS := [["stat_hp", "Max HP", 3.0], ["stat_atk", "Bite", 0.6], ["stat_spd", "Speed (mph)", 0.3]]
@@ -80,6 +92,8 @@ var dash_cd := 0.0  # read by the ability bar (M1-7)
 var bark_cd := 0.0
 var pounce_cd := 0.0
 var pounce_t := 0.0  # leap time left
+var crunch_cd := 0.0
+var tail_cd := 0.0
 var space_t := 0.0   # how long Space has been held
 var facing := Vector2.RIGHT
 var anim_t := 0.0
@@ -144,6 +158,8 @@ func _physics_process(delta: float) -> void:
 	dash_cd = maxf(dash_cd - delta, 0.0)
 	bark_cd = maxf(bark_cd - delta, 0.0)
 	pounce_cd = maxf(pounce_cd - delta, 0.0)
+	crunch_cd = maxf(crunch_cd - delta, 0.0)
+	tail_cd = maxf(tail_cd - delta, 0.0)
 	for slot in buffs.keys():
 		buffs[slot].t -= delta
 		if buffs[slot].t <= 0.0:
@@ -260,9 +276,39 @@ func pounce() -> bool:
 func land() -> void:
 	var center := position + facing * 26.0
 	get_parent().on_bite(center, 46.0, attack_damage() * 2.0)
+	stun_near(center, 0.8)
+
+## Q key (level 5): a heavy lunging bite, no reaction delay. Hits like 2.5 bites and stuns.
+func crunch() -> bool:
+	if frozen or level < CRUNCH_LEVEL or crunch_cd > 0.0 or stamina < CRUNCH_COST:
+		return false
+	stamina -= CRUNCH_COST
+	crunch_cd = CRUNCH_CD
+	var tw := create_tween()
+	tw.tween_property(sprite, "position", facing * 18.0, 0.06)
+	tw.tween_property(sprite, "position", Vector2.ZERO, 0.14)
+	var center := position + facing * 26.0
+	get_parent().on_bite(center, 46.0, attack_damage() * CRUNCH_DMG)
+	stun_near(center, 0.6)
+	return true
+
+## T key (level 12): spins and sweeps the tail all the way round.
+func tail_whip() -> bool:
+	if frozen or level < TAIL_LEVEL or tail_cd > 0.0 or stamina < TAIL_COST:
+		return false
+	stamina -= TAIL_COST
+	tail_cd = TAIL_CD
+	create_tween().tween_property(sprite, "rotation", TAU, 0.25).from(0.0)
+	get_parent().on_bite(position, TAIL_RADIUS, attack_damage() * TAIL_DMG)
+	for r in foes():
+		if r.position.distance_to(position) < TAIL_RADIUS + 34.0:
+			r.knock *= 2.0  # hurt() already shoved it away from the dog
+	return true
+
+func stun_near(center: Vector2, time: float) -> void:
 	for r in foes():
 		if r.position.distance_to(center) < (80.0 if r.is_in_group("boss") else 56.0):  # same reach as on_bite
-			r.stun(0.8)
+			r.stun(time)
 
 func foes() -> Array:
 	return get_tree().get_nodes_in_group("raccoon") + get_tree().get_nodes_in_group("boss")
