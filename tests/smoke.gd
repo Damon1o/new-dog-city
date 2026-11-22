@@ -399,7 +399,7 @@ func _initialize() -> void:
 	await frames(50)
 	assert(game.city.id == "sf" and game.inside == "", "landed in SF on the street")
 	assert(game.save_extra["world/city"] == "sf", "save knows the city")
-	assert(game.landmarks.size() == 2 and game.landmarks.any(func(l): return l.name == "Coit Tower"), "SF landmarks")
+	assert(game.landmarks.size() == 7 and game.landmarks.any(func(l): return l.name == "Golden Gate Bridge"), "SF landmarks")
 	assert(game.stations.size() == 4 and game.bodega_doors.size() == 3, "4 cable car stops, 3 corner stores")
 	var sfo: Array = game.doors.filter(func(d): return d.template == "airport")
 	assert(sfo.size() == 1 and sfo[0].name == "SFO Airport" and player.position.distance_to(sfo[0].pos) < 200.0, "dog at SFO")

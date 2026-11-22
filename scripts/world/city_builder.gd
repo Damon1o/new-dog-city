@@ -260,11 +260,16 @@ func build_block(b: Vector2i) -> void:
 				add_tree(p)
 	elif g.LANDMARKS.has(b):
 		var base := o + Vector2(256, 372)
-		add_building(g.tex[g.LANDMARKS[b][0]], base, 1.25, 0.45)
-		g.landmarks.append({"pos": base, "name": g.LANDMARKS[b][1], "seen": false})
-		add_door(base + Vector2(0, 18), "office", b, 0, 6, g.LANDMARKS[b][1])
-		add_tree(o + Vector2(60, 360))
-		add_tree(o + Vector2(452, 360))
+		var lm: Array = g.LANDMARKS[b]
+		var t: Texture2D = g.tex[lm[0]]
+		add_building(t, base, 1.25, 0.45)
+		g.landmarks.append({"pos": base, "name": lm[1], "seen": false})
+		var door: String = lm[2] if lm.size() > 2 else "office"  # bridge / Lombard: look, don't enter
+		if door != "":
+			add_door(base + Vector2(0, 18), door, b, 0, 6 if door == "office" else 1, lm[1])
+		if t.get_width() < 200:  # wide sights fill the block; trees would sit inside them
+			add_tree(o + Vector2(60, 360))
+			add_tree(o + Vector2(452, 360))
 	elif b == CITIES[id].get("airport", Vector2i(-1, -1)):
 		add_building(design("airport"), o + Vector2(256, 260), 2.2, 0.6)
 		add_door(o + Vector2(256, 282), "airport", b, 0, 1, CITIES[id].get("airport_name", "Airport"))
