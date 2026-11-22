@@ -150,14 +150,21 @@ const ROOMS := {
 			"podium": Vector2(576, 480), "boss": Vector2(576, 330)},  # M5-7 bell podium + Fat Cat (scripts/world/nyse_arena.gd)
 		"door": ["NYSE   stock exchange", "[F]  Go inside"], "exit": ["NYSE TRADING FLOOR", "[F]  Back to the street"],
 	},
-	# M4-6 pound (spec 08): no street door, wanted.caught() sends the dog here. No exit spot:
-	# scripts/world/pound.gd adds the cell walls, guard and fence and lets him out.
+	# M4-6 pound (spec 08), redesigned: kennel row (the dog's cell + three caged strays) top left,
+	# the warden's office top right, the exercise yard bottom right, a lit corridor between. No
+	# street door: wanted.caught() sends the dog here, scripts/world/pound.gd adds the walls, bars,
+	# fences and the Warden Brutus boss, and lets him out. No exit spot.
 	"pound": {
-		"size": Vector2(960, 448), "kind": "pound", "tint": Color(0.85, 0.88, 0.92),
-		"paint": [[Rect2(0, 0, 960, 448), "platform", Color(0.75, 0.78, 0.8)], [Rect2(0, 0, 960, 96), "station_wall", Color(0.55, 0.6, 0.65)],
-			[Rect2(0, 96, 200, 164), Color(0.35, 0.33, 0.3)], [Rect2(760, 96, 200, 352), "grass", Color(0.8, 0.85, 0.7)]],
-		"props": [],
-		"spots": {"start": Vector2(100, 200), "cell": Vector2(100, 236), "out": Vector2(100, 300), "fence": Vector2(900, 300)},
+		"size": Vector2(1280, 640), "kind": "pound", "tint": Color(0.85, 0.88, 0.92),
+		"paint": [[Rect2(0, 0, 1280, 640), "platform", Color(0.7, 0.73, 0.76)], [Rect2(0, 0, 1280, 96), "station_wall", Color(0.5, 0.55, 0.6)],
+			[Rect2(0, 96, 640, 200), Color(0.36, 0.34, 0.31)], [Rect2(960, 96, 320, 224), Color(0.5, 0.38, 0.26)],
+			[Rect2(960, 320, 320, 320), "grass", Color(0.78, 0.85, 0.66)], [Rect2(0, 304, 960, 4), Color(0.9, 0.75, 0.2)],
+			[Rect2(0, 632, 960, 4), Color(0.9, 0.75, 0.2)]],
+		"props": [["water_bowl", Vector2(60, 270), 1.25, Vector2.ZERO], ["water_bowl", Vector2(220, 270), 1.25, Vector2.ZERO],
+			["water_bowl", Vector2(380, 270), 1.25, Vector2.ZERO], ["water_bowl", Vector2(540, 270), 1.25, Vector2.ZERO],
+			["bench", Vector2(780, 140), 1.0, Vector2(64, 10)]],
+		"spots": {"start": Vector2(100, 200), "cell": Vector2(100, 240), "out": Vector2(100, 344), "fence": Vector2(1236, 520),
+			"boss": Vector2(1100, 210)},
 	},
 	# M5-5 flashbacks (spec 04): the sepia is the tint (game.night is a CanvasModulate); props and
 	# Sam come per flashback from data/story.gd. ponytail: the far-off exit spot keeps the street

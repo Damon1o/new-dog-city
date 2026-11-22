@@ -3,7 +3,9 @@ extends Node
 ## when discounted) and owned count; footer with wallet and discount source.
 ## [1-4] buy x1, Shift + [1-4] buy x5. Shown while game.ctx == "bodega".
 ## Pizza (spec 08 Stealing): one more row steals a slice; the clerk turns to watch the counter
-## every 3-6 s for 1.5 s ("!" over his head). Unwatched = free slice; watched = pushed out. +25 heat.
+## every 3-6 s for 1.5 s ("!" over his head). Unwatched = a free slice in the bag; watched = pushed
+## out. +25 heat. The clerk is a person (person_art.gd): bite him enough and he's gone for the visit
+## (5 stars), nobody watches the counter.
 
 const Items := preload("res://scripts/data/items.gd")
 const Wardrobe := preload("res://scripts/data/wardrobe.gd")
@@ -17,6 +19,7 @@ var wallet: Label
 var source: Label
 var steal_row: Label
 var clerk: Node2D  # pizza clerk, lives in the room (freed with it)
+var clerk_room: Node  # room the clerk was killed in: no new clerk until the dog leaves it
 var turn_t := 3.0   # s until the clerk turns to watch
 var watch_t := 0.0  # s left watching the counter
 
@@ -158,19 +161,20 @@ func steal() -> bool:
 		g.show_msg("The clerk saw you! Out!")
 		g.interior.leave()
 		return false
-	g.player.consume("pizza")
-	g.show_msg("Stole a slice!")
+	g.inventory.add("pizza", 1)
+	g.show_msg("Stole a slice! - in your bag [%s]" % g.Keys.label("inventory"))
+	g.save_game()
 	return true
 
 func clerk_watch(delta: float) -> void:
 	if not is_instance_valid(clerk) or clerk.is_queued_for_deletion():
-		clerk = Node2D.new()
-		clerk.position = g.interior.O + Vector2(480, 215)  # behind the counter
-		clerk.draw.connect(func():
-			clerk.draw_rect(Rect2(-9, -14, 18, 22), Color.WHITE)  # apron
-			clerk.draw_circle(Vector2(0, -20), 7, Color(0.95, 0.78, 0.62) if watch_t > 0.0 else Color(0.3, 0.2, 0.15))  # face / back of head
-			if watch_t > 0.0:
-				clerk.draw_string(ThemeDB.fallback_font, Vector2(-4, -32), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 0.3, 0.2)))
+		if clerk_room == g.interior.room:  # killed this visit: the counter is unwatched
+			watch_t = 0.0
+			return
+		clerk = Clerk.new()
+		clerk.shop = self
+		clerk.position = g.interior.O + Vector2(480, 196)  # behind the counter, drawn over its sprite
+		clerk.z_index = 1
 		g.interior.room.add_child(clerk)
 	if watch_t > 0.0:
 		watch_t -= delta
@@ -181,3 +185,32 @@ func clerk_watch(delta: float) -> void:
 		if turn_t <= 0.0:
 			watch_t = 1.5
 	clerk.queue_redraw()
+
+## Pizza clerk: faces the oven (back turned) or the room (watching, "!"). 30 HP.
+class Clerk extends Node2D:
+	const P := preload("res://scripts/person_art.gd")
+	const LOOK := {"skin": Color(0.88, 0.68, 0.5), "hair": Color(0.1, 0.08, 0.07), "style": "short", "shirt": Color(0.8, 0.15, 0.12),
+		"pants": Color(0.15, 0.15, 0.18), "build": 1.1, "hat": "paper", "apron": Color(0.96, 0.96, 0.92)}
+	var shop: Node
+	var hp := 30.0
+
+	func _ready() -> void:
+		add_to_group("person")  # game.on_bite
+
+	func hurt(dmg: float) -> void:
+		hp -= dmg
+		P.hit(self, shop.g, dmg, hp <= 0.0)
+		if hp <= 0.0:
+			shop.clerk_room = shop.g.interior.room
+			queue_free()
+		else:
+			shop.watch_t = 2.0  # now he's watching
+
+	func _draw() -> void:
+		var watching: bool = shop.watch_t > 0.0
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(-1.0 if watching else 1.0, 1.0))  # oven is to his right
+		P.draw(self, LOOK, 0.0, "reach" if watching else "walk", "angry" if watching else "")
+		draw_set_transform(Vector2.ZERO)
+		if watching:
+			draw_string_outline(ThemeDB.fallback_font, Vector2(-4, -36), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, 3, Color.BLACK)
+			draw_string(ThemeDB.fallback_font, Vector2(-4, -36), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 22, Color(1, 0.3, 0.2))

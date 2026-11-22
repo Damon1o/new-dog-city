@@ -1,5 +1,5 @@
 extends Node2D
-## Animal control officer (spec 08): chases on foot at 230 px/s, can't be hurt, grabs the
+## Animal control officer (spec 08): chases on foot at 230 px/s, HP 60 (a kill = 5 stars), grabs the
 ## dog after 1.2 s within 24 px. Bark stuns 0.5 s (systems/wanted.gd), dash slips past.
 ## Net-gun officers (4+ stars) fire a slow net that roots the dog 2 s. Drawn in code.
 
@@ -9,6 +9,10 @@ const GRAB_TIME := 1.2
 const NET_RANGE := 320.0
 const NET_CD := 3.0
 const PARK_WAIT := 5.0
+const Person := preload("res://scripts/person_art.gd")
+const LOOK := {"skin": Color(0.95, 0.78, 0.62), "hair": Color(0.2, 0.14, 0.1), "style": "short", "shirt": Color(0.12, 0.2, 0.4),
+	"pants": Color(0.1, 0.1, 0.14), "shoes": Color(0.08, 0.08, 0.08), "build": 1.15, "hat": "cap", "hat_col": Color(0.08, 0.13, 0.28),
+	"stripe": Color(0.95, 0.55, 0.1), "badge": true}
 
 var g: Node2D
 var wanted: Node
@@ -23,12 +27,22 @@ var fence_t := 0.0  # waiting at a dog park fence
 var walk := 0.0     # seconds spent running: leg swing
 var kick := 0.0     # 1 -> 0 after a net shot: recoil
 var face := 1.0     # 1 = facing right (art below is drawn facing right), -1 = left
+var hp := 60.0
 
 func setup(p_game: Node2D, at: Vector2) -> void:
 	g = p_game
 	wanted = g.wanted
 	position = at
 	add_to_group("officer")
+	add_to_group("person")  # game.on_bite hurts every person
+
+func hurt(dmg: float) -> void:
+	hp -= dmg
+	Person.hit(self, g, dmg, hp <= 0.0)
+	if hp <= 0.0:
+		queue_free()
+	else:
+		stun(0.3)  # staggered by the bite
 
 func stun(time: float) -> void:
 	stun_t = maxf(stun_t, time)
@@ -88,21 +102,14 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var swing := sin(walk * 14.0) * 3.0 if stun_t <= 0.0 else 0.0
 	var lean := -3.0 * kick + (4.0 if grab_t > 0.0 else 0.0)  # net recoil back, grab lunges in
-	draw_set_transform(Vector2(lean * face, -absf(swing) * 0.5), 0.0, Vector2(face, 1.0))  # mirror the body, not the grab bar
-	var navy := Color(0.12, 0.2, 0.4) if stun_t <= 0.0 else Color(0.5, 0.5, 0.7)
-	draw_rect(Rect2(-8 + swing, 8, 6, 8), Color(0.1, 0.1, 0.12))  # legs, scissoring as he runs
-	draw_rect(Rect2(2 - swing, 8, 6, 8), Color(0.1, 0.1, 0.12))
-	draw_rect(Rect2(-9, -14, 18, 22), navy)                 # uniform
-	var hand := Vector2(20, -12) if grab_t > 0.0 else Vector2(4 - swing, 4)  # arms out to grab
-	draw_line(Vector2(6, -11), hand, navy.darkened(0.2), 4.0)
-	draw_circle(hand, 2.5, Color(0.95, 0.78, 0.62))
-	draw_circle(Vector2(0, -20), 7, Color(0.95, 0.78, 0.62))  # head
-	draw_rect(Rect2(-8, -29, 16, 5), navy.darkened(0.3))      # cap
-	draw_rect(Rect2(-2, -25, 12, 2), navy.darkened(0.5))      # brim
-	draw_circle(Vector2(-4, -8), 2.5, Color(1, 0.85, 0.2))    # badge
-	draw_rect(Rect2(-6, -2, 12, 3), Color(0.9, 0.5, 0.1))     # hi-vis stripe
+	draw_set_transform(Vector2(lean * face, 4.0 - absf(swing) * 0.5), 0.0, Vector2(face, 1.0))  # mirror the body, not the grab bar
+	var lk := LOOK
+	if stun_t > 0.0:
+		lk = LOOK.duplicate()
+		lk.shirt = Color(0.5, 0.5, 0.7)
+	Person.draw(self, lk, swing, "reach" if grab_t > 0.0 else "walk", "angry")
 	if net:
-		draw_rect(Rect2(8 - 4.0 * kick, -6 - 3.0 * kick, 14, 5), Color(0.45, 0.45, 0.5))  # net gun, kicks up on a shot
+		draw_rect(Rect2(8 - 4.0 * kick, -14 - 3.0 * kick, 14, 5), Color(0.45, 0.45, 0.5))  # net gun, kicks up on a shot
 	draw_set_transform(Vector2.ZERO)
 	if grab_t > 0.0:  # grab bar over the dog
 		var at: Vector2 = g.player.position - position + Vector2(-20, -40)
