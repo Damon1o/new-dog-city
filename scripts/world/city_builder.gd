@@ -10,7 +10,7 @@ const VARIANTS := 16  # designs per generic kind, see tools/gen_buildings.py
 const DESIGN := {"building_a": "apartment", "building_b": "office", "building_c": "shop"}
 const SANS := preload("res://fonts/BalsamiqSans-Regular.ttf")
 const Look := preload("res://scripts/ui/theme.gd")
-static var NY_FONT := Look.TITLE_FONT  # Engravers' Old English BT is only for the title
+static var NY_FONT := Look.TITLE_FONT  # BBH Bogle is for the title
 
 var perf_n := 0
 var perf_sum := 0.0

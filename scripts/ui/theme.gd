@@ -12,14 +12,15 @@ const SLOT := Color(0.13, 0.11, 0.1, 0.92)  # wells: inventory slots, text field
 
 const BIG := 1.25  # "Large text" setting (spec 11 accessibility)
 const SANS := preload("res://fonts/BalsamiqSans-Regular.ttf")
+const BOGLE := preload("res://fonts/BBHBogle-Regular.ttf")
 
-## Engravers' Old English BT is used ONLY for the game title.
+## BBH Bogle is used for the game title.
 static var TITLE_FONT := _title_font()
 
 static func _title_font() -> SystemFont:
 	var f := SystemFont.new()
-	f.font_names = ["Engravers' Old English BT", "Engravers Old English BT", "EngraversOldEnglish BT", "Old English Text MT"]
-	f.fallbacks = [SANS]
+	f.font_names = ["BBH Bogle", "BBHBogle", "Bogle"]
+	f.fallbacks = [BOGLE, SANS]
 	return f
 
 ## Scale one Label / Button's text from the size it was built with. Safe to call repeatedly.
