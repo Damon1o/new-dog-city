@@ -8,17 +8,9 @@ const OLD := Vector2i(6, 5)  # the pre-M2-1 map, kept block for block as the top
 const PERF_EVERY := 300  # frames per frame-time log line
 const VARIANTS := 16  # designs per generic kind, see tools/gen_buildings.py
 const DESIGN := {"building_a": "apartment", "building_b": "office", "building_c": "shop"}
-const SANS := preload("res://fonts/BalsamiqSans-Regular.ttf")  # every city but NY
-## NY blackletter. Engravers' Old English BT is commercial, so it isn't bundled: the OS copy is used.
-## ponytail: machines without it fall back to Old English Text MT, then the OS default.
-## Upgrade path: drop a licensed .ttf in fonts/ and preload it here.
-static var NY_FONT := _ny_font()
-
-static func _ny_font() -> SystemFont:
-	var f := SystemFont.new()
-	f.font_names = ["Engravers' Old English BT", "Engravers Old English BT", "EngraversOldEnglish BT", "Old English Text MT"]
-	f.fallbacks = [SANS]
-	return f
+const SANS := preload("res://fonts/BalsamiqSans-Regular.ttf")
+const Look := preload("res://scripts/ui/theme.gd")
+static var NY_FONT := Look.TITLE_FONT  # Engravers' Old English BT is only for the title
 
 var perf_n := 0
 var perf_sum := 0.0
@@ -36,10 +28,9 @@ func build(city_id: String) -> void:
 	for list: Array in [g.building_rects, g.parks, g.trees, g.cans, g.water_spots, g.bodega_doors, g.doors, g.stations, g.landmarks, g.manholes]:
 		list.clear()
 	id = city_id
-	var font: Font = NY_FONT if id == "nyc" else SANS
-	ThemeDB.fallback_font = font  # draw_string() callers + any Control without a theme font
+	ThemeDB.fallback_font = SANS  # draw_string() callers + any Control without a theme font
 	if g.hud and g.hud.theme:
-		g.hud.theme.default_font = font  # HUD / home / dialog share this theme
+		g.hud.theme.default_font = SANS  # HUD / home / dialog share this theme (all Balsamiq Sans)
 	var c: Dictionary = CITIES[id]
 	g.PARKS = c.parks
 	g.BODEGAS = c.bodegas

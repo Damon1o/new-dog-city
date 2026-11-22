@@ -11,6 +11,16 @@ const DIM := Color(0.74, 0.68, 0.6)
 const SLOT := Color(0.13, 0.11, 0.1, 0.92)  # wells: inventory slots, text fields, puzzle cells
 
 const BIG := 1.25  # "Large text" setting (spec 11 accessibility)
+const SANS := preload("res://fonts/BalsamiqSans-Regular.ttf")
+
+## Engravers' Old English BT is used ONLY for the game title.
+static var TITLE_FONT := _title_font()
+
+static func _title_font() -> SystemFont:
+	var f := SystemFont.new()
+	f.font_names = ["Engravers' Old English BT", "Engravers Old English BT", "EngraversOldEnglish BT", "Old English Text MT"]
+	f.fallbacks = [SANS]
+	return f
 
 ## Scale one Label / Button's text from the size it was built with. Safe to call repeatedly.
 static func big_text(n: Node, on: bool) -> void:
@@ -39,8 +49,8 @@ static func box(bg := BG, radius := 10, edge := EDGE, pad := 10) -> StyleBoxFlat
 static func make() -> Theme:
 	var t := Theme.new()
 	t.default_font_size = 15
-	t.default_font = ThemeDB.fallback_font  # city_builder.build() swaps it per city
-	t.default_font = ThemeDB.fallback_font  # city_builder.build() swaps it per city
+	t.default_font = SANS
+	ThemeDB.fallback_font = SANS
 	t.set_stylebox("panel", "PanelContainer", box())
 	t.set_stylebox("panel", "Panel", box())
 	t.set_color("font_color", "Label", TEXT)

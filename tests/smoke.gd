@@ -18,6 +18,7 @@ func _initialize() -> void:
 	home.save_path = SAVE
 	root.add_child(home)
 	await frames(1)
+	assert(home.title_label.text == "NEW DOG CITY" and home.title_label.has_theme_font_override("font"), "title uses Engravers' Old English BT override")
 	assert(not home.continue_btn.visible, "no save: Continue hidden")
 	assert(home.wardrobe_btn.disabled, "no save: home Wardrobe disabled")
 	home.open_settings()
@@ -1318,7 +1319,7 @@ func _initialize() -> void:
 	game.city.build("nyc")
 	assert(Performance.get_monitor(Performance.OBJECT_NODE_COUNT) == nodes, "build twice, same node count")
 	assert(game.building_rects.size() == rects and game.landmarks[0].seen, "same city, sights kept")
-	assert(ThemeDB.fallback_font == game.city.NY_FONT and game.hud.theme.default_font == game.city.NY_FONT, "NY blackletter font")
+	assert(ThemeDB.fallback_font == game.city.SANS and game.hud.theme.default_font == game.city.SANS, "Balsamiq Sans in NY too: title only uses Engravers")
 	paused = false  # the shop checks above leave the tree paused
 	game.city.travel("nyc")
 	await frames(45)

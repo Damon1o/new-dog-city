@@ -30,6 +30,7 @@ var layout: Control
 var dog_pic: TextureRect
 var dog_name: Label
 var dog_stats: Label
+var title_label: Label
 var bob := 0.0
 
 ## A save counts once it has a dog: restart() leaves a "ui"-only file (volumes), which is no save.
@@ -85,8 +86,10 @@ func _ready() -> void:
 	row.add_child(left)
 	var title := label(left, 64, GOLD)
 	title.text = "NEW DOG CITY"
+	title.add_theme_font_override("font", Look.TITLE_FONT)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	title.add_theme_constant_override("outline_size", 10)
+	title_label = title
 	var sub := label(left, 20, Look.ACCENT.lightened(0.4))
 	sub.text = "LOST PACKET"
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
