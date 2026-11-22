@@ -159,6 +159,17 @@ func _initialize() -> void:
 	keys.apply({})
 	# loading card on doors; corner boxes exist; map key only on the big map
 	assert(game.ui.corner.size() == 6 and game.ui.corner.has("stats"))
+	# full map hides the HUD (stats, minimap, quests, docks); quest tracker minimizes
+	game.toggle_map()
+	await frames(2)
+	assert(not game.mini.visible and game.ui.map_hide.all(func(n): return not n.visible), "map hides the HUD")
+	game.toggle_map()
+	await frames(2)
+	assert(game.mini.visible and game.ui.map_hide.all(func(n): return n.visible), "HUD back after the map")
+	game.ui.quest_btn.pressed.emit()
+	assert(not game.quest_label.visible, "quest tracker minimizes")
+	game.ui.quest_btn.pressed.emit()
+	assert(game.quest_label.visible, "quest tracker expands")
 
 	# dash (M1-3): 200-240 px burst, no damage mid-dash, cooldown + stamina cost
 	player.position = Vector2(700, 64)  # top road, open to the right

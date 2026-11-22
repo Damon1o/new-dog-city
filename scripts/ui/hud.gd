@@ -5,6 +5,8 @@ const Keys := preload("res://scripts/systems/keys.gd")
 var buff_row: HBoxContainer  # food / drink buff chips, bottom centre
 var portrait: Control  # diamond dog portrait, top-left
 var bones_label: Label
+var map_hide: Array[Control] = []  # hidden while the full M map is open
+var quest_btn: Button  # quest tracker header; click to minimize
 ## HUD: building and per-frame updates (moved from game.gd). Widget vars stay on
 ## game so save, tests and actors keep reading them there.
 
@@ -43,6 +45,7 @@ func dock(c: Control, bottom: bool, margin: float, h := Control.SIZE_SHRINK_CENT
 	c.size_flags_horizontal = h
 	box.add_child(c)
 	box.add_child(gap)
+	map_hide.append(box)
 	if not bottom:
 		box.move_child(gap, 0)
 
@@ -209,6 +212,7 @@ func build_hud() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 6)
 	g.hud.add_child(col)
+	map_hide.append(col)
 	var frame := HBoxContainer.new()
 	frame.add_theme_constant_override("separation", -10)  # bars tuck under the diamond's right point
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -263,14 +267,26 @@ func build_hud() -> void:
 	g.mini.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	g.mini.draw.connect(draw_minimap)
 	g.hud.add_child(g.mini)
+	map_hide.append(g.mini)
 	g.mini.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_KEEP_SIZE, 10)
 
 	# under the minimap: tutorial / quest tracker
 	var quests := panel()
 	quests.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	g.quest_label = hud_label(quests, 12)
+	var qv := VBoxContainer.new()
+	qv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	quests.add_child(qv)
+	quest_btn = Button.new()  # a Button so clicking it never bites (see game._input)
+	quest_btn.flat = true
+	quest_btn.focus_mode = Control.FOCUS_NONE
+	quest_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	quest_btn.add_theme_font_size_override("font_size", 11)
+	quest_btn.pressed.connect(func(): g.quest_label.visible = not g.quest_label.visible)
+	qv.add_child(quest_btn)
+	g.quest_label = hud_label(qv, 12)
 	g.quest_label.custom_minimum_size.x = 184
 	g.hud.add_child(quests)
+	map_hide.append(quests)
 	quests.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	quests.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 10)
 	quests.offset_top = g.mini.size.y + 18
@@ -468,6 +484,9 @@ func show_menu(head: String, rows: Array) -> void:  # rows: [[text, enabled], ..
 			g.menu_rows[i].modulate = Color(0.6, 1, 0.7) if rows[i][1] else Color(0.6, 0.6, 0.6)
 
 func update_hud(delta: float) -> void:
+	for n in map_hide:  # full map: nothing on top of it but the key
+		n.visible = not g.god_view
+	quest_btn.text = "QUESTS  [-]" if g.quest_label.visible else "QUESTS  [+]"
 	g.title.text = g.player.display_name()
 	portrait.queue_redraw()
 	set_bar("hp", g.player.hp / g.player.max_hp, delta, "%d / %d" % [ceili(g.player.hp), int(g.player.max_hp)])
