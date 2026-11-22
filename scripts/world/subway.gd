@@ -5,6 +5,8 @@ extends Node
 var g: Node2D
 
 const Cat := preload("res://scripts/enemies/cat.gd")
+const Human := preload("res://scripts/human.gd")
+const HOMELESS_SPOTS := [Vector2(110, 150), Vector2(660, 140), Vector2(905, 150), Vector2(1100, 165)]  # room-local, off stairs / board
 const RAT_PACKS := [Vector2(990, 220), Vector2(90, 390)]  # room-local: far platform end, left tunnel mouth
 
 const STOP_X := 576.0      # room-local x the train's centre stops at (the map board)
@@ -16,13 +18,15 @@ var ride_to := -1   # station picked at the map board, waiting for the train
 var riding := false
 var last_x := 0.0   # train x last frame: only a moving train flings dogs
 var rats: Array = []  # this station's rats (children of the room, so leaving frees them)
+var homeless: Array = []  # this station's platform regulars (human.gd, homeless = true), same lifetime
 
-## A few rats per pack. Level from the station's street spot: the room itself sits far off the map.
+## A few rats per pack, plus 2-3 homeless people sitting on the platform. Rat level from the station's street spot: the room itself sits far off the map.
 func spawn_rats() -> void:
-	for r in rats:
+	for r in rats + homeless:
 		if is_instance_valid(r):
 			r.queue_free()
 	rats.clear()
+	homeless.clear()
 	for spot: Vector2 in RAT_PACKS:
 		for i in randi_range(2, 4):
 			var r: Node2D = Cat.new()
@@ -30,6 +34,13 @@ func spawn_rats() -> void:
 			r.setup("rat", g.stations[g.station_i].pos, g)
 			r.position = g.interior.O + spot + Vector2(randf_range(-40, 40), randf_range(-25, 25))
 			rats.append(r)
+	var spots := HOMELESS_SPOTS.duplicate()
+	spots.shuffle()
+	for i in randi_range(2, 3):
+		var h := Human.new()
+		h.setup_human(g, g.interior.O + spots[i], true)
+		g.interior.room.add_child(h)
+		homeless.append(h)
 
 ## Map board pick: wait on the platform for the next train.
 func travel(n: int) -> void:

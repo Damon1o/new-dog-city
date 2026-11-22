@@ -908,6 +908,7 @@ func _initialize() -> void:
 	game.interior.enter(game.stations[0].door)
 	assert(game.inside == "subway" and game.station_i == 0)
 	assert(game.subway.rats.size() >= 4 and game.subway.rats.all(func(r): return r.is_in_group("foe")), "rats in the subway")
+	assert(game.subway.homeless.size() >= 2 and game.subway.homeless.all(func(h): return h.homeless and h.is_in_group("person") and h.threat() == null), "homeless people sit on the platform, unbothered by rats")
 	var rides: int = game.stat("rides")
 	player.position = game.interior.O + Vector2(576, 200)
 	game.travel(1)
