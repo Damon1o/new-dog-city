@@ -426,7 +426,7 @@ func _initialize() -> void:
 	yote.state = yote.State.IDLE
 	game.on_boss_left(yote)
 	st.flags.erase("cs_coyote_pre")
-	# Good Boy AI: SF startup garage, Patch's pitch once, found it, profit by the day, beta cutscene
+	# Good Boy AI tycoon: Patch's pitch once, found, hire, ship the beta, grow, raise, move, collect
 	var garage: Array = game.doors.filter(func(d): return d.template == "startup")
 	assert(garage.size() == 1, "one startup garage in SF")
 	game.interior.enter(garage[0])
@@ -434,26 +434,61 @@ func _initialize() -> void:
 	game.dialog.skip()
 	player.position = game.interior.spots.pitch
 	await frames(2)
-	assert(game.ctx == "startup" and game.startup.rows()[0][0].contains("Found"), "founder's desk menu")
+	var su: Node = game.startup
+	su.rng.seed = 7  # random company events stay the same every run
+	assert(game.ctx == "startup" and su.rows()[0][0].contains("Found"), "founder's desk menu")
 	var su_treats: int = player.treats
-	player.treats = 2000
+	player.treats = 20000
 	game.on_number(0)
-	assert(game.startup.stage() == 1 and player.treats == 1850 and game.dialog.playing(), "founded for 150, cutscene")
+	assert(su.founded() and player.treats == 19850 and game.dialog.playing(), "founded for 150, cutscene")
 	game.dialog.skip()
-	var su_day: int = game.territory.day()
-	game.save_extra["world/day"] = su_day + 5
-	assert(game.startup.owed() == 30, "10 a day, at most 3 days banked")
+	assert(su.revenue() == 0.0 and su.growth() == 0.0, "no product, no users")
+	game.on_number(0)  # Team & hiring
+	game.on_number(0)  # engineer
+	assert(su.staff("eng") == 1 and su.page == "hire", "hired an engineer")
+	for i in 3:
+		game.on_number(2)  # marketers
+	game.on_number(1)  # designer: the garage holds 4
+	assert(su.headcount() == 4 and su.staff("des") == 0, "garage team cap is 4")
+	game.on_number(4)  # back
+	assert(su.page == "main", "back to the main page")
+	await frames(1)
+	assert(su.office.get_children().filter(func(c): return c.is_in_group("startup_staff")).size() == 4, "a dog at each desk")
+	for i in 30:
+		su.tick()
+	assert(su.f("dev") >= su.dev_need() and su.f("users") == 0.0, "dev points pile up, still no users")
+	game.on_number(2)  # ship the beta
+	assert(su.n("version") == 1 and game.dialog.playing(), "PawFinder beta cutscene")
+	game.dialog.skip()
+	assert(st.has("startup_lead"), "the beta points at the pier")
+	for i in 200:
+		su.tick()
+	assert(su.f("users") == su.user_cap(), "users grow until the laptop is full")
+	assert(su.revenue() > su.salaries(), "the beta pays its way")
+	game.on_number(1)  # upgrades
+	game.on_number(1)  # server rack
+	assert(su.user_cap() == 2500 and su.office.get_children().any(func(c): return c is Sprite2D and c.texture == su.tex("su_server")), "rack bought and drawn")
+	game.on_number(0)  # the loft needs a seed round first
+	assert(su.n("office") == 0, "no move before the seed round")
+	game.on_number(5)
+	game.on_number(4)  # raise seed
+	assert(su.n("round") == 1 and su.f("bank") > 600.0 and game.dialog.playing(), "seed round lands in the bank")
+	game.dialog.skip()
 	game.on_number(1)
-	assert(player.treats == 1880 and game.startup.owed() == 0, "collected")
-	game.on_number(0)
-	game.on_number(0)
-	assert(game.startup.stage() == 3 and game.dialog.playing(), "PawFinder beta cutscene")
-	game.dialog.skip()
-	assert(st.has("startup_lead"), "beta points at the pier")
+	game.on_number(0)  # move to the loft
+	assert(su.n("office") == 1 and su.team_cap() == 8, "moved to the SoMa loft")
+	game.on_number(5)
+	var su_bank: int = su.owed()
+	var su_before: int = player.treats
+	game.on_number(5)  # collect
+	assert(player.treats == su_before + su_bank and su.owed() == 0, "collected the bank")
+	su.state().bank = -100.0
+	su.state().users = 0.0
+	su.tick()
+	assert(su.headcount() == 3, "out of runway: a hire quits")
 	player.treats = su_treats
-	game.save_extra["world/day"] = su_day
 	game.save_extra.erase("startup/state")
-	for f: String in ["cs_startup_intro", "cs_startup_found", "startup_lead"]:
+	for f: String in ["cs_startup_intro", "cs_startup_found", "startup_lead", "cs_startup_seed"]:
 		st.flags.erase(f)
 	game.interior.leave()
 	await frames(2)

@@ -182,7 +182,8 @@ const CUTSCENES := {
 		{"sfx": "bark"},
 		{"say": "Patch", "text": "Paperwork's done! Welcome to Good Boy AI. Our first product: PawFinder."},
 		{"say": "Byte", "text": "Feed it every smell in the city. Coffee, hoodie, laptop. Sam."},
-		{"say": "Patch", "text": "It'll earn treats while it learns. Swing by the desk to collect."},
+		{"say": "Patch", "text": "I'll code nights. Hire engineers to ship faster, marketers to get users, sales dogs to get paid."},
+		{"say": "Patch", "text": "Ship the beta, grow the users, raise a round, move somewhere without a lawnmower. Desk's yours."},
 		{"flag": "cs_startup_found"},
 	],
 	"cs_startup_beta": [
@@ -193,6 +194,23 @@ const CUTSCENES := {
 		{"pan": Vector2.ZERO, "t": 0.8},
 		{"say": "Byte", "text": "Sam's backpack! The pier it is."},
 		{"flag": "startup_lead"},
+	],
+	"cs_startup_seed": [
+		{"say": "Patch", "text": "A seagull in a vest just wired us 600 treats! We're seed funded!"},
+		{"say": "Patch", "text": "Seed money means a real office. There's a loft in SoMa. No lawnmower."},
+		{"flag": "cs_startup_seed"},
+	],
+	"cs_startup_series_b": [
+		{"say": "PawFinder", "text": "USERS: 15,000. LOST HUMANS FOUND: 312. TREATS EARNED: SEVERAL."},
+		{"say": "Patch", "text": "Series B closed. The bankers keep saying IPO. That's the big shiny bell."},
+		{"say": "Byte", "text": "Every human it finds is one less lost dog. Keep going."},
+		{"flag": "cs_startup_series_b"},
+	],
+	"cs_startup_campus": [
+		{"music": "piano_nyc"},
+		{"say": "Patch", "text": "A campus in the Presidio. Trees! Fog! A ball pit the size of a pond!"},
+		{"say": "Byte", "text": "Sam would have loved this place. Sam would have worked here."},
+		{"flag": "cs_startup_campus"},
 	],
 	"cs_startup_ipo": [
 		{"music": "piano_nyc"},

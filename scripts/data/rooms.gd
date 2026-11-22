@@ -205,9 +205,7 @@ const ROOMS := {
 		"size": Vector2(768, 448), "kind": "startup", "tint": Color(0.95, 0.98, 1),
 		"paint": [[Rect2(0, 0, 768, 448), "platform", Color(0.7, 0.72, 0.78)], [Rect2(0, 0, 768, 96), "station_wall", Color(0.35, 0.55, 0.85)],
 			[Rect2(344, 424, 80, 24), Color(0.2, 0.3, 0.5)]],
-		"props": [["counter", Vector2(384, 220), 2.0, Vector2(128, 40)], ["shelf", Vector2(90, 150), 2.0, Vector2(96, 24)],
-			["shelf", Vector2(200, 150), 2.0, Vector2(96, 24)], ["bench", Vector2(620, 330), 1.5, Vector2(80, 20)],
-			["water_bowl", Vector2(560, 200), 1.25, Vector2.ZERO]],
+		"props": [["counter", Vector2(384, 220), 2.0, Vector2(128, 40)], ["water_bowl", Vector2(450, 330), 1.25, Vector2.ZERO]],  # desks, racks, perks: startup.gd
 		"spots": {"exit": Vector2(384, 432), "start": Vector2(384, 380), "pitch": Vector2(384, 260)},
 		"door": ["GOOD BOY AI   startup garage", "[F]  Go inside"], "exit": ["GOOD BOY AI GARAGE", "[F]  Back to the street"],
 	},
